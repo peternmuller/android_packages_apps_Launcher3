@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,32 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.launcher3.celllayout;
+package com.android.launcher3.celllayout
 
-import android.graphics.Point;
+import android.graphics.Canvas
 
-public class TestBoardAppIcon {
-    public Point coord;
-    public char mType;
+/** A Delegated cell Drawing for drawing on CellLayout */
+abstract class DelegatedCellDrawing {
+    @JvmField var mDelegateCellX = 0
+    @JvmField var mDelegateCellY = 0
 
-    public TestBoardAppIcon(Point coord, char type) {
-        this.coord = coord;
-        mType = type;
-    }
+    /** Draw under CellLayout */
+    abstract fun drawUnderItem(canvas: Canvas)
 
-    public char getType() {
-        return mType;
-    }
-
-    public void setType(char type) {
-        mType = type;
-    }
-
-    public Point getCoord() {
-        return coord;
-    }
-
-    public void setCoord(Point coord) {
-        this.coord = coord;
-    }
+    /** Draw over CellLayout */
+    abstract fun drawOverItem(canvas: Canvas)
 }

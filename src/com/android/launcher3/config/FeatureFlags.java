@@ -198,7 +198,7 @@ public final class FeatureFlags {
             "Enables generating the reorder using a set of parameters");
 
     public static final BooleanFlag ENABLE_NO_LONG_PRESS_DRAG = getDebugFlag(299748096,
-            "ENABLE_NO_LONG_PRESS_DRAG", DISABLED,
+            "ENABLE_NO_LONG_PRESS_DRAG", ENABLED,
             "Don't trigger the drag if we are still under long press");
 
     // TODO(Block 12): Clean up flags
@@ -287,24 +287,28 @@ public final class FeatureFlags {
                     "Enables haptic hint when long pressing on the bottom bar nav handle.");
 
     public static final IntFlag LPNH_HAPTIC_HINT_START_SCALE_PERCENT =
-            getIntFlag(309972570, "FLAG_LPNH_HAPTIC_HINT_START_SCALE_PERCENT", 0,
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_START_SCALE_PERCENT", 0,
             "Haptic hint start scale.");
 
     public static final IntFlag LPNH_HAPTIC_HINT_END_SCALE_PERCENT =
-            getIntFlag(309972570, "FLAG_LPNH_HAPTIC_HINT_END_SCALE_PERCENT", 100,
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_END_SCALE_PERCENT", 100,
             "Haptic hint end scale.");
 
     public static final IntFlag LPNH_HAPTIC_HINT_SCALE_EXPONENT =
-            getIntFlag(309972570, "FLAG_LPNH_HAPTIC_HINT_SCALE_EXPONENT", 1,
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_SCALE_EXPONENT", 1,
             "Haptic hint scale exponent.");
 
     public static final IntFlag LPNH_HAPTIC_HINT_ITERATIONS =
-            getIntFlag(309972570, "FLAG_LPNH_HAPTIC_HINT_ITERATIONS", 50,
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_ITERATIONS", 50,
             "Haptic hint number of iterations.");
 
     public static final BooleanFlag ENABLE_LPNH_DEEP_PRESS =
             getReleaseFlag(310952290, "ENABLE_LPNH_DEEP_PRESS", ENABLED,
                     "Long press of nav handle is instantly triggered if deep press is detected.");
+
+    public static final IntFlag LPNH_HAPTIC_HINT_DELAY =
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_ITERATIONS", 0,
+                    "Delay before haptic hint starts.");
 
     // TODO(Block 17): Clean up flags
     // Aconfig migration complete for ENABLE_TASKBAR_PINNING.
