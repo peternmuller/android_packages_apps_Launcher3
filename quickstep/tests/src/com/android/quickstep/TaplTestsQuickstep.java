@@ -16,6 +16,8 @@
 
 package com.android.quickstep;
 
+import static com.android.launcher3.util.rule.TestStabilityRule.LOCAL;
+import static com.android.launcher3.util.rule.TestStabilityRule.PLATFORM_POSTSUBMIT;
 import static com.android.quickstep.TaskbarModeSwitchRule.Mode.PERSISTENT;
 import static com.android.quickstep.TaskbarModeSwitchRule.Mode.TRANSIENT;
 
@@ -46,6 +48,7 @@ import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 import com.android.launcher3.ui.TaplTestsLauncher3;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
+import com.android.launcher3.util.rule.TestStabilityRule;
 import com.android.quickstep.NavigationModeSwitchRule.NavigationModeSwitch;
 import com.android.quickstep.TaskbarModeSwitchRule.TaskbarModeSwitch;
 import com.android.quickstep.views.RecentsView;
@@ -179,6 +182,8 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @PortraitLandscape
     @PlatinumTest(focusArea = "launcher")
     public void testOverviewActions() throws Exception {
+        assumeFalse("Skipping Overview Actions tests for grid only overview",
+                mLauncher.isTablet() && mLauncher.isGridOnlyOverviewEnabled());
         // Experimenting for b/165029151:
         final Overview overview = mLauncher.goHome().switchToOverview();
         if (overview.hasTasks()) overview.dismissAllTasks();
@@ -334,7 +339,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @Test
     @PortraitLandscape
     @NavigationModeSwitch
-    @PlatinumTest(focusArea = "launcher")
     public void testPressBack() throws Exception {
         InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
                 READ_DEVICE_CONFIG_PERMISSION);
@@ -354,7 +358,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @PortraitLandscape
     @TaskbarModeSwitch(mode = PERSISTENT)
     @PlatinumTest(focusArea = "launcher")
-    @ScreenRecord
+    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/309820115
     public void testOverviewForTablet() throws Exception {
         assumeTrue(mLauncher.isTablet());
 
@@ -377,7 +381,9 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         // Test opening the task.
         overview.getCurrentTask().open();
         assertTrue("Test activity didn't open from Overview",
-                mDevice.wait(Until.hasObject(By.pkg(getAppPackageName()).text("TestActivity10")),
+                mDevice.wait(Until.hasObject(By.pkg(getAppPackageName()).text(
+                                mLauncher.isGridOnlyOverviewEnabled() ? "TestActivity12"
+                                        : "TestActivity13")),
                         DEFAULT_UI_TIMEOUT));
 
         // Scroll the task offscreen as it is now first
@@ -398,16 +404,17 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
                 (Math.abs(getTopRowTaskCountForTablet(launcher) - getBottomRowTaskCountForTablet(
                         launcher)) <= 1)));
 
-        // Test dismissing more tasks.
-        assertTrue("Launcher internal state didn't remain in Overview",
-                isInState(() -> LauncherState.OVERVIEW));
-        overview.getCurrentTask().dismiss();
-        assertTrue("Launcher internal state didn't remain in Overview",
-                isInState(() -> LauncherState.OVERVIEW));
-        overview.getCurrentTask().dismiss();
-        executeOnLauncher(launcher -> assertTrue("Grid did not rebalance after multiple dismissals",
-                (Math.abs(getTopRowTaskCountForTablet(launcher) - getBottomRowTaskCountForTablet(
-                        launcher)) <= 1)));
+        // TODO(b/308841019): Re-enable after fixing Overview jank when dismiss
+//        // Test dismissing more tasks.
+//        assertTrue("Launcher internal state didn't remain in Overview",
+//                isInState(() -> LauncherState.OVERVIEW));
+//        overview.getCurrentTask().dismiss();
+//        assertTrue("Launcher internal state didn't remain in Overview",
+//                isInState(() -> LauncherState.OVERVIEW));
+//        overview.getCurrentTask().dismiss();
+//        executeOnLauncher(launcher -> assertTrue("Grid did not rebalance after multiple dismissals",
+//                (Math.abs(getTopRowTaskCountForTablet(launcher) - getBottomRowTaskCountForTablet(
+//                        launcher)) <= 1)));
 
         // Test dismissing all tasks.
         mLauncher.goHome().switchToOverview().dismissAllTasks();

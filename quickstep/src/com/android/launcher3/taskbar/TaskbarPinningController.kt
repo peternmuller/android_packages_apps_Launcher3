@@ -82,9 +82,12 @@ class TaskbarPinningController(private val context: TaskbarActivityContext) :
             taskbarViewController.taskbarIconTranslationXForPinning.animateToValue(animateToValue)
         )
 
+        controllers.taskbarOverlayController.hideWindow()
+
         animatorSet.doOnEnd { recreateTaskbarAndUpdatePinningValue() }
         animatorSet.duration = PINNING_ANIMATION_DURATION
         updateIsAnimatingTaskbarPinningAndNotifyTaskbarDragLayer(true)
+        taskbarViewController.animateAwayNotificationDotsDuringTaskbarPinningAnimation()
         animatorSet.start()
     }
 

@@ -25,6 +25,7 @@ import static com.android.launcher3.Utilities.mapRange;
 import static com.android.launcher3.Utilities.squaredHypot;
 import static com.android.launcher3.anim.AnimatedFloat.VALUE;
 import static com.android.launcher3.anim.AnimatorListeners.forEndCallback;
+import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_PINNING;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASKBAR_ALLAPPS_BUTTON_TAP;
 import static com.android.launcher3.taskbar.TaskbarPinningController.PINNING_PERSISTENT;
@@ -52,6 +53,7 @@ import androidx.core.graphics.ColorUtils;
 import androidx.core.view.OneShotPreDrawListener;
 
 import com.android.app.animation.Interpolators;
+import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.R;
@@ -213,7 +215,7 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
 
         mActivity.addOnDeviceProfileChangeListener(mDeviceProfileChangeListener);
 
-        if (TaskbarManager.FLAG_HIDE_NAVBAR_WINDOW) {
+        if (ENABLE_TASKBAR_NAVBAR_UNIFICATION) {
             // This gets modified in NavbarButtonsViewController, but the initial value it reads
             // may be incorrect since it's state gets destroyed on taskbar recreate, so reset here
             mTaskbarIconAlpha.get(ALPHA_INDEX_SMALL_SCREEN)
@@ -335,6 +337,17 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
         for (int iconIndex = 0; iconIndex < iconViews.length; iconIndex++) {
             iconViews[iconIndex].setScaleX(finalScale);
             iconViews[iconIndex].setScaleY(finalScale);
+        }
+    }
+
+    /**
+     * Animate away taskbar icon notification dots during the taskbar pinning animation.
+     */
+    public void animateAwayNotificationDotsDuringTaskbarPinningAnimation() {
+        for (View iconView : mTaskbarView.getIconViews()) {
+            if (iconView instanceof BubbleTextView && ((BubbleTextView) iconView).hasDot()) {
+                ((BubbleTextView) iconView).animateDotScale(0);
+            }
         }
     }
 
@@ -581,6 +594,11 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
      *                       1 => fully aligned
      */
     public void setLauncherIconAlignment(float alignmentRatio, DeviceProfile launcherDp) {
+        if (isPhoneMode(launcherDp)) {
+            mIconAlignControllerLazy = null;
+            return;
+        }
+
         boolean isHotseatIconOnTopWhenAligned =
                 mControllers.uiController.isHotseatIconOnTopWhenAligned();
         boolean isStashed = mControllers.taskbarStashController.isStashed();
@@ -609,11 +627,6 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
      */
     private AnimatorPlaybackController createIconAlignmentController(DeviceProfile launcherDp) {
         PendingAnimation setter = new PendingAnimation(100);
-        if (TaskbarManager.isPhoneMode(launcherDp)) {
-            // No animation for icons in small-screen
-            return setter.createPlaybackController();
-        }
-
         mOnControllerPreCreateCallback.run();
         DeviceProfile taskbarDp = mActivity.getDeviceProfile();
         Rect hotseatPadding = launcherDp.getHotseatLayoutPadding(mActivity);

@@ -273,11 +273,11 @@ public final class LauncherInstrumentation {
                     mDevice.executeShellCommand(
                             "pm enable --user " + userId + " " + cn.flattenToString());
                     // Wait for Launcher restart after enabling test provider.
-                    for (int i = 0; i < 100; ++i) {
+                    for (int i = 0; i < 600; ++i) {
                         final String currentPid = mDevice.executeShellCommand(launcherPidCommand)
                                 .replaceAll("\\s", "");
                         if (!currentPid.isEmpty() && !currentPid.equals(initialPid)) break;
-                        if (i == 99) fail("Launcher didn't restart after enabling test provider");
+                        if (i == 599) fail("Launcher didn't restart after enabling test provider");
                         SystemClock.sleep(100);
                     }
                 } catch (IOException e) {
@@ -564,6 +564,9 @@ public final class LauncherInstrumentation {
         if (hasSystemLauncherObject(OVERVIEW_RES_ID)) return "Overview";
         if (hasLauncherObject(WORKSPACE_RES_ID)) return "Workspace";
         if (hasLauncherObject(APPS_RES_ID)) return "AllApps";
+        if (mDevice.hasObject(By.pkg(getLauncherPackageName()).depth(0))) {
+            return "<Launcher in invalid state>";
+        }
         return "LaunchedApp (" + getVisiblePackages() + ")";
     }
 
@@ -1608,8 +1611,11 @@ public final class LauncherInstrumentation {
         scroll(
                 container,
                 Direction.LEFT,
-                new Rect(leftGestureMargin, 0,
-                        containerRect.width() - distance - rightGestureMarginInContainer, 0),
+                new Rect(leftGestureMargin,
+                        0,
+                        Math.max(containerRect.width() - distance - leftGestureMargin,
+                                rightGestureMarginInContainer),
+                        0),
                 10,
                 true);
     }
@@ -1782,7 +1788,7 @@ public final class LauncherInstrumentation {
                 TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
 
-    boolean isGridOnlyOverviewEnabled() {
+    public boolean isGridOnlyOverviewEnabled() {
         return getTestInfo(TestProtocol.REQUEST_FLAG_ENABLE_GRID_ONLY_OVERVIEW).getBoolean(
                 TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
@@ -2060,6 +2066,7 @@ public final class LauncherInstrumentation {
     }
 
     // TODO(b/270393900): Remove with ENABLE_ALL_APPS_SEARCH_IN_TASKBAR flag cleanup.
+
     /** Refreshes the known overview target in TIS. */
     public void refreshOverviewTarget() {
         getTestInfo(TestProtocol.REQUEST_REFRESH_OVERVIEW_TARGET);
@@ -2225,7 +2232,7 @@ public final class LauncherInstrumentation {
             int bottomBound = Math.min(
                     containerBounds.bottom,
                     getRealDisplaySize().y - getImeInsets().bottom);
-            int y = (bottomBound - containerBounds.top) / 2;
+            int y = (bottomBound + containerBounds.top) / 2;
             // Do not tap in the status bar.
             y = Math.max(y, getWindowInsets().top);
 

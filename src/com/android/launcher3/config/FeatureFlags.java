@@ -23,6 +23,7 @@ import static com.android.launcher3.config.FeatureFlags.FlagState.TEAMFOOD;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getDebugFlag;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getIntFlag;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getReleaseFlag;
+import static com.android.wm.shell.Flags.enableTaskbarNavbarUnification;
 
 import android.view.ViewConfiguration;
 
@@ -119,6 +120,10 @@ public final class FeatureFlags {
             getReleaseFlag(301680992, "CUSTOM_LPNH_THRESHOLDS", DISABLED,
                     "Add dev options to customize the LPNH trigger slop and milliseconds");
 
+    public static final BooleanFlag ANIMATE_LPNH =
+            getReleaseFlag(308693847, "ANIMATE_LPNH", TEAMFOOD,
+                    "Animates navbar when long pressing");
+
     public static final IntFlag LPNH_SLOP_PERCENTAGE =
             getIntFlag(301680992, "LPNH_SLOP_PERCENTAGE", 100,
                     "Controls touch slop percentage for lpnh");
@@ -213,12 +218,19 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_TRANSIENT_TASKBAR = getDebugFlag(270395798,
             "ENABLE_TRANSIENT_TASKBAR", ENABLED, "Enables transient taskbar.");
 
+    public static final boolean ENABLE_TASKBAR_NAVBAR_UNIFICATION =
+            enableTaskbarNavbarUnification();
+
     // Aconfig migration complete for ENABLE_TASKBAR_NO_RECREATION.
     public static final BooleanFlag ENABLE_TASKBAR_NO_RECREATION = getDebugFlag(299193589,
             "ENABLE_TASKBAR_NO_RECREATION", DISABLED,
             "Enables taskbar with no recreation from lifecycle changes of TaskbarActivityContext.");
     public static boolean enableTaskbarNoRecreate() {
-        return ENABLE_TASKBAR_NO_RECREATION.get() || Flags.enableTaskbarNoRecreate();
+        return ENABLE_TASKBAR_NO_RECREATION.get() || Flags.enableTaskbarNoRecreate()
+                // Task bar pinning and task bar nav bar unification are both dependent on
+                // ENABLE_TASKBAR_NO_RECREATION. We want to turn ENABLE_TASKBAR_NO_RECREATION on
+                // when either of the dependent features is turned on.
+                || ENABLE_TASKBAR_PINNING.get() || ENABLE_TASKBAR_NAVBAR_UNIFICATION;
     }
 
     // TODO(Block 16): Clean up flags
@@ -271,7 +283,7 @@ public final class FeatureFlags {
                     "Enables long pressing on the bottom bar nav handle to trigger events.");
 
     public static final BooleanFlag ENABLE_SEARCH_HAPTIC_HINT =
-            getReleaseFlag(303023676, "ENABLE_SEARCH_HAPTIC_HINT", TEAMFOOD,
+            getReleaseFlag(303023676, "ENABLE_SEARCH_HAPTIC_HINT", ENABLED,
                     "Enables haptic hint when long pressing on the bottom bar nav handle.");
 
     // TODO(Block 17): Clean up flags

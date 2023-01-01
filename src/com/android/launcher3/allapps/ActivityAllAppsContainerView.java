@@ -80,6 +80,7 @@ import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.keyboard.FocusedItemDecorator;
 import com.android.launcher3.model.StringCache;
 import com.android.launcher3.model.data.ItemInfo;
+import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.recyclerview.AllAppsRecyclerViewPool;
 import com.android.launcher3.util.ItemInfoMatcher;
 import com.android.launcher3.util.Themes;
@@ -203,7 +204,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
         mWorkManager = new WorkProfileManager(
                 mActivityContext.getSystemService(UserManager.class),
-                this, mActivityContext.getStatsLogManager());
+                this,
+                mActivityContext.getStatsLogManager(),
+                UserCache.INSTANCE.get(mActivityContext));
         mAH = Arrays.asList(null, null, null);
         mNavBarScrimPaint = new Paint();
         mNavBarScrimPaint.setColor(Themes.getNavBarScrimColor(mActivityContext));
@@ -1043,6 +1046,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         return getActiveAppsRecyclerView();
     }
 
+    /** The current focus change listener in the search container. */
+    public OnFocusChangeListener getSearchFocusChangeListener() {
+        return mAH.get(AdapterHolder.SEARCH).mOnFocusChangeListener;
+    }
+
     /** The current apps recycler view in the container. */
     private AllAppsRecyclerView getActiveAppsRecyclerView() {
         if (!mUsingTabs || isPersonalTab()) {
@@ -1098,7 +1106,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mlp.rightMargin = insets.right;
         setLayoutParams(mlp);
 
-        if (grid.isVerticalBarLayout()) {
+        if (grid.isVerticalBarLayout() && !FeatureFlags.enableResponsiveWorkspace()) {
             setPadding(grid.workspacePadding.left, 0, grid.workspacePadding.right, 0);
         } else {
             int topPadding = grid.allAppsPadding.top;
@@ -1108,7 +1116,6 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             }
             setPadding(grid.allAppsLeftRightMargin, topPadding, grid.allAppsLeftRightMargin, 0);
         }
-
         InsettableFrameLayout.dispatchInsets(this, insets);
     }
 
@@ -1440,6 +1447,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         final AlphabeticalAppsList<T> mAppsList;
         final Rect mPadding = new Rect();
         AllAppsRecyclerView mRecyclerView;
+        private OnFocusChangeListener mOnFocusChangeListener;
 
         AdapterHolder(int type, AlphabeticalAppsList<T> appsList) {
             mType = type;
@@ -1463,7 +1471,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             onInitializeRecyclerView(mRecyclerView);
             FocusedItemDecorator focusedItemDecorator = new FocusedItemDecorator(mRecyclerView);
             mRecyclerView.addItemDecoration(focusedItemDecorator);
-            mAdapter.setIconFocusListener(focusedItemDecorator.getFocusListener());
+            mOnFocusChangeListener = focusedItemDecorator.getFocusListener();
+            mAdapter.setIconFocusListener(mOnFocusChangeListener);
             applyPadding();
         }
 
