@@ -104,7 +104,7 @@ public class FallbackRecentsTest {
         Context context = instrumentation.getContext();
         mDevice = UiDevice.getInstance(instrumentation);
         mDevice.setOrientationNatural();
-        mLauncher = new LauncherInstrumentation();
+        mLauncher = AbstractLauncherUiTest.createLauncherInstrumentation();
         mLauncher.enableDebugTracing();
         // b/143488140
         //mLauncher.enableCheckEventsForSuccessfulGestures();
@@ -162,7 +162,6 @@ public class FallbackRecentsTest {
     @Before
     public void setUp() {
         mLauncher.onTestStart();
-        AbstractLauncherUiTest.waitForSetupWizardDismissal();
         AbstractLauncherUiTest.onTestStart();
     }
 

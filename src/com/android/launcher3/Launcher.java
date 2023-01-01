@@ -27,7 +27,6 @@ import static com.android.launcher3.AbstractFloatingView.TYPE_FOLDER;
 import static com.android.launcher3.AbstractFloatingView.TYPE_ICON_SURFACE;
 import static com.android.launcher3.AbstractFloatingView.TYPE_REBIND_SAFE;
 import static com.android.launcher3.AbstractFloatingView.getTopOpenViewWithType;
-import static com.android.launcher3.BuildConfig.APPLICATION_ID;
 import static com.android.launcher3.BuildConfig.QSB_ON_FIRST_SCREEN;
 import static com.android.launcher3.LauncherAnimUtils.HOTSEAT_SCALE_PROPERTY_FACTORY;
 import static com.android.launcher3.LauncherAnimUtils.SCALE_INDEX_WIDGET_TRANSITION;
@@ -49,8 +48,8 @@ import static com.android.launcher3.LauncherConstants.TraceEvents.COLD_STARTUP_T
 import static com.android.launcher3.LauncherConstants.TraceEvents.COLD_STARTUP_TRACE_METHOD_NAME;
 import static com.android.launcher3.LauncherConstants.TraceEvents.DISPLAY_ALL_APPS_TRACE_COOKIE;
 import static com.android.launcher3.LauncherConstants.TraceEvents.DISPLAY_ALL_APPS_TRACE_METHOD_NAME;
-import static com.android.launcher3.LauncherConstants.TraceEvents.DISPLAY_WORKSPACE_TRACE_METHOD_NAME;
 import static com.android.launcher3.LauncherConstants.TraceEvents.DISPLAY_WORKSPACE_TRACE_COOKIE;
+import static com.android.launcher3.LauncherConstants.TraceEvents.DISPLAY_WORKSPACE_TRACE_METHOD_NAME;
 import static com.android.launcher3.LauncherConstants.TraceEvents.ON_CREATE_EVT;
 import static com.android.launcher3.LauncherConstants.TraceEvents.ON_NEW_INTENT_EVT;
 import static com.android.launcher3.LauncherConstants.TraceEvents.ON_RESUME_EVT;
@@ -86,7 +85,6 @@ import static com.android.launcher3.logging.StatsLogManager.LauncherLatencyEvent
 import static com.android.launcher3.logging.StatsLogManager.LauncherLatencyEvent.LAUNCHER_LATENCY_STARTUP_TOTAL_DURATION;
 import static com.android.launcher3.logging.StatsLogManager.LauncherLatencyEvent.LAUNCHER_LATENCY_STARTUP_VIEW_INFLATION;
 import static com.android.launcher3.logging.StatsLogManager.LauncherLatencyEvent.LAUNCHER_LATENCY_STARTUP_WORKSPACE_LOADER_ASYNC;
-import static com.android.launcher3.logging.StatsLogManager.LauncherLatencyEvent.LAUNCHER_LATENCY_STARTUP_WORKSPACE_LOADER_SYNC;
 import static com.android.launcher3.logging.StatsLogManager.StatsLatencyLogger.LatencyType.COLD;
 import static com.android.launcher3.logging.StatsLogManager.StatsLatencyLogger.LatencyType.COLD_DEVICE_REBOOTING;
 import static com.android.launcher3.logging.StatsLogManager.StatsLatencyLogger.LatencyType.WARM;
@@ -100,6 +98,7 @@ import static com.android.launcher3.states.RotationHelper.REQUEST_LOCK;
 import static com.android.launcher3.states.RotationHelper.REQUEST_NONE;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.ItemInfoMatcher.forFolderMatch;
+import static com.android.launcher3.util.SettingsCache.TOUCHPAD_NATURAL_SCROLLING;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -187,6 +186,7 @@ import com.android.launcher3.keyboard.ViewGroupFocusHelper;
 import com.android.launcher3.logger.LauncherAtom;
 import com.android.launcher3.logger.LauncherAtom.ContainerInfo;
 import com.android.launcher3.logger.LauncherAtom.WorkspaceContainer;
+import com.android.launcher3.logging.ColdRebootStartupLatencyLogger;
 import com.android.launcher3.logging.FileLog;
 import com.android.launcher3.logging.InstanceId;
 import com.android.launcher3.logging.InstanceIdSequence;
@@ -232,6 +232,7 @@ import com.android.launcher3.util.PendingRequestArgs;
 import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.ScreenOnTracker.ScreenOnListener;
+import com.android.launcher3.util.SettingsCache;
 import com.android.launcher3.util.SystemUiController;
 import com.android.launcher3.util.Themes;
 import com.android.launcher3.util.Thunk;
@@ -415,6 +416,11 @@ public class Launcher extends StatefulActivity<LauncherState>
     private final List<BackPressHandler> mBackPressedHandlers = new ArrayList<>();
     private boolean mIsColdStartupAfterReboot;
 
+    private boolean mIsNaturalScrollingEnabled;
+
+    private final SettingsCache.OnChangeListener mNaturalScrollingChangedListener =
+            enabled -> mIsNaturalScrollingEnabled = enabled;
+
     public static Launcher getLauncher(Context context) {
         return fromContext(context);
     }
@@ -563,6 +569,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
         getRootView().dispatchInsets();
 
+        final SettingsCache settingsCache = SettingsCache.INSTANCE.get(this);
+        settingsCache.register(TOUCHPAD_NATURAL_SCROLLING, mNaturalScrollingChangedListener);
+        mIsNaturalScrollingEnabled = settingsCache.getValue(TOUCHPAD_NATURAL_SCROLLING);
+
         // Listen for screen turning off
         ScreenOnTracker.INSTANCE.get(this).addListener(mScreenOnListener);
         getSystemUiController().updateUiState(SystemUiController.UI_STATE_BASE_WINDOW,
@@ -587,13 +597,24 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     /**
-     * Create {@link StartupLatencyLogger} that only collects launcher startup latency metrics
-     * without sending them anywhere. Child class can override this method to create logger
+     * We only log startup latency in {@link COLD_DEVICE_REBOOTING} type. For other latency types,
+     * create a no op implementation.
+     */
+    private StartupLatencyLogger createStartupLatencyLogger(
+            StatsLogManager.StatsLatencyLogger.LatencyType latencyType) {
+        if (latencyType == COLD_DEVICE_REBOOTING) {
+            return createColdRebootStartupLatencyLogger();
+        }
+        return StartupLatencyLogger.Companion.getNO_OP();
+    }
+
+    /**
+     * Create {@link ColdRebootStartupLatencyLogger} that only collects launcher startup latency
+     * metrics without sending them anywhere. Child class can override this method to create logger
      * that overrides {@link StartupLatencyLogger#log()} to report those metrics.
      */
-    protected StartupLatencyLogger createStartupLatencyLogger(
-            StatsLogManager.StatsLatencyLogger.LatencyType latencyType) {
-        return new StartupLatencyLogger(latencyType);
+    protected ColdRebootStartupLatencyLogger createColdRebootStartupLatencyLogger() {
+        return new ColdRebootStartupLatencyLogger();
     }
 
     /**
@@ -769,10 +790,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         if (FOLDABLE_SINGLE_PAGE.get() && mDeviceProfile.isTwoPanels) {
             mCellPosMapper = new TwoPanelCellPosMapper(mDeviceProfile.inv.numColumns);
         } else {
-            mCellPosMapper = CellPosMapper.DEFAULT;
+            mCellPosMapper = new CellPosMapper(mDeviceProfile.isVerticalBarLayout(),
+                    mDeviceProfile.numShownHotseatIcons);
         }
-        mModelWriter = mModel.getWriter(getDeviceProfile().isVerticalBarLayout(), true,
-                mCellPosMapper, this);
+        mModelWriter = mModel.getWriter(true, mCellPosMapper, this);
         return true;
     }
 
@@ -1680,6 +1701,8 @@ public class Launcher extends StatefulActivity<LauncherState>
         super.onDestroy();
         ACTIVITY_TRACKER.onActivityDestroyed(this);
 
+        SettingsCache.INSTANCE.get(this).unregister(TOUCHPAD_NATURAL_SCROLLING,
+                mNaturalScrollingChangedListener);
         ScreenOnTracker.INSTANCE.get(this).removeListener(mScreenOnListener);
         mWorkspace.removeFolderListeners();
         PluginManagerWrapper.INSTANCE.get(this).removePluginListener(this);
@@ -2579,11 +2602,12 @@ public class Launcher extends StatefulActivity<LauncherState>
             Trace.endAsyncSection(DISPLAY_WORKSPACE_TRACE_METHOD_NAME,
                     DISPLAY_WORKSPACE_TRACE_COOKIE);
         }
-        mStartupLatencyLogger
-                .logCardinality(workspaceItemCount)
-                .logEnd(isBindSync
-                        ? LAUNCHER_LATENCY_STARTUP_WORKSPACE_LOADER_SYNC
-                        : LAUNCHER_LATENCY_STARTUP_WORKSPACE_LOADER_ASYNC);
+        if (!isBindSync) {
+            mStartupLatencyLogger
+                    .logCardinality(workspaceItemCount)
+                    .logEnd(LAUNCHER_LATENCY_STARTUP_WORKSPACE_LOADER_ASYNC);
+        }
+
         MAIN_EXECUTOR.getHandler().postAtFrontOfQueue(() -> {
             mStartupLatencyLogger
                     .logEnd(LAUNCHER_LATENCY_STARTUP_TOTAL_DURATION)
@@ -2848,32 +2872,7 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     public void bindSmartspaceWidget() {
-        CellLayout cl = mWorkspace.getScreenWithId(FIRST_SCREEN_ID);
-        int spanX = InvariantDeviceProfile.INSTANCE.get(this).numSearchContainerColumns;
-        if (cl != null) {
-            for (int col = 0; col < spanX; col++) {
-                if (cl.isOccupied(col, 0)) {
-                    return;
-                }
-            }
-        } else {
-            return;
-        }
-
-        WidgetsListBaseEntry widgetsListBaseEntry = getPopupDataProvider()
-                .getAllWidgets().stream().filter(
-                        item -> item.mPkgItem.packageName.equals(
-                                APPLICATION_ID))
-                .findFirst()
-                .orElse(null);
-        if (widgetsListBaseEntry != null) {
-            LauncherAppWidgetProviderInfo launcherAppWidgetProviderInfo =
-                    widgetsListBaseEntry.mWidgets.get(0).widgetInfo;
-            PendingAddWidgetInfo info = new PendingAddWidgetInfo(launcherAppWidgetProviderInfo,
-                    CONTAINER_DESKTOP);
-            addPendingItem(info, info.container, FIRST_SCREEN_ID, new int[]{0, 0}, info.spanX,
-                    info.spanY);
-        }
+        mModelCallbacks.bindSmartspaceWidget();
     }
 
     @Override
@@ -3179,6 +3178,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         // We prevent dragging when we are loading the workspace as it is possible to pick up a view
         // that is subsequently removed from the workspace in startBinding().
         return !isWorkspaceLoading();
+    }
+
+    public boolean isNaturalScrollingEnabled() {
+        return mIsNaturalScrollingEnabled;
     }
 
     public void setWaitingForResult(PendingRequestArgs args) {
