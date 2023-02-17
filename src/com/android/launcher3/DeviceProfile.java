@@ -57,6 +57,7 @@ import com.android.launcher3.util.WindowBounds;
 
 import java.io.PrintWriter;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 @SuppressLint("NewApi")
 public class DeviceProfile {
@@ -67,6 +68,7 @@ public class DeviceProfile {
 
     public static final PointF DEFAULT_SCALE = new PointF(1.0f, 1.0f);
     public static final ViewScaleProvider DEFAULT_PROVIDER = itemInfo -> DEFAULT_SCALE;
+    public static final Consumer<DeviceProfile> DEFAULT_DIMENSION_PROVIDER = dp -> {};
 
     // Ratio of empty space, qsb should take up to appear visually centered.
     private final float mQsbCenterFactor;
@@ -260,6 +262,7 @@ public class DeviceProfile {
     // Whether Taskbar will inset the bottom of apps by taskbarSize.
     public boolean isTaskbarPresentInApps;
     public int taskbarSize;
+    public int transientTaskbarSize;
     public int stashedTaskbarSize;
     public int transientTaskbarMargin;
 
@@ -270,7 +273,8 @@ public class DeviceProfile {
     DeviceProfile(Context context, InvariantDeviceProfile inv, Info info, WindowBounds windowBounds,
             SparseArray<DotRenderer> dotRendererCache, boolean isMultiWindowMode,
             boolean transposeLayoutWithOrientation, boolean isMultiDisplay, boolean isGestureMode,
-            @NonNull final ViewScaleProvider viewScaleProvider) {
+            @NonNull final ViewScaleProvider viewScaleProvider,
+            @NonNull final Consumer<DeviceProfile> dimensionOverrideProvider) {
 
         this.inv = inv;
         this.isLandscape = windowBounds.isLandscape();
@@ -324,12 +328,12 @@ public class DeviceProfile {
         }
 
         if (isTaskbarPresent) {
+            transientTaskbarSize = res.getDimensionPixelSize(R.dimen.transient_taskbar_size);
+            transientTaskbarMargin = res.getDimensionPixelSize(R.dimen.transient_taskbar_margin);
             if (DisplayController.isTransientTaskbar(context)) {
-                taskbarSize = res.getDimensionPixelSize(R.dimen.transient_taskbar_size);
+                taskbarSize = transientTaskbarSize;
                 stashedTaskbarSize =
                         res.getDimensionPixelSize(R.dimen.transient_taskbar_stashed_size);
-                transientTaskbarMargin =
-                        res.getDimensionPixelSize(R.dimen.transient_taskbar_margin);
             } else {
                 taskbarSize = res.getDimensionPixelSize(R.dimen.taskbar_size);
                 stashedTaskbarSize = res.getDimensionPixelSize(R.dimen.taskbar_stashed_size);
@@ -375,19 +379,19 @@ public class DeviceProfile {
 
         if (inv.folderStyle != INVALID_RESOURCE_HANDLE) {
             TypedArray folderStyle = context.obtainStyledAttributes(inv.folderStyle,
-                    R.styleable.FolderDisplayStyle);
+                    R.styleable.FolderStyle);
             // These are re-set in #updateFolderCellSize if the grid is not scalable
             folderCellHeightPx = folderStyle.getDimensionPixelSize(
-                    R.styleable.FolderDisplayStyle_folderCellHeight, 0);
+                    R.styleable.FolderStyle_folderCellHeight, 0);
             folderCellWidthPx = folderStyle.getDimensionPixelSize(
-                    R.styleable.FolderDisplayStyle_folderCellWidth, 0);
+                    R.styleable.FolderStyle_folderCellWidth, 0);
 
             folderContentPaddingTop = folderStyle.getDimensionPixelSize(
-                    R.styleable.FolderDisplayStyle_folderTopPadding, 0);
+                    R.styleable.FolderStyle_folderTopPadding, 0);
             folderCellLayoutBorderSpacePx = folderStyle.getDimensionPixelSize(
-                    R.styleable.FolderDisplayStyle_folderBorderSpace, 0);
+                    R.styleable.FolderStyle_folderBorderSpace, 0);
             folderFooterHeightPx = folderStyle.getDimensionPixelSize(
-                    R.styleable.FolderDisplayStyle_folderFooterHeight, 0);
+                    R.styleable.FolderStyle_folderFooterHeight, 0);
             folderStyle.recycle();
         } else {
             folderCellLayoutBorderSpacePx = 0;
@@ -400,14 +404,24 @@ public class DeviceProfile {
         allAppsBorderSpacePx = new Point(
                 pxFromDp(inv.allAppsBorderSpaces[mTypeIndex].x, mMetrics),
                 pxFromDp(inv.allAppsBorderSpaces[mTypeIndex].y, mMetrics));
+        setupAllAppsStyle(context);
 
         workspacePageIndicatorHeight = res.getDimensionPixelSize(
                 R.dimen.workspace_page_indicator_height);
         mWorkspacePageIndicatorOverlapWorkspace =
                 res.getDimensionPixelSize(R.dimen.workspace_page_indicator_overlap_workspace);
 
-        iconDrawablePaddingOriginalPx =
-                res.getDimensionPixelSize(R.dimen.dynamic_grid_icon_drawable_padding);
+        TypedArray cellStyle;
+        if (inv.cellStyle != INVALID_RESOURCE_HANDLE) {
+            cellStyle = context.obtainStyledAttributes(inv.cellStyle,
+                    R.styleable.CellStyle);
+        } else {
+            cellStyle = context.obtainStyledAttributes(R.style.CellStyleDefault,
+                    R.styleable.CellStyle);
+        }
+        iconDrawablePaddingOriginalPx = cellStyle.getDimensionPixelSize(
+                R.styleable.CellStyle_iconDrawablePadding, 0);
+        cellStyle.recycle();
 
         dropTargetBarSizePx = res.getDimensionPixelSize(R.dimen.dynamic_grid_drop_target_size);
         dropTargetBarTopMarginPx = res.getDimensionPixelSize(R.dimen.drop_target_top_margin);
@@ -561,16 +575,19 @@ public class DeviceProfile {
 
         mViewScaleProvider = viewScaleProvider;
 
+        dimensionOverrideProvider.accept(this);
+
         // This is done last, after iconSizePx is calculated above.
-        mDotRendererWorkSpace = createDotRenderer(iconSizePx, dotRendererCache);
-        mDotRendererAllApps = createDotRenderer(allAppsIconSizePx, dotRendererCache);
+        mDotRendererWorkSpace = createDotRenderer(context, iconSizePx, dotRendererCache);
+        mDotRendererAllApps = createDotRenderer(context, allAppsIconSizePx, dotRendererCache);
     }
 
     private static DotRenderer createDotRenderer(
-            int size, @NonNull SparseArray<DotRenderer> cache) {
+            @NonNull Context context, int size, @NonNull SparseArray<DotRenderer> cache) {
         DotRenderer renderer = cache.get(size);
         if (renderer == null) {
-            renderer = new DotRenderer(size, getShapePath(DEFAULT_DOT_SIZE), DEFAULT_DOT_SIZE);
+            renderer = new DotRenderer(size, getShapePath(context, DEFAULT_DOT_SIZE),
+                    DEFAULT_DOT_SIZE);
             cache.put(size, renderer);
         }
         return renderer;
@@ -795,9 +812,6 @@ public class DeviceProfile {
         int cellLayoutHorizontalPadding =
                 (cellLayoutPaddingPx.left + cellLayoutPaddingPx.right) / 2;
         if (isTablet) {
-            allAppsLeftRightPadding =
-                    res.getDimensionPixelSize(R.dimen.all_apps_bottom_sheet_horizontal_padding);
-
             int usedWidth = (allAppsCellWidthPx * numShownAllAppsColumns)
                     + (allAppsBorderSpacePx.x * (numShownAllAppsColumns - 1))
                     + allAppsLeftRightPadding * 2;
@@ -806,6 +820,20 @@ public class DeviceProfile {
             allAppsLeftRightPadding =
                     desiredWorkspaceHorizontalMarginPx + cellLayoutHorizontalPadding;
         }
+    }
+
+    private void setupAllAppsStyle(Context context) {
+        TypedArray allAppsStyle;
+        if (inv.allAppsStyle != INVALID_RESOURCE_HANDLE) {
+            allAppsStyle = context.obtainStyledAttributes(inv.allAppsStyle,
+                    R.styleable.AllAppsStyle);
+        } else {
+            allAppsStyle = context.obtainStyledAttributes(R.style.AllAppsStyleDefault,
+                    R.styleable.AllAppsStyle);
+        }
+        allAppsLeftRightPadding = allAppsStyle.getDimensionPixelSize(
+                R.styleable.AllAppsStyle_horizontalPadding, 0);
+        allAppsStyle.recycle();
     }
 
     /**
@@ -910,12 +938,24 @@ public class DeviceProfile {
                     cellHeightPx = cellContentHeight;
                     cellLayoutBorderSpacePx.y -= extraHeightRequired / numBorders;
                 } else {
-                    // If it still doesn't fit, set borderSpace to 0 and distribute the space for
-                    // cellHeight, and reduce iconSize.
+                    // If it still doesn't fit, set borderSpace to 0 to recover space.
                     cellHeightPx = (cellHeightPx * inv.numRows
                             + cellLayoutBorderSpacePx.y * numBorders) / inv.numRows;
-                    iconSizePx = Math.min(iconSizePx, cellHeightPx - cellTextAndPaddingHeight);
                     cellLayoutBorderSpacePx.y = 0;
+                    // Reduce iconDrawablePaddingPx to make cellContentHeight smaller.
+                    int cellContentWithoutPadding = cellContentHeight - iconDrawablePaddingPx;
+                    if (cellContentWithoutPadding <= cellHeightPx) {
+                        iconDrawablePaddingPx = cellContentHeight - cellHeightPx;
+                    } else {
+                        // If it still doesn't fit, set iconDrawablePaddingPx to 0 to recover space,
+                        // then proportional reduce iconSizePx and iconTextSizePx to fit.
+                        iconDrawablePaddingPx = 0;
+                        float ratio = cellHeightPx / (float) cellContentWithoutPadding;
+                        iconSizePx = (int) (iconSizePx * ratio);
+                        iconTextSizePx = (int) (iconTextSizePx * ratio);
+                    }
+                    cellTextAndPaddingHeight =
+                            iconDrawablePaddingPx + Utilities.calculateTextHeight(iconTextSizePx);
                 }
                 cellContentHeight = iconSizePx + cellTextAndPaddingHeight;
             }
@@ -1371,7 +1411,7 @@ public class DeviceProfile {
     public int getOverviewActionsClaimedSpaceBelow() {
         if (isTaskbarPresent) {
             if (FeatureFlags.ENABLE_TASKBAR_IN_OVERVIEW.get()) {
-                return taskbarSize + transientTaskbarMargin * 2;
+                return transientTaskbarSize + transientTaskbarMargin * 2;
             }
 
             return isGestureMode
@@ -1384,8 +1424,10 @@ public class DeviceProfile {
 
     /** Gets the space that the overview actions will take, including bottom margin. */
     public int getOverviewActionsClaimedSpace() {
-        return overviewActionsTopMarginPx + overviewActionsHeight
-                + getOverviewActionsClaimedSpaceBelow();
+        int overviewActionsSpace = isTablet && FeatureFlags.ENABLE_GRID_ONLY_OVERVIEW.get()
+                ? 0
+                : (overviewActionsTopMarginPx + overviewActionsHeight);
+        return overviewActionsSpace + getOverviewActionsClaimedSpaceBelow();
     }
 
     /**
@@ -1667,6 +1709,16 @@ public class DeviceProfile {
         writer.println(prefix + pxToDpStr("getCellLayoutWidth()", getCellLayoutWidth()));
     }
 
+    /** Returns a reduced representation of this DeviceProfile. */
+    public String toSmallString() {
+        return "isTablet:" + isTablet + ", "
+                + "isMultiDisplay:" + isMultiDisplay + ", "
+                + "widthPx:" + widthPx + ", "
+                + "heightPx:" + heightPx + ", "
+                + "insets:" + mInsets + ", "
+                + "rotationHint:" + rotationHint;
+    }
+
     private static Context getContext(Context c, Info info, int orientation, WindowBounds bounds) {
         Configuration config = new Configuration(c.getResources().getConfiguration());
         config.orientation = orientation;
@@ -1720,6 +1772,8 @@ public class DeviceProfile {
 
         private SparseArray<DotRenderer> mDotRendererCache;
 
+        private Consumer<DeviceProfile> mOverrideProvider;
+
         public Builder(Context context, InvariantDeviceProfile inv, Info info) {
             mContext = context;
             mInv = inv;
@@ -1756,11 +1810,16 @@ public class DeviceProfile {
             return this;
         }
 
+        public Builder withDimensionsOverride(Consumer<DeviceProfile> overrideProvider) {
+            mOverrideProvider = overrideProvider;
+            return this;
+        }
+
         /**
          * Set the viewScaleProvider for the builder
          *
          * @param viewScaleProvider The viewScaleProvider to be set for the
-         *                                DeviceProfile
+         *                          DeviceProfile
          * @return This builder
          */
         @NonNull
@@ -1785,9 +1844,12 @@ public class DeviceProfile {
             if (mViewScaleProvider == null) {
                 mViewScaleProvider = DEFAULT_PROVIDER;
             }
+            if (mOverrideProvider == null) {
+                mOverrideProvider = DEFAULT_DIMENSION_PROVIDER;
+            }
             return new DeviceProfile(mContext, mInv, mInfo, mWindowBounds, mDotRendererCache,
                     mIsMultiWindowMode, mTransposeLayoutWithOrientation, mIsMultiDisplay,
-                    mIsGestureMode, mViewScaleProvider);
+                    mIsGestureMode, mViewScaleProvider, mOverrideProvider);
         }
     }
 

@@ -44,6 +44,17 @@ public class FallbackTaskbarUIController extends TaskbarUIController {
                     getRecentsView().setTaskLaunchListener(toState == RecentsState.DEFAULT
                             ? (() -> animateToRecentsState(RecentsState.BACKGROUND_APP)) : null);
                 }
+
+                @Override
+                public void onStateTransitionComplete(RecentsState finalState) {
+                    boolean finalStateDefault = finalState == RecentsState.DEFAULT;
+                    // TODO(b/268120202) Taskbar shows up on 3P home, currently we don't go to
+                    //  overview from 3P home. Either implement that or it'll change w/ contextual?
+                    boolean disallowLongClick = finalState == RecentsState.OVERVIEW_SPLIT_SELECT;
+                    Utilities.setOverviewDragState(mControllers,
+                            finalStateDefault /*disallowGlobalDrag*/, disallowLongClick,
+                            finalStateDefault /*allowInitialSplitSelection*/);
+                }
             };
 
     public FallbackTaskbarUIController(RecentsActivity recentsActivity) {
@@ -73,12 +84,12 @@ public class FallbackTaskbarUIController extends TaskbarUIController {
         boolean useStashedLauncherState = toState.hasOverviewActions();
         boolean stashedLauncherState =
                 useStashedLauncherState && !FeatureFlags.ENABLE_TASKBAR_IN_OVERVIEW.get();
-        TaskbarStashController controller = mControllers.taskbarStashController;
+        TaskbarStashController stashController = mControllers.taskbarStashController;
         // Set both FLAG_IN_STASHED_LAUNCHER_STATE and FLAG_IN_APP to ensure the state is respected.
         // For all other states, just use the current stashed-in-app setting (e.g. if long clicked).
-        controller.updateStateForFlag(FLAG_IN_STASHED_LAUNCHER_STATE, stashedLauncherState);
-        controller.updateStateForFlag(FLAG_IN_APP, !useStashedLauncherState);
-        return controller.applyStateWithoutStart(duration);
+        stashController.updateStateForFlag(FLAG_IN_STASHED_LAUNCHER_STATE, stashedLauncherState);
+        stashController.updateStateForFlag(FLAG_IN_APP, !useStashedLauncherState);
+        return stashController.createApplyStateAnimator(duration);
     }
 
     private void animateToRecentsState(RecentsState toState) {

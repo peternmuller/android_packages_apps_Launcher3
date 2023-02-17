@@ -83,8 +83,8 @@ public class ShortcutAndWidgetContainer extends ViewGroup implements FolderIcon.
             View child = getChildAt(i);
             CellLayoutLayoutParams lp = (CellLayoutLayoutParams) child.getLayoutParams();
 
-            if ((lp.cellX <= cellX) && (cellX < lp.cellX + lp.cellHSpan)
-                    && (lp.cellY <= cellY) && (cellY < lp.cellY + lp.cellVSpan)) {
+            if ((lp.getCellX() <= cellX) && (cellX < lp.getCellX() + lp.cellHSpan)
+                    && (lp.getCellY() <= cellY) && (cellY < lp.getCellY() + lp.cellVSpan)) {
                 return child;
             }
         }
@@ -105,6 +105,18 @@ public class ShortcutAndWidgetContainer extends ViewGroup implements FolderIcon.
                 measureChild(child);
             }
         }
+    }
+
+    /**
+     * Adds view to Layout a new position and it does not trigger a layout request.
+     * For more information check documentation for
+     * {@code ViewGroup#addViewInLayout(View, int, LayoutParams, boolean)}
+     *
+     * @param child view to be added
+     * @return true if the child was added, false otherwise
+     */
+    public boolean addViewInLayout(View child, LayoutParams layoutParams) {
+        return super.addViewInLayout(child, -1, layoutParams, true);
     }
 
     public void setupLp(View child) {
@@ -260,7 +272,7 @@ public class ShortcutAndWidgetContainer extends ViewGroup implements FolderIcon.
         lp.canReorder = false;
         if (mContainerType == HOTSEAT) {
             CellLayout cl = (CellLayout) getParent();
-            cl.setFolderLeaveBehindCell(lp.cellX, lp.cellY);
+            cl.setFolderLeaveBehindCell(lp.getCellX(), lp.getCellY());
         }
     }
 

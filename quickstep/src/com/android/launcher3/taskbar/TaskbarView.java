@@ -15,8 +15,9 @@
  */
 package com.android.launcher3.taskbar;
 
+import static android.content.pm.PackageManager.FEATURE_PC;
+
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Rect;
@@ -46,6 +47,7 @@ import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.LauncherBindableItemsContainer;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.views.DoubleShadowBubbleTextView;
+import com.android.launcher3.views.IconButtonView;
 
 import java.util.function.Predicate;
 
@@ -79,9 +81,14 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
     private @Nullable FolderIcon mLeaveBehindFolderIcon;
 
     // Only non-null when device supports having an All Apps button.
-    private @Nullable View mAllAppsButton;
+    private @Nullable IconButtonView mAllAppsButton;
+
+    // Only non-null when device supports having an All Apps button.
+    private @Nullable View mTaskbarDivider;
 
     private View mQsb;
+
+    private float mTransientTaskbarMinWidth;
 
     public TaskbarView(@NonNull Context context) {
         this(context, null);
@@ -103,6 +110,8 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
         mIconLayoutBounds = mActivityContext.getTransientTaskbarBounds();
         Resources resources = getResources();
         mIsRtl = Utilities.isRtl(resources);
+        mTransientTaskbarMinWidth = mContext.getResources().getDimension(
+                R.dimen.transient_taskbar_min_width);
 
         int actualMargin = resources.getDimensionPixelSize(R.dimen.taskbar_icon_spacing);
         int actualIconSize = mActivityContext.getDeviceProfile().iconSizePx;
@@ -119,13 +128,18 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
 
         mThemeIconsBackground = calculateThemeIconsBackground();
 
-        if (FeatureFlags.ENABLE_ALL_APPS_IN_TASKBAR.get()) {
-            mAllAppsButton = LayoutInflater.from(context)
+        if (!mActivityContext.getPackageManager().hasSystemFeature(FEATURE_PC)) {
+            mAllAppsButton = (IconButtonView) LayoutInflater.from(context)
                     .inflate(R.layout.taskbar_all_apps_button, this, false);
-            mAllAppsButton.setPadding(mItemPadding, mItemPadding, mItemPadding, mItemPadding);
             mAllAppsButton.setScaleX(mIsRtl ? -1 : 1);
-            if (mActivityContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC)) {
-                mAllAppsButton.setVisibility(GONE);
+            mAllAppsButton.setForegroundTint(mActivityContext.getColor(
+                    DisplayController.isTransientTaskbar(mActivityContext)
+                            ? R.color.all_apps_button_color
+                            : R.color.all_apps_button_color_dark));
+
+            if (FeatureFlags.ENABLE_TASKBAR_PINNING.get()) {
+                mTaskbarDivider = LayoutInflater.from(context).inflate(R.layout.taskbar_divider,
+                        this, false);
             }
         }
 
@@ -159,6 +173,9 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
         if (mAllAppsButton != null) {
             mAllAppsButton.setOnClickListener(mControllerCallbacks.getAllAppsButtonClickListener());
         }
+        if (mTaskbarDivider != null) {
+            //TODO(b/265434705): set long press listener
+        }
     }
 
     private void removeAndRecycle(View view) {
@@ -180,6 +197,10 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
 
         if (mAllAppsButton != null) {
             removeView(mAllAppsButton);
+
+            if (mTaskbarDivider != null) {
+                removeView(mTaskbarDivider);
+            }
         }
         removeView(mQsb);
 
@@ -256,8 +277,12 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
         }
 
         if (mAllAppsButton != null) {
-            int index = mIsRtl ? getChildCount() : 0;
-            addView(mAllAppsButton, index);
+            addView(mAllAppsButton, mIsRtl ? getChildCount() : 0);
+
+            // if only all apps button present, don't include divider view.
+            if (mTaskbarDivider != null && getChildCount() > 1) {
+                addView(mTaskbarDivider, mIsRtl ? (getChildCount() - 1) : 1);
+            }
         }
         if (mActivityContext.getDeviceProfile().isQsbInline) {
             addView(mQsb, mIsRtl ? getChildCount() : 0);
@@ -297,6 +322,11 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
         int count = getChildCount();
         DeviceProfile deviceProfile = mActivityContext.getDeviceProfile();
         int spaceNeeded = getIconLayoutWidth();
+        // We are removing the margin from taskbar divider item in taskbar,
+        // so remove it from spacing also.
+        if (FeatureFlags.ENABLE_TASKBAR_PINNING.get() && count > 1) {
+            spaceNeeded -= mIconTouchSize;
+        }
         int navSpaceNeeded = deviceProfile.hotseatBarEndOffset;
         boolean layoutRtl = isLayoutRtl();
         int iconEnd = right - (right - left - spaceNeeded) / 2;
@@ -328,6 +358,11 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
                 int qsbTop = (bottom - top - deviceProfile.hotseatQsbHeight) / 2;
                 int qsbBottom = qsbTop + deviceProfile.hotseatQsbHeight;
                 child.layout(qsbStart, qsbTop, qsbEnd, qsbBottom);
+            } else if (child == mTaskbarDivider) {
+                iconEnd += mItemMarginLeftRight;
+                int iconStart = iconEnd - mIconTouchSize;
+                child.layout(iconStart, mIconLayoutBounds.top, iconEnd, mIconLayoutBounds.bottom);
+                iconEnd = iconStart + mItemMarginLeftRight;
             } else {
                 iconEnd -= mItemMarginLeftRight;
                 int iconStart = iconEnd - mIconTouchSize;
@@ -335,7 +370,15 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
                 iconEnd = iconStart - mItemMarginLeftRight;
             }
         }
+
         mIconLayoutBounds.left = iconEnd;
+
+        if (mIconLayoutBounds.right - mIconLayoutBounds.left < mTransientTaskbarMinWidth) {
+            int center = mIconLayoutBounds.centerX();
+            int distanceFromCenter = (int) mTransientTaskbarMinWidth / 2;
+            mIconLayoutBounds.right = center + distanceFromCenter;
+            mIconLayoutBounds.left = center - distanceFromCenter;
+        }
     }
 
     @Override
@@ -492,6 +535,7 @@ public class TaskbarView extends FrameLayout implements FolderIcon.FolderIconPar
 
     /**
      * Finds the first icon to match one of the given matchers, from highest to lowest priority.
+     *
      * @return The first match, or All Apps button if no match was found.
      */
     public View getFirstMatch(Predicate<ItemInfo>... matchers) {

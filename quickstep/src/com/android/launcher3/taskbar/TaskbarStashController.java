@@ -35,7 +35,6 @@ import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_S
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
-import android.annotation.Nullable;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.util.Log;
@@ -44,6 +43,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.jank.InteractionJankMonitor;
@@ -69,26 +69,23 @@ import java.util.function.IntPredicate;
  */
 public class TaskbarStashController implements TaskbarControllers.LoggableTaskbarController {
 
-    private static final String TAG = "TaskbarStashController";
-
     public static final int FLAG_IN_APP = 1 << 0;
     public static final int FLAG_STASHED_IN_APP_MANUAL = 1 << 1; // long press, persisted
     public static final int FLAG_STASHED_IN_SYSUI_STATE = 1 << 2; // app pinning, keyguard, etc.
-    public static final int FLAG_STASHED_IN_APP_EMPTY = 1 << 3; // no hotseat icons
-    public static final int FLAG_STASHED_IN_APP_SETUP = 1 << 4; // setup wizard and AllSetActivity
-    public static final int FLAG_STASHED_IN_APP_IME = 1 << 5; // IME is visible
-    public static final int FLAG_IN_STASHED_LAUNCHER_STATE = 1 << 6;
-    public static final int FLAG_STASHED_IN_TASKBAR_ALL_APPS = 1 << 7; // All apps is visible.
-    public static final int FLAG_IN_SETUP = 1 << 8; // In the Setup Wizard
-    public static final int FLAG_STASHED_SMALL_SCREEN = 1 << 9; // phone screen gesture nav, stashed
-    public static final int FLAG_STASHED_IN_APP_AUTO = 1 << 10; // Autohide (transient taskbar).
+    public static final int FLAG_STASHED_IN_APP_SETUP = 1 << 3; // setup wizard and AllSetActivity
+    public static final int FLAG_STASHED_IN_APP_IME = 1 << 4; // IME is visible
+    public static final int FLAG_IN_STASHED_LAUNCHER_STATE = 1 << 5;
+    public static final int FLAG_STASHED_IN_TASKBAR_ALL_APPS = 1 << 6; // All apps is visible.
+    public static final int FLAG_IN_SETUP = 1 << 7; // In the Setup Wizard
+    public static final int FLAG_STASHED_SMALL_SCREEN = 1 << 8; // phone screen gesture nav, stashed
+    public static final int FLAG_STASHED_IN_APP_AUTO = 1 << 9; // Autohide (transient taskbar).
 
     // If any of these flags are enabled, isInApp should return true.
     private static final int FLAGS_IN_APP = FLAG_IN_APP | FLAG_IN_SETUP;
 
     // If we're in an app and any of these flags are enabled, taskbar should be stashed.
     private static final int FLAGS_STASHED_IN_APP = FLAG_STASHED_IN_APP_MANUAL
-            | FLAG_STASHED_IN_SYSUI_STATE | FLAG_STASHED_IN_APP_EMPTY | FLAG_STASHED_IN_APP_SETUP
+            | FLAG_STASHED_IN_SYSUI_STATE | FLAG_STASHED_IN_APP_SETUP
             | FLAG_STASHED_IN_APP_IME | FLAG_STASHED_IN_TASKBAR_ALL_APPS
             | FLAG_STASHED_SMALL_SCREEN | FLAG_STASHED_IN_APP_AUTO;
 
@@ -116,7 +113,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
     /**
      * The scale TaskbarView animates to when being stashed.
      */
-    private static final float STASHED_TASKBAR_SCALE = 0.5f;
+    private static final float STASHED_TASKBAR_SCALE = 0.3f;
 
     /**
      * How long the hint animation plays, starting on motion down.
@@ -350,10 +347,10 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
 
     /**
-     * Returns whether the taskbar is currently visible and in an app.
+     * Returns whether the taskbar is currently visible and not in the process of being stashed.
      */
-    public boolean isInAppAndNotStashed() {
-        return !mIsStashed && isInApp();
+    public boolean isTaskbarVisibleAndNotStashing() {
+        return !mIsStashed && mControllers.taskbarViewController.areIconsVisible();
     }
 
     public boolean isInApp() {
@@ -364,13 +361,18 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
      * Returns the height that taskbar will be touchable.
      */
     public int getTouchableHeight() {
-        return mIsStashed ? mStashedHeight : mUnstashedHeight;
+        int bottomMargin = 0;
+        if (DisplayController.isTransientTaskbar(mActivity)) {
+            bottomMargin = mActivity.getResources().getDimensionPixelSize(
+                    R.dimen.transient_taskbar_margin);
+        }
+        return mIsStashed ? mStashedHeight : (mUnstashedHeight + bottomMargin);
     }
 
     /**
      * Returns the height that taskbar will inset when inside apps.
-     * @see WindowInsets.Type#navigationBars()
-     * @see WindowInsets.Type#systemBars()
+     * @see android.view.WindowInsets.Type#navigationBars()
+     * @see android.view.WindowInsets.Type#systemBars()
      */
     public int getContentHeightToReportToApps() {
         if ((isPhoneMode() && !mActivity.isThreeButtonNav())
@@ -403,7 +405,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
     /**
      * Returns the height that taskbar will inset when inside apps.
-     * @see WindowInsets.Type#tappableElement()
+     * @see android.view.WindowInsets.Type#tappableElement()
      */
     public int getTappableHeightToReportToApps() {
         int contentHeight = getContentHeightToReportToApps();
@@ -419,6 +421,11 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
      */
     public void updateAndAnimateTransientTaskbar(boolean stash) {
         if (!DisplayController.isTransientTaskbar(mActivity)) {
+            return;
+        }
+
+        if (stash && mControllers.taskbarAutohideSuspendController.isSuspended()) {
+            // Avoid stashing if autohide is currently suspended.
             return;
         }
 
@@ -489,7 +496,6 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         createAnimToIsStashed(
                 /* isStashed= */ false,
                 placeholderDuration,
-                /* startDelay= */ 0,
                 /* animateBg= */ false,
                 /* changedFlags=*/ 0);
         animation.play(mAnimator);
@@ -499,18 +505,16 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
      * Create a stash animation and save to {@link #mAnimator}.
      * @param isStashed whether it's a stash animation or an unstash animation
      * @param duration duration of the animation
-     * @param startDelay how many milliseconds to delay the animation after starting it.
      * @param animateBg whether the taskbar's background should be animated
      */
-    private void createAnimToIsStashed(boolean isStashed, long duration, long startDelay,
-            boolean animateBg, int changedFlags) {
+    private void createAnimToIsStashed(boolean isStashed, long duration, boolean animateBg,
+            int changedFlags) {
         if (mAnimator != null) {
             mAnimator.cancel();
         }
         mAnimator = new AnimatorSet();
         addJankMonitorListener(mAnimator, /* appearing= */ !mIsStashed);
-        final float stashTranslation = isPhoneMode() ? 0 :
-                (mUnstashedHeight - mStashedHeight) / 2f;
+        final float stashTranslation = isPhoneMode() ? 0 : (mUnstashedHeight - mStashedHeight);
 
         if (!supportsVisualStashing()) {
             // Just hide/show the icons and background instead of stashing into a handle.
@@ -523,13 +527,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
                     .setDuration(duration));
             mAnimator.play(mTaskbarImeBgAlpha.animateToValue(
                     hasAnyFlag(FLAG_STASHED_IN_APP_IME) ? 0 : 1).setDuration(duration));
-            mAnimator.setStartDelay(startDelay);
-            mAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    mAnimator = null;
-                }
-            });
+            mAnimator.addListener(AnimatorListeners.forEndCallback(() -> mAnimator = null));
             return;
         }
 
@@ -597,6 +595,10 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
             }
         }
 
+        if (DisplayController.isTransientTaskbar(mActivity)) {
+            fullLengthAnimatorSet.play(mControllers.taskbarViewController
+                    .createRevealAnimToIsStashed(isStashed));
+        }
         fullLengthAnimatorSet.play(mControllers.stashedHandleViewController
                 .createRevealAnimToIsStashed(isStashed));
         // Return the stashed handle to its default scale in case it was changed as part of the
@@ -610,7 +612,6 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
         mAnimator.playTogether(fullLengthAnimatorSet, firstHalfAnimatorSet,
                 secondHalfAnimatorSet);
-        mAnimator.setStartDelay(startDelay);
         mAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationStart(Animator animation) {
@@ -696,19 +697,28 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
     }
 
     public void applyState(long duration) {
-        mStatePropertyHolder.setState(mState, duration, true);
+        Animator animator = createApplyStateAnimator(duration);
+        if (animator != null) {
+            animator.start();
+        }
     }
 
     public void applyState(long duration, long startDelay) {
-        mStatePropertyHolder.setState(mState, duration, startDelay, true);
+        Animator animator = createApplyStateAnimator(duration);
+        if (animator != null) {
+            animator.setStartDelay(startDelay);
+            animator.start();
+        }
     }
 
-    public Animator applyStateWithoutStart() {
-        return applyStateWithoutStart(TASKBAR_STASH_DURATION);
-    }
 
-    public Animator applyStateWithoutStart(long duration) {
-        return mStatePropertyHolder.setState(mState, duration, false);
+    /**
+     * Returns an animator which applies the latest state if mIsStashed is changed, or {@code null}
+     * otherwise.
+     */
+    @Nullable
+    public Animator createApplyStateAnimator(long duration) {
+        return mStatePropertyHolder.createSetStateAnimator(mState, duration);
     }
 
     /**
@@ -921,7 +931,6 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         appendFlag(sj, flags, FLAGS_IN_APP, "FLAG_IN_APP");
         appendFlag(sj, flags, FLAG_STASHED_IN_APP_MANUAL, "FLAG_STASHED_IN_APP_MANUAL");
         appendFlag(sj, flags, FLAG_STASHED_IN_SYSUI_STATE, "FLAG_STASHED_IN_SYSUI_STATE");
-        appendFlag(sj, flags, FLAG_STASHED_IN_APP_EMPTY, "FLAG_STASHED_IN_APP_EMPTY");
         appendFlag(sj, flags, FLAG_STASHED_IN_APP_SETUP, "FLAG_STASHED_IN_APP_SETUP");
         appendFlag(sj, flags, FLAG_STASHED_IN_APP_IME, "FLAG_STASHED_IN_APP_IME");
         appendFlag(sj, flags, FLAG_IN_STASHED_LAUNCHER_STATE, "FLAG_IN_STASHED_LAUNCHER_STATE");
@@ -943,22 +952,14 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         }
 
         /**
-         * @see #setState(int, long, long, boolean) with a default startDelay = 0.
-         */
-        public Animator setState(int flags, long duration, boolean start) {
-            return setState(flags, duration, 0 /* startDelay */, start);
-        }
-
-        /**
-         * Applies the latest state, potentially calling onStateChangeApplied() and creating a new
-         * animation (stored in mAnimator) which is started if {@param start} is true.
+         * Creates an animator (stored in mAnimator) which applies the latest state, potentially
+         * creating a new animation (stored in mAnimator).
          * @param flags The latest flags to apply (see the top of this file).
          * @param duration The length of the animation.
-         * @param startDelay How long to delay the animation after calling start().
-         * @param start Whether to start mAnimator immediately.
-         * @return mAnimator if mIsStashed changed, else null.
+         * @return mAnimator if mIsStashed changed, or {@code null} otherwise.
          */
-        public Animator setState(int flags, long duration, long startDelay, boolean start) {
+        @Nullable
+        public Animator createSetStateAnimator(int flags, long duration) {
             int changedFlags = mPrevFlags ^ flags;
             if (mPrevFlags != flags) {
                 onStateChangeApplied(changedFlags);
@@ -974,21 +975,16 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
                     && mAnimator != null && mAnimator.isStarted())) {
                 if (TestProtocol.sDebugTracing) {
                     Log.d(TestProtocol.TASKBAR_IN_APP_STATE, String.format(
-                            "setState: mIsStashed=%b, isStashed=%b, duration=%d, start=:%b",
+                            "setState: mIsStashed=%b, isStashed=%b, duration=%d",
                             mIsStashed,
                             isStashed,
-                            duration,
-                            start));
+                            duration));
                 }
                 mIsStashed = isStashed;
                 mIsHotseatIconOnTopWhenAligned = isHotseatIconOnTopWhenAligned;
 
                 // This sets mAnimator.
-                createAnimToIsStashed(
-                        mIsStashed, duration, startDelay, /* animateBg= */ true, changedFlags);
-                if (start) {
-                    mAnimator.start();
-                }
+                createAnimToIsStashed(mIsStashed, duration, /* animateBg= */ true, changedFlags);
                 return mAnimator;
             }
             return null;

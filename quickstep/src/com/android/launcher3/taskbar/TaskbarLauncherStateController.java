@@ -119,13 +119,11 @@ import java.util.StringJoiner;
                     mLauncherState = finalState;
                     updateStateForFlag(FLAG_TRANSITION_STATE_RUNNING, false);
                     applyState();
-                    boolean disallowGlobalDrag = finalState instanceof OverviewState;
+                    boolean finalStateOverview = finalState instanceof OverviewState;
                     boolean disallowLongClick = finalState == LauncherState.OVERVIEW_SPLIT_SELECT;
-                    mControllers.taskbarDragController.setDisallowGlobalDrag(disallowGlobalDrag);
-                    mControllers.taskbarDragController.setDisallowLongClick(disallowLongClick);
-                    mControllers.taskbarAllAppsController.setDisallowGlobalDrag(disallowGlobalDrag);
-                    mControllers.taskbarAllAppsController.setDisallowLongClick(disallowLongClick);
-                    mControllers.taskbarPopupController.setHideSplitOptions(disallowGlobalDrag);
+                    com.android.launcher3.taskbar.Utilities.setOverviewDragState(
+                            mControllers, finalStateOverview /*disallowGlobalDrag*/,
+                            disallowLongClick, finalStateOverview /*allowInitialSplitSelection*/);
                 }
             };
 
@@ -160,6 +158,7 @@ import java.util.StringJoiner;
 
         mIconAlignment.finishAnimation();
 
+        Log.d("b/260135164", "onDestroy - updateIconAlphaForHome(1)");
         mLauncher.getHotseat().setIconsAlpha(1f);
         mLauncher.getStateManager().removeStateListener(mStateListener);
 
@@ -183,7 +182,7 @@ import java.util.StringJoiner;
         stashController.updateStateForFlag(FLAG_IN_APP, false);
 
         updateStateForFlag(FLAG_RECENTS_ANIMATION_RUNNING, true);
-        animatorSet.play(stashController.applyStateWithoutStart(duration));
+        animatorSet.play(stashController.createApplyStateAnimator(duration));
         animatorSet.play(applyState(duration, false));
 
         if (mTaskBarRecentsAnimationListener != null) {
@@ -247,6 +246,9 @@ import java.util.StringJoiner;
     }
 
     public Animator applyState(long duration, boolean start) {
+        if (mControllers.taskbarActivityContext.isDestroyed()) {
+            return null;
+        }
         Animator animator = null;
         if (mPrevState == null || mPrevState != mState) {
             // If this is our initial state, treat all flags as changed.
@@ -258,8 +260,9 @@ import java.util.StringJoiner;
     }
 
     private Animator onStateChangeApplied(int changedFlags, long duration, boolean start) {
-        boolean goingToLauncher = isInLauncher();
+        final boolean goingToLauncher = isInLauncher();
         final float toAlignment = isIconAlignedWithHotseat() ? 1 : 0;
+        boolean handleOpenFloatingViews = false;
         if (DEBUG) {
             Log.d(TAG, "onStateChangeApplied - mState: " + getStateString(mState)
                     + ", changedFlags: " + getStateString(changedFlags)
@@ -275,10 +278,14 @@ import java.util.StringJoiner;
             boolean committed = !hasAnyFlag(FLAG_TRANSITION_STATE_RUNNING);
             playStateTransitionAnim(animatorSet, duration, committed);
 
-            if (committed && mLauncherState == LauncherState.QUICK_SWITCH) {
+            if (committed && mLauncherState == LauncherState.QUICK_SWITCH_FROM_HOME) {
                 // We're about to be paused, set immediately to ensure seamless handoff.
                 updateStateForFlag(FLAG_RESUMED, false);
                 applyState(0 /* duration */);
+            }
+            if (mLauncherState == LauncherState.NORMAL) {
+                // We're changing state to home, should close open popups e.g. Taskbar AllApps
+                handleOpenFloatingViews = true;
             }
         }
 
@@ -303,10 +310,11 @@ import java.util.StringJoiner;
                 }
             });
 
-            if (goingToLauncher) {
-                // Handle closing open popups when going home/overview
-                AbstractFloatingView.closeAllOpenViews(mControllers.taskbarActivityContext);
-            }
+            // Handle closing open popups when going home/overview
+            handleOpenFloatingViews = true;
+        }
+        if (handleOpenFloatingViews && goingToLauncher) {
+            AbstractFloatingView.closeAllOpenViews(mControllers.taskbarActivityContext);
         }
 
         float backgroundAlpha =
@@ -397,13 +405,15 @@ import java.util.StringJoiner;
         boolean isInStashedState = mLauncherState.isTaskbarStashed(mLauncher);
         TaskbarStashController stashController = mControllers.taskbarStashController;
         stashController.updateStateForFlag(FLAG_IN_STASHED_LAUNCHER_STATE, isInStashedState);
-        Animator stashAnimator = stashController.applyStateWithoutStart(duration);
+        Animator stashAnimator = stashController.createApplyStateAnimator(duration);
         if (stashAnimator != null) {
             stashAnimator.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     if (isInStashedState && committed) {
                         // Reset hotseat alpha to default
+                        Log.d("b/260135164",
+                                "playStateTransitionAnim#onAnimationEnd - setIconsAlpha(1)");
                         mLauncher.getHotseat().setIconsAlpha(1);
                     }
                 }
@@ -452,6 +462,9 @@ import java.util.StringJoiner;
          * Hide Launcher Hotseat icons when Taskbar icons have opacity. Both icon sets
          * should not be visible at the same time.
          */
+        Log.d("b/260135164",
+                "updateIconAlphaForHome - setIconsAlpha(" + (hotseatVisible ? 1 : 0)
+                        + "), isTaskbarPresent: " + mLauncher.getDeviceProfile().isTaskbarPresent);
         mLauncher.getHotseat().setIconsAlpha(hotseatVisible ? 1 : 0);
         mLauncher.getHotseat().setQsbAlpha(
                 mLauncher.getDeviceProfile().isQsbInline && !hotseatVisible ? 0 : 1);

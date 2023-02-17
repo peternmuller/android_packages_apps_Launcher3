@@ -16,6 +16,7 @@
 
 package com.android.launcher3;
 
+import static com.android.launcher3.LauncherPrefs.GRID_NAME;
 import static com.android.launcher3.Utilities.dpiFromPx;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_DEVICE_PROFILE_LOGGING;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_TWO_PANEL_HOME;
@@ -93,8 +94,6 @@ public class InvariantDeviceProfile {
     public static final int TYPE_MULTI_DISPLAY = 1;
     public static final int TYPE_TABLET = 2;
 
-    private static final String KEY_IDP_GRID_NAME = "idp_grid_name";
-
     private static final float ICON_SIZE_DEFINED_IN_APP_DP = 48;
 
     // Constants that affects the interpolation curve between statically defined device profile
@@ -143,6 +142,8 @@ public class InvariantDeviceProfile {
 
     public @StyleRes int folderStyle;
 
+    public @StyleRes int cellStyle;
+
     public float[] horizontalMargin;
 
     public PointF[] allAppsCellSize;
@@ -173,6 +174,7 @@ public class InvariantDeviceProfile {
      */
     public int numAllAppsColumns;
     public int numDatabaseAllAppsColumns;
+    public @StyleRes int allAppsStyle;
 
     /**
      * Do not query directly. see {@link DeviceProfile#isScalableGrid}.
@@ -204,10 +206,7 @@ public class InvariantDeviceProfile {
         String gridName = getCurrentGridName(context);
         String newGridName = initGrid(context, gridName);
         if (!newGridName.equals(gridName)) {
-            LauncherPrefs.getPrefs(context).edit().putString(KEY_IDP_GRID_NAME, newGridName)
-                    .apply();
-            Log.d("b/258560494", "InvariantDeviceProfile - setting newGridName: " + newGridName
-                    + ", gridName: " + gridName);
+            LauncherPrefs.get(context).put(GRID_NAME, newGridName);
         }
         new DeviceGridState(this).writeToPrefs(context);
 
@@ -315,7 +314,7 @@ public class InvariantDeviceProfile {
     }
 
     public static String getCurrentGridName(Context context) {
-        return LauncherPrefs.getPrefs(context).getString(KEY_IDP_GRID_NAME, null);
+        return LauncherPrefs.get(context).get(GRID_NAME);
     }
 
     private String initGrid(Context context, String gridName) {
@@ -351,6 +350,8 @@ public class InvariantDeviceProfile {
         numFolderColumns = closestProfile.numFolderColumns;
         folderStyle = closestProfile.folderStyle;
 
+        cellStyle = closestProfile.cellStyle;
+
         isScalable = closestProfile.isScalable;
         devicePaddingId = closestProfile.devicePaddingId;
         this.deviceType = deviceType;
@@ -381,6 +382,8 @@ public class InvariantDeviceProfile {
         hotseatColumnSpan = closestProfile.hotseatColumnSpan;
         hotseatBarBottomSpace = displayOption.hotseatBarBottomSpace;
         hotseatQsbSpace = displayOption.hotseatQsbSpace;
+
+        allAppsStyle = closestProfile.allAppsStyle;
 
         numAllAppsColumns = closestProfile.numAllAppsColumns;
         numDatabaseAllAppsColumns = deviceType == TYPE_MULTI_DISPLAY
@@ -453,10 +456,8 @@ public class InvariantDeviceProfile {
 
 
     public void setCurrentGrid(Context context, String gridName) {
-        Context appContext = context.getApplicationContext();
-        LauncherPrefs.getPrefs(appContext).edit().putString(KEY_IDP_GRID_NAME, gridName).apply();
-        Log.d("b/258560494", "setCurrentGrid: " + gridName);
-        MAIN_EXECUTOR.execute(() -> onConfigChanged(appContext));
+        LauncherPrefs.get(context).put(GRID_NAME, gridName);
+        MAIN_EXECUTOR.execute(() -> onConfigChanged(context.getApplicationContext()));
     }
 
     private Object[] toModelState() {
@@ -520,10 +521,6 @@ public class InvariantDeviceProfile {
             }
         }
         if (filteredProfiles.isEmpty()) {
-            if (gridName != null) {
-                Log.d("b/258560494", "No matching grid from for gridName: " + gridName
-                        + ", deviceType: " + deviceType);
-            }
             // No grid found, use the default options
             for (DisplayOption option : profiles) {
                 if (option.canBeDefault) {
@@ -790,7 +787,9 @@ public class InvariantDeviceProfile {
         private final int numFolderRows;
         private final int numFolderColumns;
         private final @StyleRes int folderStyle;
+        private final @StyleRes int cellStyle;
 
+        private final @StyleRes int allAppsStyle;
         private final int numAllAppsColumns;
         private final int numDatabaseAllAppsColumns;
         private final int numHotseatIcons;
@@ -826,6 +825,8 @@ public class InvariantDeviceProfile {
             demoModeLayoutId = a.getResourceId(
                     R.styleable.GridDisplayOption_demoModeLayoutId, defaultLayoutId);
 
+            allAppsStyle = a.getResourceId(R.styleable.GridDisplayOption_allAppsStyle,
+                    R.style.AllAppsStyleDefault);
             numAllAppsColumns = a.getInt(
                     R.styleable.GridDisplayOption_numAllAppsColumns, numColumns);
             numDatabaseAllAppsColumns = a.getInt(
@@ -858,6 +859,9 @@ public class InvariantDeviceProfile {
 
             folderStyle = a.getResourceId(R.styleable.GridDisplayOption_folderStyle,
                     INVALID_RESOURCE_HANDLE);
+
+            cellStyle = a.getResourceId(R.styleable.GridDisplayOption_cellStyle,
+                    R.style.CellStyleDefault);
 
             isScalable = a.getBoolean(
                     R.styleable.GridDisplayOption_isScalable, false);

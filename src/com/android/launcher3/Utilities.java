@@ -62,7 +62,6 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
-import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.Interpolator;
@@ -89,7 +88,7 @@ import com.android.launcher3.views.BaseDragLayer;
 import com.android.launcher3.widget.PendingAddShortcutInfo;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -126,6 +125,9 @@ public final class Utilities {
     @ChecksSdkIntAtLeast(api = VERSION_CODES.TIRAMISU, codename = "T")
     public static final boolean ATLEAST_T = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
 
+    @ChecksSdkIntAtLeast(api = VERSION_CODES.UPSIDE_DOWN_CAKE, codename = "U")
+    public static final boolean ATLEAST_U = Build.VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE;
+
     /**
      * Set on a motion event dispatched from the nav bar. See {@link MotionEvent#setEdgeFlags(int)}.
      */
@@ -155,8 +157,6 @@ public final class Utilities {
 
     public static boolean IS_RUNNING_IN_TEST_HARNESS =
                     ActivityManager.isRunningInTestHarness();
-
-    private static final int TRACKPAD_GESTURE_SCALE = 60;
 
     public static void enableRunningInTestHarnessForTests() {
         IS_RUNNING_IN_TEST_HARNESS = true;
@@ -697,37 +697,16 @@ public final class Utilities {
 
     /**
      * Returns a list of screen-splitting options depending on the device orientation (split top for
-     * portrait, split left for landscape, split left and right for landscape tablets, etc.)
+     * portrait, split right for landscape)
      */
     public static List<SplitPositionOption> getSplitPositionOptions(
             DeviceProfile dp) {
-        List<SplitPositionOption> options = new ArrayList<>();
-        // Add both left and right options if we're in tablet mode
-        if (dp.isTablet && dp.isLandscape) {
-            options.add(new SplitPositionOption(
-                    R.drawable.ic_split_left, R.string.split_screen_position_left,
-                    STAGE_POSITION_TOP_OR_LEFT, STAGE_TYPE_MAIN));
-            options.add(new SplitPositionOption(
-                    R.drawable.ic_split_right, R.string.split_screen_position_right,
-                    STAGE_POSITION_BOTTOM_OR_RIGHT, STAGE_TYPE_MAIN));
-        } else {
-            if (dp.isSeascape()) {
-                // Add left/right options
-                options.add(new SplitPositionOption(
-                        R.drawable.ic_split_right, R.string.split_screen_position_right,
-                        STAGE_POSITION_BOTTOM_OR_RIGHT, STAGE_TYPE_MAIN));
-            } else if (dp.isLandscape) {
-                options.add(new SplitPositionOption(
-                        R.drawable.ic_split_left, R.string.split_screen_position_left,
-                        STAGE_POSITION_TOP_OR_LEFT, STAGE_TYPE_MAIN));
-            } else {
-                // Only add top option
-                options.add(new SplitPositionOption(
-                        R.drawable.ic_split_top, R.string.split_screen_position_top,
-                        STAGE_POSITION_TOP_OR_LEFT, STAGE_TYPE_MAIN));
-            }
-        }
-        return options;
+        return Collections.singletonList(new SplitPositionOption(
+                dp.isLandscape ? R.drawable.ic_split_horizontal : R.drawable.ic_split_vertical,
+                R.string.recent_task_option_split_screen,
+                dp.isLandscape ? STAGE_POSITION_BOTTOM_OR_RIGHT : STAGE_POSITION_TOP_OR_LEFT,
+                STAGE_TYPE_MAIN
+        ));
     }
 
     public static boolean isTrackpadMotionEvent(MotionEvent event) {
@@ -737,35 +716,13 @@ public final class Utilities {
                 && (event.getSource() & SOURCE_TOUCHSCREEN) != SOURCE_TOUCHSCREEN;
     }
 
-    public static int getTrackpadMotionEventScale(Context context) {
-        return ViewConfiguration.get(context).getScaledTouchSlop() * TRACKPAD_GESTURE_SCALE;
-    }
-
-    public static float getXVelocity(VelocityTracker velocityTracker, MotionEvent event,
-            int pointerId) {
-        // Will be enabled after ag/20353570 is submitted
-//        if (isTrackpadMotionEvent(event)) {
-//            return velocityTracker.getAxisVelocity(AXIS_GESTURE_X_OFFSET, pointerId);
-//        } else {
-            return velocityTracker.getXVelocity(pointerId);
-//        }
-    }
-
-    public static float getXVelocity(VelocityTracker velocityTracker, MotionEvent event) {
-        return getXVelocity(velocityTracker, event, -1 /* ACTIVE_POINTER_ID */);
-    }
-
-    public static float getYVelocity(VelocityTracker velocityTracker, MotionEvent event,
-            int pointerId) {
-        // Will be enabled after ag/20353570 is submitted
-//        if (isTrackpadMotionEvent(event)) {
-//            return velocityTracker.getAxisVelocity(AXIS_GESTURE_Y_OFFSET, pointerId);
-//        } else {
-            return velocityTracker.getYVelocity(pointerId);
-//        }
-    }
-
-    public static float getYVelocity(VelocityTracker velocityTracker, MotionEvent event) {
-        return getYVelocity(velocityTracker, event, -1 /* ACTIVE_POINTER_ID */);
+    /** Logs the Scale and Translate properties of a matrix. Ignores skew and perspective. */
+    public static void logMatrix(String label, Matrix matrix) {
+        float[] matrixValues = new float[9];
+        matrix.getValues(matrixValues);
+        Log.d(label, String.format("%s: %s\nscale (x,y) = (%f, %f)\ntranslate (x,y) = (%f, %f)",
+                label, matrix, matrixValues[Matrix.MSCALE_X], matrixValues[Matrix.MSCALE_Y],
+                matrixValues[Matrix.MTRANS_X], matrixValues[Matrix.MTRANS_Y]
+        ));
     }
 }
