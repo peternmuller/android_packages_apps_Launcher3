@@ -16,8 +16,6 @@
 
 package com.android.launcher3;
 
-import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
-
 import static com.android.launcher3.anim.Interpolators.SCROLL;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.isAccessibilityEnabled;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.isObservedEventType;
@@ -52,7 +50,6 @@ import android.widget.OverScroller;
 import android.widget.ScrollView;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.compat.AccessibilityManagerCompat;
 import com.android.launcher3.config.FeatureFlags;
@@ -319,7 +316,6 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
     /**
      * Returns an IntSet with the indices of the currently visible pages
      */
-    @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
     public IntSet getVisiblePageIndices() {
         return getPageIndices(mCurrentPage);
     }
@@ -1370,8 +1366,14 @@ public abstract class PagedView<T extends View & PageIndicator> extends ViewGrou
                 int velocity = (int) mOrientationHandler.getPrimaryVelocity(velocityTracker,
                         mActivePointerId);
                 float delta = primaryDirection - mDownMotionPrimary;
-                int pageOrientedSize = (int) (mOrientationHandler.getMeasuredSize(
-                        getPageAt(mCurrentPage))
+
+                View current = getPageAt(mCurrentPage);
+                if (current == null) {
+                    Log.e(TAG, "current page was null. this should not happen.");
+                    return true;
+                }
+
+                int pageOrientedSize = (int) (mOrientationHandler.getMeasuredSize(current)
                         * mOrientationHandler.getPrimaryScale(this));
                 boolean isSignificantMove = isSignificantMove(Math.abs(delta), pageOrientedSize);
 
