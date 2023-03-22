@@ -286,7 +286,7 @@ public final class FeatureFlags {
             "Use local overrides for search request timeout");
 
     public static final BooleanFlag CONTINUOUS_VIEW_TREE_CAPTURE = getDebugFlag(270395171,
-            "CONTINUOUS_VIEW_TREE_CAPTURE", false, "Capture View tree every frame");
+            "CONTINUOUS_VIEW_TREE_CAPTURE", true, "Capture View tree every frame");
 
     public static final BooleanFlag SECONDARY_DRAG_N_DROP_TO_PIN = getDebugFlag(
             270395140, "SECONDARY_DRAG_N_DROP_TO_PIN", false,
@@ -355,7 +355,7 @@ public final class FeatureFlags {
                     + "advantage of large screen format");
 
     public static final BooleanFlag ENABLE_NEW_GESTURE_NAV_TUTORIAL = getDebugFlag(270396257,
-            "ENABLE_NEW_GESTURE_NAV_TUTORIAL", false,
+            "ENABLE_NEW_GESTURE_NAV_TUTORIAL", true,
             "Enable the redesigned gesture navigation tutorial");
 
     public static final BooleanFlag ENABLE_LAUNCH_FROM_STAGED_APP = getDebugFlag(270395567,
