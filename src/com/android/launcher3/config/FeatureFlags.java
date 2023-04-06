@@ -222,9 +222,9 @@ public final class FeatureFlags {
             "ENABLE_ALL_APPS_BUTTON_IN_HOTSEAT", DISABLED,
             "Enables displaying the all apps button in the hotseat.");
 
-    public static final BooleanFlag ENABLE_ALL_APPS_ONE_SEARCH_IN_TASKBAR = getDebugFlag(270393900,
-            "ENABLE_ALL_APPS_ONE_SEARCH_IN_TASKBAR", DISABLED,
-            "Enables One Search box in Taskbar All Apps.");
+    public static final BooleanFlag ENABLE_ALL_APPS_SEARCH_IN_TASKBAR = getDebugFlag(270393900,
+            "ENABLE_ALL_APPS_SEARCH_IN_TASKBAR", DISABLED,
+            "Enables Search box in Taskbar All Apps.");
 
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE = getDebugFlag(270393906,
             "ENABLE_SPLIT_FROM_WORKSPACE", ENABLED,
@@ -343,6 +343,10 @@ public final class FeatureFlags {
     public static final BooleanFlag LARGE_SCREEN_WIDGET_PICKER = getDebugFlag(270395809,
             "LARGE_SCREEN_WIDGET_PICKER", ENABLED, "Enable new widget picker that takes "
                     + "advantage of large screen format");
+
+    public static final BooleanFlag MULTI_SELECT_EDIT_MODE = getDebugFlag(270709220,
+            "MULTI_SELECT_EDIT_MODE", DISABLED, "Enable new multi-select edit mode "
+                    + "for home screen");
 
     public static final BooleanFlag ENABLE_NEW_GESTURE_NAV_TUTORIAL = getDebugFlag(270396257,
             "ENABLE_NEW_GESTURE_NAV_TUTORIAL", ENABLED,
