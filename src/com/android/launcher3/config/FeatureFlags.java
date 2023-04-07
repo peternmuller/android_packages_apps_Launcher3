@@ -143,16 +143,9 @@ public final class FeatureFlags {
             "ENABLE_BULK_WORKSPACE_ICON_LOADING", ENABLED,
             "Enable loading workspace icons in bulk.");
 
-    public static final BooleanFlag ENABLE_BULK_ALL_APPS_ICON_LOADING = getDebugFlag(270392465,
-            "ENABLE_BULK_ALL_APPS_ICON_LOADING", ENABLED, "Enable loading all apps icons in bulk.");
-
     public static final BooleanFlag ENABLE_DATABASE_RESTORE = getDebugFlag(270392706,
             "ENABLE_DATABASE_RESTORE", DISABLED,
             "Enable database restore when new restore session is created");
-
-    public static final BooleanFlag ENABLE_SMARTSPACE_DISMISS = getDebugFlag(270391664,
-            "ENABLE_SMARTSPACE_DISMISS", ENABLED,
-            "Adds a menu option to dismiss the current Enhanced Smartspace card.");
 
     public static final BooleanFlag ENABLE_OVERLAY_CONNECTION_OPTIM = getDebugFlag(270392629,
             "ENABLE_OVERLAY_CONNECTION_OPTIM", DISABLED,
@@ -177,10 +170,6 @@ public final class FeatureFlags {
             "ENABLE_MINIMAL_DEVICE", DISABLED,
             "Allow user to toggle minimal device mode in launcher.");
 
-    public static final BooleanFlag ENABLE_TASKBAR_POPUP_MENU = getDebugFlag(270392477,
-            "ENABLE_TASKBAR_POPUP_MENU", ENABLED,
-            "Enables long pressing taskbar icons to show the popup menu.");
-
     public static final BooleanFlag ENABLE_TWO_PANEL_HOME = getDebugFlag(270392643,
             "ENABLE_TWO_PANEL_HOME", ENABLED,
             "Uses two panel on home screen. Only applicable on large screen devices.");
@@ -202,9 +191,6 @@ public final class FeatureFlags {
     public static final BooleanFlag WIDGETS_IN_LAUNCHER_PREVIEW = getDebugFlag(270393268,
             "WIDGETS_IN_LAUNCHER_PREVIEW", ENABLED,
             "Enables widgets in Launcher preview for the Wallpaper app.");
-
-    public static final BooleanFlag QUICK_WALLPAPER_PICKER = getDebugFlag(270393112,
-            "QUICK_WALLPAPER_PICKER", ENABLED, "Shows quick wallpaper picker in long-press menu");
 
     public static final BooleanFlag ENABLE_BACK_SWIPE_HOME_ANIMATION = getDebugFlag(270393426,
             "ENABLE_BACK_SWIPE_HOME_ANIMATION", ENABLED,
