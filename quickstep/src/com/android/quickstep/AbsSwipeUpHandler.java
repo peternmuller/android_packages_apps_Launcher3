@@ -62,7 +62,6 @@ import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.TaskInfo;
 import android.app.WindowConfiguration;
 import android.content.Context;
 import android.content.Intent;
@@ -2080,16 +2079,13 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
         if (!mCanceled) {
             TaskView nextTask = mRecentsView.getNextPageTaskView();
             if (nextTask != null) {
-                Task.TaskKey nextTaskKey = nextTask.getTask().key;
-                int taskId = nextTaskKey.id;
+                int taskId = nextTask.getTask().key.id;
                 mGestureState.updateLastStartedTaskId(taskId);
                 boolean hasTaskPreviouslyAppeared = mGestureState.getPreviouslyAppearedTaskIds()
                         .contains(taskId);
                 if (!hasTaskPreviouslyAppeared) {
                     ActiveGestureLog.INSTANCE.trackEvent(EXPECTING_TASK_APPEARED);
                 }
-                ActiveGestureLog.INSTANCE.addLog("Launching task: id=" + taskId
-                        + " pkg=" + nextTaskKey.getPackageName());
                 nextTask.launchTask(success -> {
                     resultCallback.accept(success);
                     if (success) {
@@ -2158,18 +2154,7 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
     @Override
     public void onTasksAppeared(RemoteAnimationTarget[] appearedTaskTargets) {
         if (mRecentsAnimationController != null) {
-            boolean hasStartedTaskBefore = Arrays.stream(appearedTaskTargets).anyMatch(
-                    targetCompat -> targetCompat.taskId == mGestureState.getLastStartedTaskId());
-            if (!mStateCallback.hasStates(STATE_GESTURE_COMPLETED) && !hasStartedTaskBefore) {
-                // This is a special case, if a task is started mid-gesture that wasn't a part of a
-                // previous quickswitch task launch, then cancel the animation back to the app
-                RemoteAnimationTarget appearedTaskTarget = appearedTaskTargets[0];
-                TaskInfo taskInfo = appearedTaskTarget.taskInfo;
-                ActiveGestureLog.INSTANCE.addLog("Unexpected task appeared"
-                        + " id=" + taskInfo.taskId
-                        + " pkg=" + taskInfo.baseIntent.getComponent().getPackageName());
-                finishRecentsAnimationOnTasksAppeared();
-            } else if (handleTaskAppeared(appearedTaskTargets)) {
+            if (handleTaskAppeared(appearedTaskTargets)) {
                 Optional<RemoteAnimationTarget> taskTargetOptional =
                         Arrays.stream(appearedTaskTargets)
                                 .filter(targetCompat ->
@@ -2217,7 +2202,7 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
         if (mRecentsAnimationController != null) {
             mRecentsAnimationController.finish(false /* toRecents */, null /* onFinishComplete */);
         }
-        ActiveGestureLog.INSTANCE.addLog("finishRecentsAnimationOnTasksAppeared");
+        ActiveGestureLog.INSTANCE.addLog("finishRecentsAnimation", false);
     }
 
     /**
