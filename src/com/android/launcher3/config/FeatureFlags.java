@@ -118,8 +118,12 @@ public final class FeatureFlags {
 
     // TODO(Block 4): Cleanup flags
     public static final BooleanFlag ENABLE_FLOATING_SEARCH_BAR =
-            getReleaseFlag(270390286, "ENABLE_FLOATING_SEARCH_BAR", DISABLED,
+            getReleaseFlag(268388460, "ENABLE_FLOATING_SEARCH_BAR", DISABLED,
                     "Keep All Apps search bar at the bottom (but above keyboard if open)");
+
+    public static final BooleanFlag ENABLE_ALL_APPS_FROM_OVERVIEW =
+            getDebugFlag(275132633, "ENABLE_ALL_APPS_FROM_OVERVIEW", DISABLED,
+                    "Allow entering All Apps from Overview (e.g. long swipe up from app)");
 
     public static final BooleanFlag ENABLE_SHOW_KEYBOARD_OPTION_IN_ALL_APPS = getReleaseFlag(
             270394468, "ENABLE_SHOW_KEYBOARD_OPTION_IN_ALL_APPS", ENABLED,
@@ -182,7 +186,7 @@ public final class FeatureFlags {
     // TODO(Block 10): Clean up flags
     public static final BooleanFlag ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION = getDebugFlag(270614790,
             "ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION", DISABLED,
-            "Enables predictive back aniamtion from all apps and widgets to home");
+            "Enables predictive back animation from all apps and widgets to home");
 
     // TODO(Block 11): Clean up flags
     public static final BooleanFlag ENABLE_TWO_PANEL_HOME = getDebugFlag(270392643,
@@ -315,6 +319,10 @@ public final class FeatureFlags {
             "ENABLE_GRID_ONLY_OVERVIEW", DISABLED,
             "Enable a grid-only overview without a focused task.");
 
+    public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
+            "ENABLE_CURSOR_HOVER_STATES", DISABLED,
+            "Enables cursor hover states for certain elements.");
+
     // TODO(Block 24): Clean up flags
     public static final BooleanFlag ENABLE_NEW_MIGRATION_LOGIC = getDebugFlag(270393455,
             "ENABLE_NEW_MIGRATION_LOGIC", ENABLED,
@@ -400,10 +408,6 @@ public final class FeatureFlags {
             "Use local overrides for search request timeout");
 
     // TODO(Block 31): Empty block
-
-    public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
-            "ENABLE_CURSOR_HOVER_STATES", DISABLED,
-            "Enables cursor hover states for certain elements.");
 
     public static class BooleanFlag {
 
