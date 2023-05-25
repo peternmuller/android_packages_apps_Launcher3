@@ -105,6 +105,7 @@ import com.android.launcher3.util.TraceHelper;
 import com.android.quickstep.inputconsumers.AccessibilityInputConsumer;
 import com.android.quickstep.inputconsumers.AssistantInputConsumer;
 import com.android.quickstep.inputconsumers.DeviceLockedInputConsumer;
+import com.android.quickstep.inputconsumers.NavHandleLongPressInputConsumer;
 import com.android.quickstep.inputconsumers.OneHandedModeInputConsumer;
 import com.android.quickstep.inputconsumers.OtherActivityInputConsumer;
 import com.android.quickstep.inputconsumers.OverviewInputConsumer;
@@ -112,7 +113,7 @@ import com.android.quickstep.inputconsumers.OverviewWithoutFocusInputConsumer;
 import com.android.quickstep.inputconsumers.ProgressDelegateInputConsumer;
 import com.android.quickstep.inputconsumers.ResetGestureInputConsumer;
 import com.android.quickstep.inputconsumers.ScreenPinnedInputConsumer;
-import com.android.quickstep.inputconsumers.StatusBarInputConsumer;
+import com.android.quickstep.inputconsumers.TrackpadStatusBarInputConsumer;
 import com.android.quickstep.inputconsumers.SysUiOverlayInputConsumer;
 import com.android.quickstep.inputconsumers.TaskbarUnstashInputConsumer;
 import com.android.quickstep.util.ActiveGestureLog;
@@ -884,6 +885,8 @@ public class TouchInteractionService extends Service
                                     + "using TaskbarUnstashInputConsumer");
                     base = new TaskbarUnstashInputConsumer(this, base, mInputMonitorCompat, tac);
                 }
+            } else if (canStartSystemGesture && FeatureFlags.ENABLE_LONG_PRESS_NAV_HANDLE.get()) {
+                base = new NavHandleLongPressInputConsumer(this, base, mInputMonitorCompat);
             }
 
             if (mDeviceState.isBubblesExpanded()) {
@@ -906,8 +909,9 @@ public class TouchInteractionService extends Service
                     && !previousGestureState.isRecentsAnimationRunning()) {
                 reasonString = newCompoundString(reasonPrefix)
                         .append(SUBSTRING_PREFIX)
-                        .append("Trackpad 3-finger gesture, using StatusBarInputConsumer");
-                base = new StatusBarInputConsumer(getBaseContext(), base, mInputMonitorCompat);
+                        .append("Trackpad 3-finger gesture, using TrackpadStatusBarInputConsumer");
+                base = new TrackpadStatusBarInputConsumer(getBaseContext(), base,
+                        mInputMonitorCompat);
             }
 
             if (mDeviceState.isScreenPinningActive()) {
