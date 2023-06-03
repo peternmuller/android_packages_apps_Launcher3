@@ -26,7 +26,9 @@ import com.android.launcher3.taskbar.TaskbarControllers;
 import com.android.launcher3.taskbar.overlay.TaskbarOverlayContext;
 import com.android.launcher3.util.PackageUserKey;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -43,8 +45,10 @@ import java.util.function.Predicate;
 public final class TaskbarAllAppsController {
 
     private TaskbarControllers mControllers;
+    private @Nullable TaskbarOverlayContext mOverlayContext;
     private @Nullable TaskbarAllAppsSlideInView mSlideInView;
     private @Nullable TaskbarAllAppsContainerView mAppsView;
+    private @Nullable TaskbarSearchSessionController mSearchSessionController;
 
     // Application data models.
     private AppInfo[] mApps;
@@ -52,6 +56,8 @@ public final class TaskbarAllAppsController {
     private List<ItemInfo> mPredictedApps;
     private boolean mDisallowGlobalDrag;
     private boolean mDisallowLongClick;
+
+    private Map<PackageUserKey, Integer> mPackageUserKeytoUidMap = Collections.emptyMap();
 
     /** Initialize the controller. */
     public void init(TaskbarControllers controllers, boolean allAppsVisible) {
@@ -66,12 +72,18 @@ public final class TaskbarAllAppsController {
         }
     }
 
+    /** Clean up the controller. */
+    public void onDestroy() {
+        cleanUpOverlay();
+    }
+
     /** Updates the current {@link AppInfo} instances. */
-    public void setApps(AppInfo[] apps, int flags) {
+    public void setApps(AppInfo[] apps, int flags, Map<PackageUserKey, Integer> map) {
         mApps = apps;
         mAppsModelFlags = flags;
+        mPackageUserKeytoUidMap = map;
         if (mAppsView != null) {
-            mAppsView.getAppsStore().setApps(mApps, mAppsModelFlags);
+            mAppsView.getAppsStore().setApps(mApps, mAppsModelFlags, mPackageUserKeytoUidMap);
         }
     }
 
@@ -90,6 +102,9 @@ public final class TaskbarAllAppsController {
             mAppsView.getFloatingHeaderView()
                     .findFixedRowByType(PredictionRowView.class)
                     .setPredictedApps(mPredictedApps);
+        }
+        if (mSearchSessionController != null) {
+            mSearchSessionController.setZeroStatePredictedItems(predictedApps);
         }
     }
 
@@ -122,21 +137,26 @@ public final class TaskbarAllAppsController {
         // to catch invalid states.
         mControllers.getSharedState().allAppsVisible = true;
 
-        TaskbarOverlayContext overlayContext =
-                mControllers.taskbarOverlayController.requestWindow();
-        mSlideInView = (TaskbarAllAppsSlideInView) overlayContext.getLayoutInflater().inflate(
-                R.layout.taskbar_all_apps, overlayContext.getDragLayer(), false);
+        mOverlayContext = mControllers.taskbarOverlayController.requestWindow();
+
+        // Initialize search session for All Apps.
+        mSearchSessionController = TaskbarSearchSessionController.newInstance(mOverlayContext);
+        mOverlayContext.setSearchSessionController(mSearchSessionController);
+        mSearchSessionController.setZeroStatePredictedItems(mPredictedApps);
+        mSearchSessionController.startLifecycle();
+
+        mSlideInView = (TaskbarAllAppsSlideInView) mOverlayContext.getLayoutInflater().inflate(
+                R.layout.taskbar_all_apps_sheet, mOverlayContext.getDragLayer(), false);
         mSlideInView.addOnCloseListener(() -> {
             mControllers.getSharedState().allAppsVisible = false;
-            mSlideInView = null;
-            mAppsView = null;
+            cleanUpOverlay();
         });
         TaskbarAllAppsViewController viewController = new TaskbarAllAppsViewController(
-                overlayContext, mSlideInView, mControllers);
+                mOverlayContext, mSlideInView, mControllers);
 
         viewController.show(animate);
-        mAppsView = overlayContext.getAppsView();
-        mAppsView.getAppsStore().setApps(mApps, mAppsModelFlags);
+        mAppsView = mOverlayContext.getAppsView();
+        mAppsView.getAppsStore().setApps(mApps, mAppsModelFlags, mPackageUserKeytoUidMap);
         mAppsView.getFloatingHeaderView()
                 .findFixedRowByType(PredictionRowView.class)
                 .setPredictedApps(mPredictedApps);
@@ -144,8 +164,21 @@ public final class TaskbarAllAppsController {
         // Create a shared drag layer between taskbar and taskbarAllApps so that when dragging
         // starts and taskbarAllApps can close, but the drag layer that the view is being dragged in
         // doesn't also close
-        overlayContext.getDragController().setDisallowGlobalDrag(mDisallowGlobalDrag);
-        overlayContext.getDragController().setDisallowLongClick(mDisallowLongClick);
+        mOverlayContext.getDragController().setDisallowGlobalDrag(mDisallowGlobalDrag);
+        mOverlayContext.getDragController().setDisallowLongClick(mDisallowLongClick);
+    }
+
+    private void cleanUpOverlay() {
+        if (mSearchSessionController != null) {
+            mSearchSessionController.onDestroy();
+            mSearchSessionController = null;
+        }
+        if (mOverlayContext != null) {
+            mOverlayContext.setSearchSessionController(null);
+            mOverlayContext = null;
+        }
+        mSlideInView = null;
+        mAppsView = null;
     }
 
     @VisibleForTesting
