@@ -46,7 +46,6 @@ import androidx.annotation.NonNull;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.PendingAnimation;
-import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.statemanager.StateManager.StateHandler;
 import com.android.launcher3.states.StateAnimationConfig;
@@ -114,9 +113,7 @@ public abstract class BaseRecentsViewStateController<T extends RecentsView>
         setter.setFloat(mRecentsView, TASK_SECONDARY_TRANSLATION, 0f,
                 config.getInterpolator(ANIM_OVERVIEW_TRANSLATE_Y, LINEAR));
 
-        boolean exitingOverview = !FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()
-                || !toState.overviewUi;
-        if (mRecentsView.isSplitSelectionActive() && exitingOverview) {
+        if (mRecentsView.isSplitSelectionActive()) {
             // TODO (b/238651489): Refactor state management to avoid need for double check
             FloatingTaskView floatingTask = mRecentsView.getFirstFloatingTaskView();
             if (floatingTask != null) {

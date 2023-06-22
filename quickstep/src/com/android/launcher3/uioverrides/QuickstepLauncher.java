@@ -615,10 +615,9 @@ public class QuickstepLauncher extends Launcher {
         mSplitSelectStateController.findLastActiveTaskAndRunCallback(
                 splitSelectSource.itemInfo.getComponentKey(),
                 foundTask -> {
-                    boolean taskWasFound = foundTask != null;
-                    splitSelectSource.alreadyRunningTaskId = taskWasFound
-                            ? foundTask.key.id
-                            : INVALID_TASK_ID;
+                    splitSelectSource.alreadyRunningTaskId = foundTask == null
+                            ? INVALID_TASK_ID
+                            : foundTask.key.id;
                     if (ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
                         startSplitToHome(splitSelectSource);
                     } else {
@@ -1296,7 +1295,7 @@ public class QuickstepLauncher extends Launcher {
                 groupTask.task1.key.id,
                 groupTask.task2.key.id,
                 SplitConfigurationOptions.STAGE_POSITION_TOP_OR_LEFT,
-                /* callback= */ success -> mSplitSelectStateController.resetState(),
+                /* callback= */ success -> {},
                 /* freezeTaskList= */ true,
                 groupTask.mSplitBounds == null
                         ? DEFAULT_SPLIT_RATIO
