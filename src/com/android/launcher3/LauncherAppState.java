@@ -62,6 +62,7 @@ public class LauncherAppState implements SafeCloseable {
 
     public static final String ACTION_FORCE_ROLOAD = "force-reload-launcher";
     public static final String KEY_ICON_STATE = "pref_icon_shape_path";
+    public static final String KEY_ALL_APPS_OVERVIEW_THRESHOLD = "pref_all_apps_overview_threshold";
 
     // We do not need any synchronization for this variable as its only written on UI thread.
     public static final MainThreadInitializedObject<LauncherAppState> INSTANCE =
@@ -104,6 +105,8 @@ public class LauncherAppState implements SafeCloseable {
         });
 
         mContext.getSystemService(LauncherApps.class).registerCallback(mModel);
+        mOnTerminateCallback.add(() ->
+                mContext.getSystemService(LauncherApps.class).unregisterCallback(mModel));
 
         SimpleBroadcastReceiver modelChangeReceiver =
                 new SimpleBroadcastReceiver(mModel::onBroadcastIntent);
@@ -123,8 +126,9 @@ public class LauncherAppState implements SafeCloseable {
         mOnTerminateCallback.add(userChangeListener::close);
 
         LockedUserState.get(context).runOnUserUnlocked(() -> {
-            CustomWidgetManager.INSTANCE.get(mContext)
-                    .setWidgetRefreshCallback(mModel::refreshAndBindWidgetsAndShortcuts);
+            CustomWidgetManager cwm = CustomWidgetManager.INSTANCE.get(mContext);
+            cwm.setWidgetRefreshCallback(mModel::refreshAndBindWidgetsAndShortcuts);
+            mOnTerminateCallback.add(() -> cwm.setWidgetRefreshCallback(null));
 
             IconObserver observer = new IconObserver();
             SafeCloseable iconChangeTracker = mIconProvider.registerIconChangeListener(
@@ -159,6 +163,7 @@ public class LauncherAppState implements SafeCloseable {
         mModel = new LauncherModel(context, this, mIconCache, new AppFilter(mContext),
                 iconCacheFileName != null);
         mOnTerminateCallback.add(mIconCache::close);
+        mOnTerminateCallback.add(mModel::destroy);
     }
 
     private void onNotificationSettingsChanged(boolean areNotificationDotsEnabled) {
@@ -180,9 +185,6 @@ public class LauncherAppState implements SafeCloseable {
      */
     @Override
     public void close() {
-        mModel.destroy();
-        mContext.getSystemService(LauncherApps.class).unregisterCallback(mModel);
-        CustomWidgetManager.INSTANCE.get(mContext).setWidgetRefreshCallback(null);
         mOnTerminateCallback.executeAllAndDestroy();
     }
 

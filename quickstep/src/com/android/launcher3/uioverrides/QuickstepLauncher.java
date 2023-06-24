@@ -20,19 +20,18 @@ import static android.os.Trace.TRACE_TAG_APP;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_OPTIMIZE_MEASURE;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED;
 
+import static com.android.app.animation.Interpolators.EMPHASIZED;
 import static com.android.launcher3.LauncherSettings.Animation.DEFAULT_NO_ICON;
 import static com.android.launcher3.LauncherSettings.Animation.VIEW_BACKGROUND;
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_HOTSEAT;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPLICATION;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT;
-import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_SHORTCUT;
 import static com.android.launcher3.LauncherState.ALL_APPS;
 import static com.android.launcher3.LauncherState.NORMAL;
 import static com.android.launcher3.LauncherState.NO_OFFSET;
 import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
 import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
-import static com.android.launcher3.anim.Interpolators.EMPHASIZED;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.sendCustomAccessibilityEvent;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE;
@@ -258,6 +257,9 @@ public class QuickstepLauncher extends Launcher {
         mTISBindHelper = new TISBindHelper(this, this::onTISConnected);
         mDepthController = new DepthController(this);
         mDesktopVisibilityController = new DesktopVisibilityController(this);
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
+            mDesktopVisibilityController.registerSystemUiListener();
+        }
         mHotseatPredictionController = new HotseatPredictionController(this);
 
         mEnableWidgetDepth = SystemProperties.getBoolean("ro.launcher.depth.widget", true);
@@ -279,7 +281,6 @@ public class QuickstepLauncher extends Launcher {
 
         if (mAllAppsPredictions != null
                 && (info.itemType == ITEM_TYPE_APPLICATION
-                || info.itemType == ITEM_TYPE_SHORTCUT
                 || info.itemType == ITEM_TYPE_DEEP_SHORTCUT)) {
             int count = mAllAppsPredictions.items.size();
             for (int i = 0; i < count; i++) {
@@ -482,6 +483,10 @@ public class QuickstepLauncher extends Launcher {
             mLauncherUnfoldAnimationController.onDestroy();
         }
 
+        if (mDesktopVisibilityController != null) {
+            mDesktopVisibilityController.unregisterSystemUiListener();
+        }
+
         super.onDestroy();
         mHotseatPredictionController.destroy();
         mSplitWithKeyboardShortcutController.onDestroy();
@@ -553,8 +558,14 @@ public class QuickstepLauncher extends Launcher {
                 list.add(new PortraitStatesTouchController(this));
                 break;
             case THREE_BUTTONS:
+                list.add(new NoButtonQuickSwitchTouchController(this));
+                list.add(new NavBarToHomeTouchController(this));
+                list.add(new NoButtonNavbarToOverviewTouchController(this));
+                list.add(new PortraitStatesTouchController(this));
+                break;
             default:
                 list.add(new PortraitStatesTouchController(this));
+                break;
         }
 
         if (!getDeviceProfile().isMultiWindowMode) {
@@ -1153,7 +1164,6 @@ public class QuickstepLauncher extends Launcher {
         }
         switch (info.itemType) {
             case Favorites.ITEM_TYPE_APPLICATION:
-            case Favorites.ITEM_TYPE_SHORTCUT:
             case Favorites.ITEM_TYPE_DEEP_SHORTCUT:
             case Favorites.ITEM_TYPE_APPWIDGET:
                 // Fall through and continue if it's an app, shortcut, or widget

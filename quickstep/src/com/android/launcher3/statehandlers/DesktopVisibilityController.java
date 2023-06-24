@@ -15,14 +15,21 @@
  */
 package com.android.launcher3.statehandlers;
 
+import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+
 import android.os.SystemProperties;
 import android.util.Log;
 import android.view.View;
+
+import androidx.annotation.Nullable;
 
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.uioverrides.QuickstepLauncher;
+import com.android.quickstep.SystemUiProxy;
+import com.android.quickstep.views.DesktopAppSelectView;
+import com.android.wm.shell.desktopmode.IDesktopTaskListener;
 
 /**
  * Controls the visibility of the workspace and the resumed / paused state when desktop mode
@@ -39,8 +46,48 @@ public class DesktopVisibilityController {
     private boolean mInOverviewState;
     private boolean mGestureInProgress;
 
+    @Nullable
+    private IDesktopTaskListener mDesktopTaskListener;
+    private DesktopAppSelectView mSelectAppToast;
+
     public DesktopVisibilityController(Launcher launcher) {
         mLauncher = launcher;
+    }
+
+    /**
+     * Register a listener with System UI to receive updates about desktop tasks state
+     */
+    public void registerSystemUiListener() {
+        mDesktopTaskListener = new IDesktopTaskListener.Stub() {
+            @Override
+            public void onVisibilityChanged(int displayId, boolean visible) {
+                // TODO(b/261234402): move visibility from sysui state to listener
+            }
+
+            @Override
+            public void onStashedChanged(int displayId, boolean stashed) {
+                MAIN_EXECUTOR.execute(() -> {
+                    if (displayId == mLauncher.getDisplayId()) {
+                        if (DEBUG) {
+                            Log.d(TAG, "desktop stashed changed value=" + stashed);
+                        }
+                        if (stashed) {
+                            showSelectAppToast();
+                        } else {
+                            hideSelectAppToast();
+                        }
+                    }
+                });
+            }
+        };
+        SystemUiProxy.INSTANCE.get(mLauncher).setDesktopTaskListener(mDesktopTaskListener);
+    }
+
+    /**
+     * Clear listener from System UI that was set with {@link #registerSystemUiListener()}
+     */
+    public void unregisterSystemUiListener() {
+        SystemUiProxy.INSTANCE.get(mLauncher).setDesktopTaskListener(null);
     }
 
     /**
@@ -68,6 +115,7 @@ public class DesktopVisibilityController {
         if (!isDesktopModeSupported()) {
             return;
         }
+
         if (freeformTasksVisible != mFreeformTasksVisible) {
             mFreeformTasksVisible = freeformTasksVisible;
             if (mFreeformTasksVisible) {
@@ -130,6 +178,15 @@ public class DesktopVisibilityController {
         }
     }
 
+    /**
+     * Handle launcher moving to home due to home gesture or home button press.
+     */
+    public void onHomeActionTriggered() {
+        if (areFreeformTasksVisible()) {
+            SystemUiProxy.INSTANCE.get(mLauncher).stashDesktopApps(mLauncher.getDisplayId());
+        }
+    }
+
     private void setLauncherViewsVisibility(int visibility) {
         if (DEBUG) {
             Log.d(TAG, "setLauncherViewsVisibility: visibility=" + visibility);
@@ -167,5 +224,29 @@ public class DesktopVisibilityController {
         if (activity != null && activity.isResumed()) {
             activity.setResumed();
         }
+    }
+
+    private void showSelectAppToast() {
+        if (mSelectAppToast != null) {
+            return;
+        }
+        if (DEBUG) {
+            Log.d(TAG, "show toast to select desktop apps");
+        }
+        Runnable onCloseCallback = () -> {
+            SystemUiProxy.INSTANCE.get(mLauncher).hideStashedDesktopApps(mLauncher.getDisplayId());
+        };
+        mSelectAppToast = DesktopAppSelectView.show(mLauncher, onCloseCallback);
+    }
+
+    private void hideSelectAppToast() {
+        if (mSelectAppToast == null) {
+            return;
+        }
+        if (DEBUG) {
+            Log.d(TAG, "hide toast to select desktop apps");
+        }
+        mSelectAppToast.hide();
+        mSelectAppToast = null;
     }
 }

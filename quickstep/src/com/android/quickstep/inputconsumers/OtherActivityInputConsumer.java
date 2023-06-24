@@ -248,8 +248,7 @@ public class OtherActivityInputConsumer extends ContextWrapper implements InputC
                 if (!mPassedPilferInputSlop) {
                     // Cancel interaction in case of multi-touch interaction
                     int ptrIdx = ev.getActionIndex();
-                    if (!mRotationTouchHelper.isInSwipeUpTouchRegion(ev, ptrIdx,
-                            mActivityInterface)) {
+                    if (!mRotationTouchHelper.isInSwipeUpTouchRegion(ev, ptrIdx)) {
                         forceCancelGesture(ev);
                     }
                 }
@@ -352,7 +351,8 @@ public class OtherActivityInputConsumer extends ContextWrapper implements InputC
                         mInteractionHandler.updateDisplacement(displacement - mStartDisplacement);
                     }
 
-                    if (mDeviceState.isFullyGesturalNavMode()) {
+                    if (mDeviceState.isFullyGesturalNavMode()
+                            || mGestureState.isTrackpadGesture()) {
                         boolean minSwipeMet = upDist >= Math.max(mMotionPauseMinDisplacement,
                                 mInteractionHandler.getThresholdToAllowMotionPause());
                         mInteractionHandler.setCanSlowSwipeGoHome(minSwipeMet);

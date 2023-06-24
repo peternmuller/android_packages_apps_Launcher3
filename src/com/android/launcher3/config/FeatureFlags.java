@@ -82,9 +82,6 @@ public final class FeatureFlags {
      * <p>
      */
     // TODO(Block 1): Clean up flags
-    public static final BooleanFlag ENABLE_ONE_SEARCH_MOTION = getReleaseFlag(270394223,
-            "ENABLE_ONE_SEARCH_MOTION", ENABLED, "Enables animations in OneSearch.");
-
     public static final BooleanFlag ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES = getReleaseFlag(
             270394041, "ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES", DISABLED,
             "Enable option to replace decorator-based search result backgrounds with drawables");
@@ -253,6 +250,10 @@ public final class FeatureFlags {
             "INJECT_FALLBACK_APP_CORPUS_RESULTS", DISABLED,
             "Inject fallback app corpus result when AiAi fails to return it.");
 
+    public static final BooleanFlag ENABLE_LONG_PRESS_NAV_HANDLE =
+            getDebugFlag(282993230, "ENABLE_LONG_PRESS_NAV_HANDLE", DISABLED,
+                    "Enables long pressing on the bottom bar nav handle to trigger events.");
+
     // TODO(Block 17): Clean up flags
     public static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(270396583,
             "ENABLE_TASKBAR_PINNING", DISABLED,
@@ -313,7 +314,7 @@ public final class FeatureFlags {
             "Enable a grid-only overview without a focused task.");
 
     public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
-            "ENABLE_CURSOR_HOVER_STATES", DISABLED,
+            "ENABLE_CURSOR_HOVER_STATES", ENABLED,
             "Enables cursor hover states for certain elements.");
 
     // TODO(Block 24): Clean up flags
@@ -381,7 +382,7 @@ public final class FeatureFlags {
             "Enable initiating split screen from workspace to workspace.");
 
     public static final BooleanFlag ENABLE_TRACKPAD_GESTURE = getDebugFlag(271010401,
-            "ENABLE_TRACKPAD_GESTURE", DISABLED, "Enables trackpad gesture.");
+            "ENABLE_TRACKPAD_GESTURE", ENABLED, "Enables trackpad gesture.");
 
     // TODO(Block 29): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_BUTTON_IN_HOTSEAT = getDebugFlag(270393897,

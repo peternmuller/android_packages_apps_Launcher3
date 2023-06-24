@@ -21,12 +21,13 @@ import static android.view.Surface.ROTATION_270;
 import static android.view.Surface.ROTATION_90;
 import static android.widget.Toast.LENGTH_SHORT;
 
+import static com.android.app.animation.Interpolators.ACCELERATE_DECELERATE;
+import static com.android.app.animation.Interpolators.DECELERATE;
+import static com.android.app.animation.Interpolators.OVERSHOOT_1_2;
 import static com.android.launcher3.BaseActivity.INVISIBLE_BY_STATE_HANDLER;
 import static com.android.launcher3.BaseActivity.STATE_HANDLER_INVISIBILITY_FLAGS;
+import static com.android.launcher3.LauncherPrefs.ALL_APPS_OVERVIEW_THRESHOLD;
 import static com.android.launcher3.PagedView.INVALID_PAGE;
-import static com.android.launcher3.anim.Interpolators.ACCEL_DEACCEL;
-import static com.android.launcher3.anim.Interpolators.DEACCEL;
-import static com.android.launcher3.anim.Interpolators.OVERSHOOT_1_2;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_BACKGROUND;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.IGNORE;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_HOME_GESTURE;
@@ -94,6 +95,7 @@ import androidx.annotation.UiThread;
 import com.android.internal.util.LatencyTracker;
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.DeviceProfile;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.AnimationSuccessListener;
@@ -101,6 +103,7 @@ import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.logging.StatsLogManager.StatsLogger;
+import com.android.launcher3.statehandlers.DesktopVisibilityController;
 import com.android.launcher3.statemanager.BaseState;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.taskbar.TaskbarUIController;
@@ -162,9 +165,6 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
     private static final String TAG = "AbsSwipeUpHandler";
 
     private static final ArrayList<String> STATE_NAMES = new ArrayList<>();
-
-    /** Shift distance to transition to All Apps if ENABLE_ALL_APPS_FROM_OVERVIEW. */
-    public static final float ALL_APPS_SHIFT_THRESHOLD = 2f;
 
     protected final BaseActivityInterface<S, T> mActivityInterface;
     protected final InputConsumerProxy mInputConsumerProxy;
@@ -731,7 +731,8 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
      * @param moveRunningTask whether to move running task to front when attaching
      */
     private void maybeUpdateRecentsAttachedState(boolean animate, boolean moveRunningTask) {
-        if (!mDeviceState.isFullyGesturalNavMode() || mRecentsView == null) {
+        if ((!mDeviceState.isFullyGesturalNavMode() && !mGestureState.isTrackpadGesture())
+                || mRecentsView == null) {
             return;
         }
         RemoteAnimationTarget runningTaskTarget = mRecentsAnimationTargets != null
@@ -873,7 +874,8 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
     @UiThread
     @Override
     public void onCurrentShiftUpdated() {
-        setIsInAllAppsRegion(mCurrentShift.value >= ALL_APPS_SHIFT_THRESHOLD);
+        float threshold = LauncherPrefs.get(mContext).get(ALL_APPS_OVERVIEW_THRESHOLD) / 100f;
+        setIsInAllAppsRegion(mCurrentShift.value >= threshold);
         updateSysUiFlags(mCurrentShift.value);
         applyScrollAndTransform();
 
@@ -1148,6 +1150,14 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                 mStateCallback.setState(STATE_SCALED_CONTROLLER_HOME | STATE_CAPTURE_SCREENSHOT);
                 // Notify the SysUI to use fade-in animation when entering PiP
                 SystemUiProxy.INSTANCE.get(mContext).setPipAnimationTypeToAlpha();
+                if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+                    // Notify the SysUI to stash desktop apps if they are visible
+                    DesktopVisibilityController desktopVisibilityController =
+                            mActivityInterface.getDesktopVisibilityController();
+                    if (desktopVisibilityController != null) {
+                        desktopVisibilityController.onHomeActionTriggered();
+                    }
+                }
                 break;
             case RECENTS:
                 mStateCallback.setState(STATE_SCALED_CONTROLLER_RECENTS | STATE_CAPTURE_SCREENSHOT
@@ -1324,11 +1334,11 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
         Interpolator interpolator;
         S state = mActivityInterface.stateFromGestureEndTarget(endTarget);
         if (state.displayOverviewTasksAsGrid(mDp)) {
-            interpolator = ACCEL_DEACCEL;
+            interpolator = ACCELERATE_DECELERATE;
         } else if (endTarget == RECENTS) {
             interpolator = OVERSHOOT_1_2;
         } else {
-            interpolator = DEACCEL;
+            interpolator = DECELERATE;
         }
 
         if (endTarget.isLauncher) {
@@ -2419,11 +2429,11 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
 
         if (scrollOffset < mQuickSwitchScaleScrollThreshold) {
             scaleProgress = Utilities.mapToRange(scrollOffset, 0, mQuickSwitchScaleScrollThreshold,
-                    0, maxScaleProgress, ACCEL_DEACCEL);
+                    0, maxScaleProgress, ACCELERATE_DECELERATE);
         } else if (scrollOffset > (maxScrollOffset - mQuickSwitchScaleScrollThreshold)) {
             scaleProgress = Utilities.mapToRange(scrollOffset,
                     (maxScrollOffset - mQuickSwitchScaleScrollThreshold), maxScrollOffset,
-                    maxScaleProgress, 0, ACCEL_DEACCEL);
+                    maxScaleProgress, 0, ACCELERATE_DECELERATE);
         }
 
         return scaleProgress;
@@ -2452,7 +2462,7 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
         // "Catch up" with the displacement at mTaskbarCatchUpThreshold.
         if (displacement < mTaskbarCatchUpThreshold) {
             return Utilities.mapToRange(displacement, mTaskbarAppWindowThreshold,
-                    mTaskbarCatchUpThreshold, 0, mTaskbarCatchUpThreshold, ACCEL_DEACCEL);
+                    mTaskbarCatchUpThreshold, 0, mTaskbarCatchUpThreshold, ACCELERATE_DECELERATE);
         }
 
         return displacement;

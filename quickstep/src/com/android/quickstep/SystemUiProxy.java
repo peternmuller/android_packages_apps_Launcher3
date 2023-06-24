@@ -67,6 +67,7 @@ import com.android.wm.shell.back.IBackAnimation;
 import com.android.wm.shell.bubbles.IBubbles;
 import com.android.wm.shell.bubbles.IBubblesListener;
 import com.android.wm.shell.desktopmode.IDesktopMode;
+import com.android.wm.shell.desktopmode.IDesktopTaskListener;
 import com.android.wm.shell.draganddrop.IDragAndDrop;
 import com.android.wm.shell.onehanded.IOneHanded;
 import com.android.wm.shell.pip.IPip;
@@ -123,6 +124,7 @@ public class SystemUiProxy implements ISystemUiProxy {
     private ILauncherUnlockAnimationController mLauncherUnlockAnimationController;
     private IRecentTasksListener mRecentTasksListener;
     private IUnfoldTransitionListener mUnfoldAnimationListener;
+    private IDesktopTaskListener mDesktopTaskListener;
     private final LinkedHashMap<RemoteTransition, TransitionFilter> mRemoteTransitions =
             new LinkedHashMap<>();
     private IBinder mOriginalTransactionToken = null;
@@ -225,6 +227,7 @@ public class SystemUiProxy implements ISystemUiProxy {
         registerRecentTasksListener(mRecentTasksListener);
         setBackToLauncherCallback(mBackToLauncherCallback, mBackToLauncherRunner);
         setUnfoldAnimationListener(mUnfoldAnimationListener);
+        setDesktopTaskListener(mDesktopTaskListener);
     }
 
     /**
@@ -293,13 +296,24 @@ public class SystemUiProxy implements ISystemUiProxy {
 
     @MainThread
     @Override
-    public void onStatusBarMotionEvent(MotionEvent event) {
+    public void onStatusBarTouchEvent(MotionEvent event) {
         Preconditions.assertUIThread();
         if (mSystemUiProxy != null) {
             try {
-                mSystemUiProxy.onStatusBarMotionEvent(event);
+                mSystemUiProxy.onStatusBarTouchEvent(event);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call onStatusBarMotionEvent", e);
+                Log.w(TAG, "Failed call onStatusBarTouchEvent with arg: " + event, e);
+            }
+        }
+    }
+
+    @Override
+    public void onStatusBarTrackpadEvent(MotionEvent event) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSystemUiProxy.onStatusBarTrackpadEvent(event);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call onStatusBarTrackpadEvent with arg: " + event, e);
             }
         }
     }
@@ -1143,6 +1157,41 @@ public class SystemUiProxy implements ISystemUiProxy {
         }
     }
 
+    /** Call shell to stash desktop apps */
+    public void stashDesktopApps(int displayId) {
+        if (mDesktopMode != null) {
+            try {
+                mDesktopMode.stashDesktopApps(displayId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call stashDesktopApps", e);
+            }
+        }
+    }
+
+    /** Call shell to hide desktop apps that may be stashed */
+    public void hideStashedDesktopApps(int displayId) {
+        if (mDesktopMode != null) {
+            try {
+                mDesktopMode.hideStashedDesktopApps(displayId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call hideStashedDesktopApps", e);
+            }
+        }
+    }
+
+    /**
+     * If task with the given id is on the desktop, bring it to front
+     */
+    public void showDesktopApp(int taskId) {
+        if (mDesktopMode != null) {
+            try {
+                mDesktopMode.showDesktopApp(taskId);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call showDesktopApp", e);
+            }
+        }
+    }
+
     /** Call shell to get number of visible freeform tasks */
     public int getVisibleDesktopTaskCount(int displayId) {
         if (mDesktopMode != null) {
@@ -1153,6 +1202,18 @@ public class SystemUiProxy implements ISystemUiProxy {
             }
         }
         return 0;
+    }
+
+    /** Set a listener on shell to get updates about desktop task state */
+    public void setDesktopTaskListener(@Nullable IDesktopTaskListener listener) {
+        mDesktopTaskListener = listener;
+        if (mDesktopMode != null) {
+            try {
+                mDesktopMode.setTaskListener(listener);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call setDesktopTaskListener", e);
+            }
+        }
     }
 
     //
