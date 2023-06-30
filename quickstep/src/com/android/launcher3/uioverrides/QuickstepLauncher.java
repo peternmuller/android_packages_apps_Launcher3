@@ -344,11 +344,13 @@ public class QuickstepLauncher extends Launcher {
 
     @Override
     public RunnableList startActivitySafely(View v, Intent intent, ItemInfo item) {
-        // Only pause is taskbar controller is not present
+        // Only pause is taskbar controller is not present until the transition (if it exists) ends
         mHotseatPredictionController.setPauseUIUpdate(getTaskbarUIController() == null);
         RunnableList result = super.startActivitySafely(v, intent, item);
-        if (getTaskbarUIController() == null && result == null) {
-            mHotseatPredictionController.setPauseUIUpdate(false);
+        if (result == null) {
+            if (getTaskbarUIController() == null) {
+                mHotseatPredictionController.setPauseUIUpdate(false);
+            }
         } else {
             result.add(() -> mHotseatPredictionController.setPauseUIUpdate(false));
         }
@@ -615,9 +617,10 @@ public class QuickstepLauncher extends Launcher {
         mSplitSelectStateController.findLastActiveTaskAndRunCallback(
                 splitSelectSource.itemInfo.getComponentKey(),
                 foundTask -> {
-                    splitSelectSource.alreadyRunningTaskId = foundTask == null
-                            ? INVALID_TASK_ID
-                            : foundTask.key.id;
+                    boolean taskWasFound = foundTask != null;
+                    splitSelectSource.alreadyRunningTaskId = taskWasFound
+                            ? foundTask.key.id
+                            : INVALID_TASK_ID;
                     if (ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
                         startSplitToHome(splitSelectSource);
                     } else {
@@ -1104,6 +1107,8 @@ public class QuickstepLauncher extends Launcher {
         activityOptions.options.setLaunchDisplayId(
                 (v != null && v.getDisplay() != null) ? v.getDisplay().getDisplayId()
                         : Display.DEFAULT_DISPLAY);
+        activityOptions.options.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         addLaunchCookie(item, activityOptions.options);
         return activityOptions;
     }
@@ -1116,6 +1121,8 @@ public class QuickstepLauncher extends Launcher {
                 Executors.MAIN_EXECUTOR.getHandler(), null,
                 elapsedRealTime -> callbacks.executeAllAndDestroy());
         options.setSplashScreenStyle(splashScreenStyle);
+        options.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         return new ActivityOptionsWrapper(options, callbacks);
     }
 
@@ -1295,13 +1302,18 @@ public class QuickstepLauncher extends Launcher {
                 groupTask.task1.key.id,
                 groupTask.task2.key.id,
                 SplitConfigurationOptions.STAGE_POSITION_TOP_OR_LEFT,
-                /* callback= */ success -> {},
+                /* callback= */ success -> mSplitSelectStateController.resetState(),
                 /* freezeTaskList= */ true,
                 groupTask.mSplitBounds == null
                         ? DEFAULT_SPLIT_RATIO
                         : groupTask.mSplitBounds.appsStackedVertically
                                 ? groupTask.mSplitBounds.topTaskPercent
                                 : groupTask.mSplitBounds.leftTaskPercent);
+    }
+
+    public boolean isCommandQueueEmpty() {
+        OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
+        return overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty();
     }
 
     private static final class LauncherTaskViewController extends

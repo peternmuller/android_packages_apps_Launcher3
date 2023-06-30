@@ -17,6 +17,7 @@ package com.android.launcher3.ui;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
+import static com.android.launcher3.testing.shared.TestProtocol.ICON_MISSING;
 import static com.android.launcher3.ui.TaplTestsLauncher3.getAppPackageName;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
@@ -69,7 +70,6 @@ import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
 import com.android.launcher3.util.rule.ShellCommandRule;
 import com.android.launcher3.util.rule.TestStabilityRule;
-import com.android.launcher3.util.rule.ViewCaptureAnalysisRule;
 import com.android.launcher3.util.rule.ViewCaptureRule;
 
 import org.junit.After;
@@ -208,8 +208,7 @@ public abstract class AbstractLauncherUiTest {
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
-                .around(viewCaptureRule)
-                .around(new ViewCaptureAnalysisRule(viewCaptureRule.getViewCapture()));
+                .around(viewCaptureRule);
 
         return TestHelpers.isInLauncherProcess()
                 ? RuleChain.outerRule(ShellCommandRule.setDefaultLauncher()).around(inner)
@@ -603,6 +602,8 @@ public abstract class AbstractLauncherUiTest {
 
     protected HomeAppIcon createShortcutIfNotExist(String name, int cellX, int cellY) {
         HomeAppIcon homeAppIcon = mLauncher.getWorkspace().tryGetWorkspaceAppIcon(name);
+        Log.d(ICON_MISSING, "homeAppIcon: " + homeAppIcon + " name: " + name +
+                " cell: " + cellX + ", " + cellY);
         if (homeAppIcon == null) {
             HomeAllApps allApps = mLauncher.getWorkspace().switchToAllApps();
             allApps.freeze();
