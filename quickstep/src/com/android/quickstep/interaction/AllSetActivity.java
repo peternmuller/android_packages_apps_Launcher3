@@ -96,8 +96,6 @@ public class AllSetActivity extends Activity {
     private static final float ANIMATION_PAUSE_ALPHA_THRESHOLD = 0.1f;
 
     private TISBindHelper mTISBindHelper;
-    private TISBinder mBinder;
-    @Nullable private TaskbarManager mTaskbarManager = null;
 
     private final AnimatedFloat mSwipeProgress = new AnimatedFloat(this::onSwipeProgressUpdate);
     private BgDrawable mBackground;
@@ -233,27 +231,27 @@ public class AllSetActivity extends Activity {
     }
 
     private void setSetupUIVisible(boolean visible) {
-        if (mBinder == null || mTaskbarManager == null) return;
-        mTaskbarManager.setSetupUIVisible(visible);
+        TaskbarManager taskbarManager = mTISBindHelper.getTaskbarManager();
+        if (taskbarManager == null) return;
+        taskbarManager.setSetupUIVisible(visible);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         maybeResumeOrPauseBackgroundAnimation();
-        if (mBinder != null) {
+        TISBinder binder = mTISBindHelper.getBinder();
+        if (binder != null) {
             setSetupUIVisible(true);
-            mBinder.setSwipeUpProxy(this::createSwipeUpProxy);
+            binder.setSwipeUpProxy(this::createSwipeUpProxy);
         }
     }
 
     private void onTISConnected(TISBinder binder) {
-        mBinder = binder;
-        mTaskbarManager = mBinder.getTaskbarManager();
         setSetupUIVisible(isResumed());
-        mBinder.setSwipeUpProxy(isResumed() ? this::createSwipeUpProxy : null);
-        mBinder.setOverviewTargetChangeListener(mBinder::preloadOverviewForSUWAllSet);
-        mBinder.preloadOverviewForSUWAllSet();
+        binder.setSwipeUpProxy(isResumed() ? this::createSwipeUpProxy : null);
+        binder.setOverviewTargetChangeListener(binder::preloadOverviewForSUWAllSet);
+        binder.preloadOverviewForSUWAllSet();
     }
 
     @Override
@@ -268,10 +266,11 @@ public class AllSetActivity extends Activity {
     }
 
     private void clearBinderOverride() {
-        if (mBinder != null) {
+        TISBinder binder = mTISBindHelper.getBinder();
+        if (binder != null) {
             setSetupUIVisible(false);
-            mBinder.setSwipeUpProxy(null);
-            mBinder.setOverviewTargetChangeListener(null);
+            binder.setSwipeUpProxy(null);
+            binder.setOverviewTargetChangeListener(null);
         }
     }
 
@@ -328,8 +327,9 @@ public class AllSetActivity extends Activity {
         mRootView.setAlpha(alpha);
         mRootView.setTranslationY((alpha - 1) * mSwipeUpShift);
 
-        if (mLauncherStartAnim == null && mTaskbarManager != null) {
-            mLauncherStartAnim = mTaskbarManager.createLauncherStartFromSuwAnim(MAX_SWIPE_DURATION);
+        TaskbarManager taskbarManager = mTISBindHelper.getTaskbarManager();
+        if (mLauncherStartAnim == null && taskbarManager != null) {
+            mLauncherStartAnim = taskbarManager.createLauncherStartFromSuwAnim(MAX_SWIPE_DURATION);
         }
         if (mLauncherStartAnim != null) {
             mLauncherStartAnim.setPlayFraction(Utilities.mapBoundToRange(

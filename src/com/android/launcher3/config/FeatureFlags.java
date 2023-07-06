@@ -116,7 +116,8 @@ public final class FeatureFlags {
     // TODO(Block 4): Cleanup flags
     public static final BooleanFlag ENABLE_FLOATING_SEARCH_BAR =
             getReleaseFlag(268388460, "ENABLE_FLOATING_SEARCH_BAR", DISABLED,
-                    "Keep All Apps search bar at the bottom (but above keyboard if open)");
+                    "Allow search bar to persist and animate across states, and attach to"
+                            + " the keyboard from the bottom of the screen");
 
     public static final BooleanFlag ENABLE_ALL_APPS_FROM_OVERVIEW =
             getDebugFlag(275132633, "ENABLE_ALL_APPS_FROM_OVERVIEW", DISABLED,
@@ -180,18 +181,6 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION = getDebugFlag(270614790,
             "ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION", DISABLED,
             "Enables predictive back animation from all apps and widgets to home");
-
-    // TODO(Block 11): Clean up flags
-    public static final BooleanFlag ENABLE_TWO_PANEL_HOME = getDebugFlag(270392643,
-            "ENABLE_TWO_PANEL_HOME", ENABLED,
-            "Uses two panel on home screen. Only applicable on large screen devices.");
-
-    public static final BooleanFlag FOLDABLE_WORKSPACE_REORDER = getDebugFlag(270395070,
-            "FOLDABLE_WORKSPACE_REORDER", DISABLED,
-            "In foldables, when reordering the icons and widgets, is now going to use both sides");
-
-    public static final BooleanFlag FOLDABLE_SINGLE_PAGE = getDebugFlag(270395274,
-            "FOLDABLE_SINGLE_PAGE", ENABLED, "Use a single page for the workspace");
 
     // TODO(Block 12): Clean up flags
     public static final BooleanFlag ENABLE_MULTI_INSTANCE = getDebugFlag(270396680,
@@ -278,7 +267,7 @@ public final class FeatureFlags {
                     + " is enabled or in prefix state");
 
     public static final BooleanFlag ENABLE_SEARCH_UNINSTALLED_APPS = getReleaseFlag(270395269,
-            "ENABLE_SEARCH_UNINSTALLED_APPS", DISABLED, "Search uninstalled app results.");
+            "ENABLE_SEARCH_UNINSTALLED_APPS", ENABLED, "Search uninstalled app results.");
 
     // TODO(Block 20): Clean up flags
     public static final BooleanFlag ENABLE_SCRIM_FOR_APP_LAUNCH = getDebugFlag(270393276,
@@ -303,18 +292,18 @@ public final class FeatureFlags {
             "Enable widget transition animation when resizing the widgets");
 
     public static final BooleanFlag PREEMPTIVE_UNFOLD_ANIMATION_START = getDebugFlag(270397209,
-            "PREEMPTIVE_UNFOLD_ANIMATION_START", DISABLED,
+            "PREEMPTIVE_UNFOLD_ANIMATION_START", ENABLED,
             "Enables starting the unfold animation preemptively when unfolding, without"
                     + "waiting for SystemUI and then merging the SystemUI progress whenever we "
                     + "start receiving the events");
 
     // TODO(Block 23): Clean up flags
     public static final BooleanFlag ENABLE_GRID_ONLY_OVERVIEW = getDebugFlag(270397206,
-            "ENABLE_GRID_ONLY_OVERVIEW", DISABLED,
+            "ENABLE_GRID_ONLY_OVERVIEW", TEAMFOOD,
             "Enable a grid-only overview without a focused task.");
 
     public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
-            "ENABLE_CURSOR_HOVER_STATES", ENABLED,
+            "ENABLE_CURSOR_HOVER_STATES", TEAMFOOD,
             "Enables cursor hover states for certain elements.");
 
     // TODO(Block 24): Clean up flags

@@ -50,16 +50,24 @@ class WorkspaceSpecsTest : AbstractDeviceProfileTest() {
                     "specType=HEIGHT, " +
                     "startPadding=SizeSpec(fixedSize=0.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "endPadding=SizeSpec(fixedSize=84.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "gutter=SizeSpec(fixedSize=42.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "cellSize=SizeSpec(fixedSize=0.0, " +
                     "ofAvailableSpace=0.15808, " +
-                    "ofRemainderSpace=0.0)" +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647)" +
                     ")"
             )
         assertThat(workspaceSpecs.workspaceHeightSpecList[1].toString())
@@ -69,16 +77,24 @@ class WorkspaceSpecsTest : AbstractDeviceProfileTest() {
                     "specType=HEIGHT, " +
                     "startPadding=SizeSpec(fixedSize=0.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "endPadding=SizeSpec(fixedSize=0.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=1.0), " +
+                    "ofRemainderSpace=1.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "gutter=SizeSpec(fixedSize=42.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "cellSize=SizeSpec(fixedSize=273.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0)" +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647)" +
                     ")"
             )
         assertThat(workspaceSpecs.workspaceHeightSpecList[2].toString())
@@ -88,16 +104,24 @@ class WorkspaceSpecsTest : AbstractDeviceProfileTest() {
                     "specType=HEIGHT, " +
                     "startPadding=SizeSpec(fixedSize=21.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "endPadding=SizeSpec(fixedSize=0.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=1.0), " +
+                    "ofRemainderSpace=1.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "gutter=SizeSpec(fixedSize=42.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "cellSize=SizeSpec(fixedSize=273.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0)" +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647)" +
                     ")"
             )
         assertThat(workspaceSpecs.workspaceWidthSpecList.size).isEqualTo(1)
@@ -108,16 +132,24 @@ class WorkspaceSpecsTest : AbstractDeviceProfileTest() {
                     "specType=WIDTH, " +
                     "startPadding=SizeSpec(fixedSize=58.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "endPadding=SizeSpec(fixedSize=58.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "gutter=SizeSpec(fixedSize=42.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.0), " +
+                    "ofRemainderSpace=0.0, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647), " +
                     "cellSize=SizeSpec(fixedSize=0.0, " +
                     "ofAvailableSpace=0.0, " +
-                    "ofRemainderSpace=0.25)" +
+                    "ofRemainderSpace=0.25, " +
+                    "matchWorkspace=false, " +
+                    "maxSize=2147483647)" +
                     ")"
             )
     }
@@ -135,5 +167,10 @@ class WorkspaceSpecsTest : AbstractDeviceProfileTest() {
     @Test(expected = IllegalStateException::class)
     fun parseInvalidFile_valueBiggerThan1_throwsError() {
         WorkspaceSpecs(TestResourceHelper(context!!, TestR.xml.invalid_workspace_file_case_3))
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun parseInvalidFile_matchWorkspace_true_throwsError() {
+        WorkspaceSpecs(TestResourceHelper(context!!, TestR.xml.invalid_workspace_file_case_4))
     }
 }

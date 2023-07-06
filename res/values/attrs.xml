@@ -36,7 +36,6 @@
     <attr name="workspaceShadowColor" format="color" />
     <attr name="workspaceAmbientShadowColor" format="color" />
     <attr name="workspaceKeyShadowColor" format="color" />
-    <attr name="workspaceStatusBarScrim" format="reference" />
     <attr name="widgetsTheme" format="reference" />
     <attr name="iconOnlyShortcutColor" format="color" />
     <attr name="eduHalfSheetBGColor" format="color" />
@@ -205,6 +204,14 @@
         <!-- File that contains the specs for the workspace.
         Needs FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE enabled -->
         <attr name="workspaceSpecsId" format="reference" />
+        <!-- File that contains the specs for all apps.
+        Needs FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE enabled -->
+        <attr name="allAppsSpecsId" format="reference" />
+
+        <!-- File that contains the specs for the workspace.
+        Needs FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE enabled -->
+        <attr name="folderSpecsId" format="reference" />
+
         <!-- By default all categories are enabled -->
         <attr name="deviceCategory" format="integer">
             <!-- Enable on phone only -->
@@ -252,10 +259,22 @@
         <attr name="maxAvailableSize" format="dimension" />
     </declare-styleable>
 
-    <declare-styleable name="SpecSize">
+    <declare-styleable name="SizeSpec">
         <attr name="fixedSize" format="dimension" />
         <attr name="ofAvailableSpace" format="float" />
         <attr name="ofRemainderSpace" format="float" />
+        <attr name="matchWorkspace" format="boolean" />
+        <attr name="maxSize" format="dimension" />
+    </declare-styleable>
+
+    <declare-styleable name="FolderSpec">
+        <attr name="specType" />
+        <attr name="maxAvailableSize" />
+    </declare-styleable>
+
+    <declare-styleable name="AllAppsSpec">
+        <attr name="specType" />
+        <attr name="maxAvailableSize" />
     </declare-styleable>
 
     <declare-styleable name="ProfileDisplayOption">
@@ -563,5 +582,9 @@
         <attr name="sectionTitle" format="reference" />
         <!-- The icon drawable of a widget category. -->
         <attr name="sectionDrawable" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="ArrowTipView">
+        <attr name="arrowTipBackground" format="color" />
     </declare-styleable>
 </resources>

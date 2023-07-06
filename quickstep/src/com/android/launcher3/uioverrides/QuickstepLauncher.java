@@ -210,8 +210,6 @@ public class QuickstepLauncher extends Launcher {
     private QuickstepTransitionManager mAppTransitionManager;
     private OverviewActionsView mActionsView;
     private TISBindHelper mTISBindHelper;
-    private @Nullable TaskbarManager mTaskbarManager;
-    private @Nullable OverviewCommandHelper mOverviewCommandHelper;
     private @Nullable LauncherTaskbarUIController mTaskbarUIController;
     // Will be updated when dragging from taskbar.
     private @Nullable DragOptions mNextWorkspaceDragOptions = null;
@@ -471,13 +469,14 @@ public class QuickstepLauncher extends Launcher {
     public void onDestroy() {
         mAppTransitionManager.onActivityDestroyed();
         if (mUnfoldTransitionProgressProvider != null) {
+            if (FeatureFlags.RECEIVE_UNFOLD_EVENTS_FROM_SYSUI.get()) {
+                SystemUiProxy.INSTANCE.get(this).setUnfoldAnimationListener(null);
+            }
+
             mUnfoldTransitionProgressProvider.destroy();
         }
 
         mTISBindHelper.onDestroy();
-        if (mTaskbarManager != null) {
-            mTaskbarManager.clearActivity(this);
-        }
 
         if (mLauncherUnfoldAnimationController != null) {
             mLauncherUnfoldAnimationController.onDestroy();
@@ -520,7 +519,7 @@ public class QuickstepLauncher extends Launcher {
             }
             case QUICK_SWITCH_STATE_ORDINAL: {
                 RecentsView rv = getOverviewPanel();
-                TaskView tasktolaunch = rv.getTaskViewAt(0);
+                TaskView tasktolaunch = rv.getCurrentPageTaskView();
                 if (tasktolaunch != null) {
                     tasktolaunch.launchTask(success -> {
                         if (!success) {
@@ -616,9 +615,10 @@ public class QuickstepLauncher extends Launcher {
         mSplitSelectStateController.findLastActiveTaskAndRunCallback(
                 splitSelectSource.itemInfo.getComponentKey(),
                 foundTask -> {
-                    splitSelectSource.alreadyRunningTaskId = foundTask == null
-                            ? INVALID_TASK_ID
-                            : foundTask.key.id;
+                    boolean taskWasFound = foundTask != null;
+                    splitSelectSource.alreadyRunningTaskId = taskWasFound
+                            ? foundTask.key.id
+                            : INVALID_TASK_ID;
                     if (ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
                         startSplitToHome(splitSelectSource);
                     } else {
@@ -686,9 +686,9 @@ public class QuickstepLauncher extends Launcher {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-
-        if (mOverviewCommandHelper != null) {
-            mOverviewCommandHelper.clearPendingCommands();
+        OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
+        if (overviewCommandHelper != null) {
+            overviewCommandHelper.clearPendingCommands();
         }
     }
 
@@ -811,8 +811,9 @@ public class QuickstepLauncher extends Launcher {
     }
 
     private void onTaskbarInAppDisplayProgressUpdate(float progress, int flag) {
-        if (mTaskbarManager == null
-                || mTaskbarManager.getCurrentActivityContext() == null
+        TaskbarManager taskbarManager = mTISBindHelper.getTaskbarManager();
+        if (taskbarManager == null
+                || taskbarManager.getCurrentActivityContext() == null
                 || mTaskbarUIController == null) {
             return;
         }
@@ -884,11 +885,10 @@ public class QuickstepLauncher extends Launcher {
     }
 
     private void onTISConnected(TISBinder binder) {
-        mTaskbarManager = binder.getTaskbarManager();
-        if (mTaskbarManager != null) {
-            mTaskbarManager.setActivity(this);
+        TaskbarManager taskbarManager = mTISBindHelper.getTaskbarManager();
+        if (taskbarManager != null) {
+            taskbarManager.setActivity(this);
         }
-        mOverviewCommandHelper = binder.getOverviewCommandHelper();
     }
 
     @Override
@@ -1272,8 +1272,9 @@ public class QuickstepLauncher extends Launcher {
         Trace.instantForTrack(TRACE_TAG_APP, "QuickstepLauncher#DeviceProfileChanged",
                 getDeviceProfile().toSmallString());
         SystemUiProxy.INSTANCE.get(this).setLauncherAppIconSize(mDeviceProfile.iconSizePx);
-        if (mTaskbarManager != null) {
-            mTaskbarManager.debugWhyTaskbarNotDestroyed("QuickstepLauncher#onDeviceProfileChanged");
+        TaskbarManager taskbarManager = mTISBindHelper.getTaskbarManager();
+        if (taskbarManager != null) {
+            taskbarManager.debugWhyTaskbarNotDestroyed("QuickstepLauncher#onDeviceProfileChanged");
         }
     }
 
@@ -1295,13 +1296,20 @@ public class QuickstepLauncher extends Launcher {
                 groupTask.task1.key.id,
                 groupTask.task2.key.id,
                 SplitConfigurationOptions.STAGE_POSITION_TOP_OR_LEFT,
-                /* callback= */ success -> {},
+                /* callback= */ success -> mSplitSelectStateController.resetState(),
                 /* freezeTaskList= */ true,
                 groupTask.mSplitBounds == null
                         ? DEFAULT_SPLIT_RATIO
                         : groupTask.mSplitBounds.appsStackedVertically
                                 ? groupTask.mSplitBounds.topTaskPercent
                                 : groupTask.mSplitBounds.leftTaskPercent);
+    }
+
+    @Override
+    public boolean isCommandQueueEmpty() {
+        OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
+        return super.isCommandQueueEmpty()
+                && (overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty());
     }
 
     private static final class LauncherTaskViewController extends
