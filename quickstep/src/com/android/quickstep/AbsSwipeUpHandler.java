@@ -1525,6 +1525,20 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                 if (mSwipePipToHomeReleaseCheck != null) {
                     mSwipePipToHomeReleaseCheck.setCanRelease(false);
                 }
+
+                // grab a screenshot before the PipContentOverlay gets parented on top of the task
+                UI_HELPER_EXECUTOR.execute(() -> {
+                    mTaskSnapshot = mRecentsAnimationController.screenshotTask(
+                            mGestureState.getRunningTaskId());
+                });
+
+                // let SystemUi reparent the overlay leash as soon as possible
+                SystemUiProxy.INSTANCE.get(mContext).stopSwipePipToHome(
+                        mSwipePipToHomeAnimator.getTaskId(),
+                        mSwipePipToHomeAnimator.getComponentName(),
+                        mSwipePipToHomeAnimator.getDestinationBounds(),
+                        mSwipePipToHomeAnimator.getContentOverlay());
+
                 windowAnim = mSwipePipToHomeAnimators;
             } else {
                 mSwipePipToHomeAnimator = null;
@@ -2099,11 +2113,6 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
      */
     private void maybeFinishSwipePipToHome() {
         if (mIsSwipingPipToHome && mSwipePipToHomeAnimators[0] != null) {
-            SystemUiProxy.INSTANCE.get(mContext).stopSwipePipToHome(
-                    mSwipePipToHomeAnimator.getTaskId(),
-                    mSwipePipToHomeAnimator.getComponentName(),
-                    mSwipePipToHomeAnimator.getDestinationBounds(),
-                    mSwipePipToHomeAnimator.getContentOverlay());
             mRecentsAnimationController.setFinishTaskTransaction(
                     mSwipePipToHomeAnimator.getTaskId(),
                     mSwipePipToHomeAnimator.getFinishTransaction(),
