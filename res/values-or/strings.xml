@@ -99,7 +99,6 @@
     <string name="folder_renamed" msgid="1794088362165669656">"ଫୋଲ୍ଡରର ନାମ <xliff:g id="NAME">%1$s</xliff:g>କୁ ବଦଳାଗଲା"</string>
     <string name="folder_name_format_exact" msgid="8626242716117004803">"ଫୋଲ୍ଡର୍: <xliff:g id="NAME">%1$s</xliff:g>, <xliff:g id="SIZE">%2$d</xliff:g> ଆଇଟମଗୁଡ଼ିକ"</string>
     <string name="folder_name_format_overflow" msgid="4270108890534995199">"ଫୋଲ୍ଡର୍: <xliff:g id="NAME">%1$s</xliff:g>, <xliff:g id="SIZE">%2$d</xliff:g> କିମ୍ବା ଅଧିକ ଆଇଟମ୍"</string>
-    <string name="wallpaper_button_text" msgid="8404103075899945851">"ୱାଲପେପର୍‌"</string>
     <string name="styles_wallpaper_button_text" msgid="8216961355289236794">"ୱାଲପେପର ଏବଂ ଷ୍ଟାଇଲ"</string>
     <string name="edit_home_screen" msgid="8947858375782098427">"ହୋମ ସ୍କ୍ରିନକୁ ଏଡିଟ କରନ୍ତୁ"</string>
     <string name="settings_button_text" msgid="8873672322605444408">"ହୋମ ସେଟିଂସ"</string>

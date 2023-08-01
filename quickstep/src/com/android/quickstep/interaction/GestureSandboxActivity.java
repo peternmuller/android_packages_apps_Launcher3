@@ -64,7 +64,6 @@ public class GestureSandboxActivity extends FragmentActivity {
 
     private View mRotationPrompt;
     private TISBindHelper mTISBindHelper;
-    private TISBinder mBinder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -321,7 +320,6 @@ public class GestureSandboxActivity extends FragmentActivity {
     }
 
     private void onTISConnected(TISBinder binder) {
-        mBinder = binder;
         updateServiceState(isResumed());
     }
 
@@ -332,8 +330,9 @@ public class GestureSandboxActivity extends FragmentActivity {
     }
 
     private void updateServiceState(boolean isEnabled) {
-        if (mBinder != null) {
-            mBinder.setGestureBlockedTaskId(isEnabled ? getTaskId() : -1);
+        TISBinder binder = mTISBindHelper.getBinder();
+        if (binder != null) {
+            binder.setGestureBlockedTaskId(isEnabled ? getTaskId() : -1);
         }
     }
 

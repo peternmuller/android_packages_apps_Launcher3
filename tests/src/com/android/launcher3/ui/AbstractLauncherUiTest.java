@@ -49,11 +49,8 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
 
 import com.android.launcher3.Launcher;
-import com.android.launcher3.LauncherAppState;
-import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.Utilities;
-import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.statemanager.StateManager;
 import com.android.launcher3.tapl.HomeAllApps;
 import com.android.launcher3.tapl.HomeAppIcon;
@@ -64,14 +61,15 @@ import com.android.launcher3.testcomponent.TestCommandReceiver;
 import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.LooperExecutor;
 import com.android.launcher3.util.SimpleBroadcastReceiver;
+import com.android.launcher3.util.TestUtil;
 import com.android.launcher3.util.Wait;
-import com.android.launcher3.util.WidgetUtils;
 import com.android.launcher3.util.rule.FailureWatcher;
 import com.android.launcher3.util.rule.LauncherActivityRule;
 import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
 import com.android.launcher3.util.rule.ShellCommandRule;
 import com.android.launcher3.util.rule.TestStabilityRule;
+import com.android.launcher3.util.rule.ViewCaptureAnalysisRule;
 import com.android.launcher3.util.rule.ViewCaptureRule;
 
 import org.junit.After;
@@ -98,7 +96,7 @@ public abstract class AbstractLauncherUiTest {
     public static final long DEFAULT_ACTIVITY_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
     public static final long DEFAULT_BROADCAST_TIMEOUT_SECS = 5;
 
-    public static final long DEFAULT_UI_TIMEOUT = 10000;
+    public static final long DEFAULT_UI_TIMEOUT = TestUtil.DEFAULT_UI_TIMEOUT;
     private static final String TAG = "AbstractLauncherUiTest";
 
     private static boolean sDumpWasGenerated = false;
@@ -206,11 +204,12 @@ public abstract class AbstractLauncherUiTest {
     }
 
     protected TestRule getRulesInsideActivityMonitor() {
-        final ViewCaptureRule viewCaptureRule = new ViewCaptureRule();
+        final ViewCaptureRule viewCaptureRule = new ViewCaptureRule(mActivityMonitor::getActivity);
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
+                .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
                 .around(viewCaptureRule)
-                .around(new FailureWatcher(mDevice, mLauncher, viewCaptureRule.getViewCapture()));
+                .around(new ViewCaptureAnalysisRule(viewCaptureRule.getViewCapture()));
 
         return TestHelpers.isInLauncherProcess()
                 ? RuleChain.outerRule(ShellCommandRule.setDefaultLauncher()).around(inner)
@@ -295,40 +294,6 @@ public abstract class AbstractLauncherUiTest {
 
     protected void clearLauncherData() {
         mLauncher.clearLauncherData();
-        mLauncher.waitForLauncherInitialized();
-    }
-
-    /**
-     * Removes all icons from homescreen and hotseat.
-     */
-    public void clearHomescreen() {
-        LauncherSettings.Settings.call(mTargetContext.getContentResolver(),
-                LauncherSettings.Settings.METHOD_CREATE_EMPTY_DB);
-        LauncherSettings.Settings.call(mTargetContext.getContentResolver(),
-                LauncherSettings.Settings.METHOD_CLEAR_EMPTY_DB_FLAG);
-        resetLoaderState();
-    }
-
-    protected void resetLoaderState() {
-        try {
-            mMainThreadExecutor.execute(
-                    () -> LauncherAppState.getInstance(
-                            mTargetContext).getModel().forceReload());
-        } catch (Throwable t) {
-            throw new IllegalArgumentException(t);
-        }
-        mLauncher.waitForLauncherInitialized();
-    }
-
-    /**
-     * Adds {@param item} on the homescreen on the 0th screen
-     */
-    public void addItemToScreen(ItemInfo item) {
-        WidgetUtils.addItemToScreen(item, mTargetContext);
-        resetLoaderState();
-
-        // Launch the home activity
-        mDevice.pressHome();
         mLauncher.waitForLauncherInitialized();
     }
 

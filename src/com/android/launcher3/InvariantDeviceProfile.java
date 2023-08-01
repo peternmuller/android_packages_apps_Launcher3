@@ -18,7 +18,6 @@ package com.android.launcher3;
 
 import static com.android.launcher3.LauncherPrefs.GRID_NAME;
 import static com.android.launcher3.Utilities.dpiFromPx;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_TWO_PANEL_HOME;
 import static com.android.launcher3.testing.shared.ResourceUtils.INVALID_RESOURCE_HANDLE;
 import static com.android.launcher3.util.DisplayController.CHANGE_DENSITY;
 import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
@@ -180,6 +179,10 @@ public class InvariantDeviceProfile {
     public int devicePaddingId = INVALID_RESOURCE_HANDLE;
     @XmlRes
     public int workspaceSpecsId = INVALID_RESOURCE_HANDLE;
+    @XmlRes
+    public int allAppsSpecsId = INVALID_RESOURCE_HANDLE;
+    @XmlRes
+    public int folderSpecsId = INVALID_RESOURCE_HANDLE;
 
     public String dbFile;
     public int defaultLayoutId;
@@ -302,7 +305,7 @@ public class InvariantDeviceProfile {
         int type = displayInfo.supportedBounds.stream()
                 .mapToInt(bounds -> displayInfo.isTablet(bounds) ? flagTablet : flagPhone)
                 .reduce(0, (a, b) -> a | b);
-        if ((type == (flagPhone | flagTablet)) && ENABLE_TWO_PANEL_HOME.get()) {
+        if ((type == (flagPhone | flagTablet))) {
             // device has profiles supporting both phone and table modes
             return TYPE_MULTI_DISPLAY;
         } else if (type == flagTablet) {
@@ -354,6 +357,8 @@ public class InvariantDeviceProfile {
         isScalable = closestProfile.isScalable;
         devicePaddingId = closestProfile.devicePaddingId;
         workspaceSpecsId = closestProfile.mWorkspaceSpecsId;
+        allAppsSpecsId = closestProfile.mAllAppsSpecsId;
+        folderSpecsId = closestProfile.mFolderSpecsId;
         this.deviceType = deviceType;
 
         inlineNavButtonsEndSpacing = closestProfile.inlineNavButtonsEndSpacing;
@@ -800,6 +805,8 @@ public class InvariantDeviceProfile {
         private final boolean isScalable;
         private final int devicePaddingId;
         private final int mWorkspaceSpecsId;
+        private final int mAllAppsSpecsId;
+        private final int mFolderSpecsId;
 
         public GridOption(Context context, AttributeSet attrs) {
             TypedArray a = context.obtainStyledAttributes(
@@ -864,8 +871,14 @@ public class InvariantDeviceProfile {
             if (FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE.get()) {
                 mWorkspaceSpecsId = a.getResourceId(
                         R.styleable.GridDisplayOption_workspaceSpecsId, INVALID_RESOURCE_HANDLE);
+                mAllAppsSpecsId = a.getResourceId(
+                        R.styleable.GridDisplayOption_allAppsSpecsId, INVALID_RESOURCE_HANDLE);
+                mFolderSpecsId = a.getResourceId(
+                        R.styleable.GridDisplayOption_folderSpecsId, INVALID_RESOURCE_HANDLE);
             } else {
                 mWorkspaceSpecsId = INVALID_RESOURCE_HANDLE;
+                mAllAppsSpecsId = INVALID_RESOURCE_HANDLE;
+                mFolderSpecsId = INVALID_RESOURCE_HANDLE;
             }
 
             int inlineForRotation = a.getInt(R.styleable.GridDisplayOption_inlineQsb,

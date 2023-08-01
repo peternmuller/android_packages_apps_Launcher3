@@ -22,7 +22,6 @@ import static android.view.RemoteAnimationTarget.MODE_OPENING;
 import static com.android.launcher3.QuickstepTransitionManager.RECENTS_LAUNCH_DURATION;
 import static com.android.launcher3.QuickstepTransitionManager.STATUS_BAR_TRANSITION_DURATION;
 import static com.android.launcher3.QuickstepTransitionManager.STATUS_BAR_TRANSITION_PRE_DELAY;
-import static com.android.launcher3.graphics.SysUiScrim.SYSUI_PROGRESS;
 import static com.android.launcher3.testing.shared.TestProtocol.OVERVIEW_STATE_ORDINAL;
 import static com.android.quickstep.OverviewComponentObserver.startHomeIntentSafely;
 import static com.android.quickstep.TaskUtils.taskIsATargetWithMode;
@@ -107,7 +106,6 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
     private FallbackRecentsView mFallbackRecentsView;
     private OverviewActionsView mActionsView;
     private TISBindHelper mTISBindHelper;
-    private @Nullable TaskbarManager mTaskbarManager;
     private @Nullable FallbackTaskbarUIController mTaskbarUIController;
 
     private StateManager<RecentsState> mStateManager;
@@ -130,7 +128,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
         mScrimView = findViewById(R.id.scrim_view);
         mFallbackRecentsView = findViewById(R.id.overview_panel);
         mActionsView = findViewById(R.id.overview_actions_view);
-        SYSUI_PROGRESS.set(getRootView().getSysUiScrim(), 0f);
+        getRootView().getSysUiScrim().getSysUIProgress().updateValue(0);
 
         SplitSelectStateController controller =
                 new SplitSelectStateController(this, mHandler, getStateManager(),
@@ -143,9 +141,9 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
     }
 
     private void onTISConnected(TouchInteractionService.TISBinder binder) {
-        mTaskbarManager = binder.getTaskbarManager();
-        if (mTaskbarManager != null) {
-            mTaskbarManager.setActivity(this);
+        TaskbarManager taskbarManager = binder.getTaskbarManager();
+        if (taskbarManager != null) {
+            taskbarManager.setActivity(this);
         }
     }
 
@@ -386,9 +384,6 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
         mActivityLaunchAnimationRunner = null;
 
         mTISBindHelper.onDestroy();
-        if (mTaskbarManager != null) {
-            mTaskbarManager.clearActivity(this);
-        }
     }
 
     @Override
@@ -470,5 +465,12 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
                 mStateManager.reapplyState();
             }
         };
+    }
+
+    @Override
+    public boolean isCommandQueueEmpty() {
+        OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
+        return super.isCommandQueueEmpty()
+                && (overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty());
     }
 }
