@@ -120,7 +120,6 @@ import com.android.launcher3.model.WellbeingModel;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.popup.SystemShortcut;
 import com.android.launcher3.proxy.ProxyActivityStarter;
-import com.android.launcher3.proxy.StartActivityParams;
 import com.android.launcher3.statehandlers.DepthController;
 import com.android.launcher3.statehandlers.DesktopVisibilityController;
 import com.android.launcher3.statemanager.StateManager.AtomicAnimationFactory;
@@ -152,6 +151,7 @@ import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.util.SplitConfigurationOptions;
 import com.android.launcher3.util.SplitConfigurationOptions.SplitPositionOption;
 import com.android.launcher3.util.SplitConfigurationOptions.SplitSelectSource;
+import com.android.launcher3.util.StartActivityParams;
 import com.android.launcher3.util.TouchController;
 import com.android.launcher3.widget.LauncherWidgetHolder;
 import com.android.quickstep.OverviewCommandHelper;
@@ -1107,6 +1107,8 @@ public class QuickstepLauncher extends Launcher {
         activityOptions.options.setLaunchDisplayId(
                 (v != null && v.getDisplay() != null) ? v.getDisplay().getDisplayId()
                         : Display.DEFAULT_DISPLAY);
+        activityOptions.options.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         addLaunchCookie(item, activityOptions.options);
         return activityOptions;
     }
@@ -1119,6 +1121,8 @@ public class QuickstepLauncher extends Launcher {
                 Executors.MAIN_EXECUTOR.getHandler(), null,
                 elapsedRealTime -> callbacks.executeAllAndDestroy());
         options.setSplashScreenStyle(splashScreenStyle);
+        options.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         return new ActivityOptionsWrapper(options, callbacks);
     }
 
@@ -1307,11 +1311,9 @@ public class QuickstepLauncher extends Launcher {
                                 : groupTask.mSplitBounds.leftTaskPercent);
     }
 
-    @Override
     public boolean isCommandQueueEmpty() {
         OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
-        return super.isCommandQueueEmpty()
-                && (overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty());
+        return overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty();
     }
 
     private static final class LauncherTaskViewController extends

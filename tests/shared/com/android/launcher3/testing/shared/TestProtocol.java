@@ -110,6 +110,7 @@ public final class TestProtocol {
     public static final String REQUEST_GET_TEST_EVENTS = "get-test-events";
     public static final String REQUEST_GET_HAD_NONTEST_EVENTS = "get-had-nontest-events";
     public static final String REQUEST_STOP_EVENT_LOGGING = "stop-event-logging";
+    public static final String REQUEST_REINITIALIZE_DATA = "reinitialize-data";
     public static final String REQUEST_CLEAR_DATA = "clear-data";
     public static final String REQUEST_HOTSEAT_ICON_NAMES = "get-hotseat-icon-names";
     public static final String REQUEST_IS_TABLET = "is-tablet";
@@ -156,6 +157,7 @@ public final class TestProtocol {
     public static final String WORK_TAB_MISSING = "b/243688989";
     public static final String TWO_TASKBAR_LONG_CLICKS = "b/262282528";
     public static final String FLAKY_ACTIVITY_COUNT = "b/260260325";
+    public static final String ICON_MISSING = "b/282963545";
 
     public static final String REQUEST_EMULATE_DISPLAY = "emulate-display";
     public static final String REQUEST_STOP_EMULATE_DISPLAY = "stop-emulate-display";

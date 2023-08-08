@@ -275,6 +275,8 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
         activityOptions.options.setLaunchDisplayId(
                 (v != null && v.getDisplay() != null) ? v.getDisplay().getDisplayId()
                         : Display.DEFAULT_DISPLAY);
+        activityOptions.options.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         mHandler.postDelayed(mAnimationStartTimeoutRunnable, RECENTS_ANIMATION_TIMEOUT);
         return activityOptions;
     }
@@ -467,10 +469,8 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
         };
     }
 
-    @Override
     public boolean isCommandQueueEmpty() {
         OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
-        return super.isCommandQueueEmpty()
-                && (overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty());
+        return overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty();
     }
 }

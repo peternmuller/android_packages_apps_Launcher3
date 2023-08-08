@@ -24,6 +24,7 @@ import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_TYPE_MA
 
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
+import android.app.ActivityOptions;
 import android.app.Person;
 import android.app.WallpaperManager;
 import android.content.Context;
@@ -561,6 +562,17 @@ public final class Utilities {
     }
 
     /**
+     * Utility method to allow background activity launch for the provided activity options
+     */
+    public static ActivityOptions allowBGLaunch(ActivityOptions options) {
+        if (ATLEAST_U) {
+            options.setPendingIntentBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+        }
+        return options;
+    }
+
+    /**
      * Returns the full drawable for info without any flattening or pre-processing.
      *
      * @param shouldThemeIcon If true, will theme icons when applicable
@@ -569,12 +581,13 @@ public final class Utilities {
      */
     @TargetApi(Build.VERSION_CODES.TIRAMISU)
     public static Drawable getFullDrawable(Context context, ItemInfo info, int width, int height,
-            boolean shouldThemeIcon, Object[] outObj) {
+            boolean shouldThemeIcon, Object[] outObj, boolean[] outIsIconThemed) {
         Drawable icon = loadFullDrawableWithoutTheme(context, info, width, height, outObj);
         if (ATLEAST_T && icon instanceof AdaptiveIconDrawable && shouldThemeIcon) {
             AdaptiveIconDrawable aid = (AdaptiveIconDrawable) icon.mutate();
             Drawable mono = aid.getMonochrome();
             if (mono != null && Themes.isThemedIconEnabled(context)) {
+                outIsIconThemed[0] = true;
                 int[] colors = ThemedIconDrawable.getColors(context);
                 mono = mono.mutate();
                 mono.setTint(colors[1]);
@@ -635,7 +648,8 @@ public final class Utilities {
      * badge. When dragged from workspace or folder, it may contain app AND/OR work profile badge
      **/
     @TargetApi(Build.VERSION_CODES.O)
-    public static Drawable getBadge(Context context, ItemInfo info, Object obj) {
+    public static Drawable getBadge(Context context, ItemInfo info, Object obj,
+            boolean isIconThemed) {
         LauncherAppState appState = LauncherAppState.getInstance(context);
         if (info.itemType == LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT) {
             boolean iconBadged = (info instanceof ItemInfoWithIcon)
@@ -653,7 +667,8 @@ public final class Utilities {
         } else {
             return Process.myUserHandle().equals(info.user)
                     ? new ColorDrawable(Color.TRANSPARENT)
-                    : context.getDrawable(R.drawable.ic_work_app_badge);
+                    : context.getDrawable(isIconThemed
+                            ? R.drawable.ic_work_app_badge_themed : R.drawable.ic_work_app_badge);
         }
     }
 
