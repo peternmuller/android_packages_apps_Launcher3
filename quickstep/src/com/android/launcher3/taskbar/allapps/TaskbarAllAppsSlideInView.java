@@ -17,7 +17,6 @@ package com.android.launcher3.taskbar.allapps;
 
 import static com.android.app.animation.Interpolators.EMPHASIZED;
 
-import android.animation.PropertyValuesHolder;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
@@ -29,6 +28,7 @@ import android.window.OnBackInvokedDispatcher;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Insettable;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.AnimatorListeners;
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.taskbar.allapps.TaskbarAllAppsViewController.TaskbarAllAppsCallbacks;
 import com.android.launcher3.taskbar.overlay.TaskbarOverlayContext;
@@ -63,14 +63,16 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarOverla
         }
         mIsOpen = true;
         attachToContainer();
+        mAllAppsCallbacks.onAllAppsTransitionStart(true);
 
         if (animate) {
-            mOpenCloseAnimator.setValues(
-                    PropertyValuesHolder.ofFloat(TRANSLATION_SHIFT, TRANSLATION_SHIFT_OPENED));
-            mOpenCloseAnimator.setInterpolator(EMPHASIZED);
+            setUpOpenCloseAnimator(TRANSLATION_SHIFT_OPENED, EMPHASIZED);
+            mOpenCloseAnimator.addListener(AnimatorListeners.forEndCallback(
+                    () -> mAllAppsCallbacks.onAllAppsTransitionEnd(true)));
             mOpenCloseAnimator.setDuration(mAllAppsCallbacks.getOpenDuration()).start();
         } else {
             mTranslationShift = TRANSLATION_SHIFT_OPENED;
+            mAllAppsCallbacks.onAllAppsTransitionEnd(true);
         }
     }
 
@@ -81,7 +83,16 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarOverla
 
     @Override
     protected void handleClose(boolean animate) {
+        if (mIsOpen) {
+            mAllAppsCallbacks.onAllAppsTransitionStart(false);
+        }
         handleClose(animate, mAllAppsCallbacks.getCloseDuration());
+    }
+
+    @Override
+    protected void onCloseComplete() {
+        mAllAppsCallbacks.onAllAppsTransitionEnd(false);
+        super.onCloseComplete();
     }
 
     @Override
@@ -193,5 +204,12 @@ public class TaskbarAllAppsSlideInView extends AbstractSlideInView<TaskbarOverla
     @Override
     protected boolean isEventOverContent(MotionEvent ev) {
         return getPopupContainer().isEventOverView(mAppsView.getVisibleContainerView(), ev);
+    }
+
+    @Override
+    public void onBackInvoked() {
+        if (!mAllAppsCallbacks.handleSearchBackInvoked()) {
+            super.onBackInvoked();
+        }
     }
 }

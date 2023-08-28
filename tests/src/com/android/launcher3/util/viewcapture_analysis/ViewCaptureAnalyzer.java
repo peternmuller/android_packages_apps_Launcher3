@@ -40,6 +40,9 @@ public class ViewCaptureAnalyzer {
      * Detector of one kind of anomaly.
      */
     abstract static class AnomalyDetector {
+        // Index of this detector in ViewCaptureAnalyzer.ANOMALY_DETECTORS
+        public int detectorOrdinal;
+
         /**
          * Initializes fields of the node that are specific to the anomaly detected by this
          * detector.
@@ -58,15 +61,20 @@ public class ViewCaptureAnalyzer {
          *                the view is not present in the 'currentFrame', but was present in earlier
          *                frames.
          * @param frameN  number of the current frame.
+         * @return Anomaly diagnostic message if an anomaly has been detected; null otherwise.
          */
-        abstract void detectAnomalies(
+        abstract String detectAnomalies(
                 @Nullable AnalysisNode oldInfo, @Nullable AnalysisNode newInfo, int frameN);
     }
 
     // All detectors. They will be invoked in the order listed here.
-    private static final Iterable<AnomalyDetector> ANOMALY_DETECTORS = Arrays.asList(
+    private static final AnomalyDetector[] ANOMALY_DETECTORS = {
             new AlphaJumpDetector()
-    );
+    };
+
+    static {
+        for (int i = 0; i < ANOMALY_DETECTORS.length; ++i) ANOMALY_DETECTORS[i].detectorOrdinal = i;
+    }
 
     // A view from view capture data converted to a form that's convenient for detecting anomalies.
     static class AnalysisNode {
@@ -86,29 +94,39 @@ public class ViewCaptureAnalyzer {
         public int frameN;
         public ViewNode viewCaptureNode;
 
-        public boolean ignoreAlphaJumps;
+        // Class name + resource id
+        public String nodeIdentity;
+
+        // Collection of detector-specific data for this node.
+        public final Object[] detectorsData = new Object[ANOMALY_DETECTORS.length];
 
         @Override
         public String toString() {
-            return String.format("window coordinates: (%s, %s), class path from the root: %s",
-                    left, top, diagPathFromRoot(this));
+            return String.format("view window coordinates: (%s, %s)", left, top);
         }
     }
 
     /**
-     * Scans a view capture record and throws an error if an anomaly is found.
+     * Scans a view capture record and searches for view animation anomalies. Can find anomalies for
+     * multiple views.
+     * Returns a map from the view path to the anomaly message for the view. Non-empty map means
+     * that anomalies were detected.
      */
-    public static void assertNoAnomalies(ExportedData viewCaptureData) {
+    public static Map<String, String> getAnomalies(ExportedData viewCaptureData) {
+        final Map<String, String> anomalies = new HashMap<>();
+
         final int scrimClassIndex = viewCaptureData.getClassnameList().indexOf(SCRIM_VIEW_CLASS);
 
         final int windowDataCount = viewCaptureData.getWindowDataCount();
         for (int i = 0; i < windowDataCount; ++i) {
-            analyzeWindowData(viewCaptureData, viewCaptureData.getWindowData(i), scrimClassIndex);
+            analyzeWindowData(
+                    viewCaptureData, viewCaptureData.getWindowData(i), scrimClassIndex, anomalies);
         }
+        return anomalies;
     }
 
     private static void analyzeWindowData(ExportedData viewCaptureData, WindowData windowData,
-            int scrimClassIndex) {
+            int scrimClassIndex, Map<String, String> anomalies) {
         // View hash code => Last seen node with this hash code.
         // The view is added when we analyze the first frame where it's visible.
         // After that, it gets updated for every frame where it's visible.
@@ -117,12 +135,13 @@ public class ViewCaptureAnalyzer {
 
         for (int frameN = 0; frameN < windowData.getFrameDataCount(); ++frameN) {
             analyzeFrame(frameN, windowData.getFrameData(frameN), viewCaptureData, lastSeenNodes,
-                    scrimClassIndex);
+                    scrimClassIndex, anomalies);
         }
     }
 
     private static void analyzeFrame(int frameN, FrameData frame, ExportedData viewCaptureData,
-            Map<Integer, AnalysisNode> lastSeenNodes, int scrimClassIndex) {
+            Map<Integer, AnalysisNode> lastSeenNodes, int scrimClassIndex,
+            Map<String, String> anomalies) {
         // Analyze the node tree starting from the root.
         analyzeView(
                 frame.getNode(),
@@ -132,18 +151,23 @@ public class ViewCaptureAnalyzer {
                 /* topShift = */ 0,
                 viewCaptureData,
                 lastSeenNodes,
-                scrimClassIndex);
+                scrimClassIndex,
+                anomalies);
 
         // Analyze transitions when a view visible in the last frame become invisible in the
         // current one.
         for (AnalysisNode info : lastSeenNodes.values()) {
             if (info.frameN == frameN - 1) {
                 if (!info.viewCaptureNode.getWillNotDraw()) {
-                    ANOMALY_DETECTORS.forEach(
-                            detector -> detector.detectAnomalies(
-                                    /* oldInfo = */ info,
-                                    /* newInfo = */ null,
-                                    frameN));
+                    Arrays.stream(ANOMALY_DETECTORS).forEach(
+                            detector ->
+                                    detectAnomaly(
+                                            detector,
+                                            frameN,
+                                            /* oldInfo = */ info,
+                                            /* newInfo = */ null,
+                                            anomalies)
+                    );
                 }
             }
         }
@@ -151,7 +175,8 @@ public class ViewCaptureAnalyzer {
 
     private static void analyzeView(ViewNode viewCaptureNode, AnalysisNode parent, int frameN,
             float leftShift, float topShift, ExportedData viewCaptureData,
-            Map<Integer, AnalysisNode> lastSeenNodes, int scrimClassIndex) {
+            Map<Integer, AnalysisNode> lastSeenNodes, int scrimClassIndex,
+            Map<String, String> anomalies) {
         // Skip analysis of invisible views
         final float parentAlpha = parent != null ? parent.alpha : 1;
         final float alpha = getVisibleAlpha(viewCaptureNode, parentAlpha);
@@ -177,6 +202,8 @@ public class ViewCaptureAnalyzer {
         final AnalysisNode newAnalysisNode = new AnalysisNode();
         newAnalysisNode.className = viewCaptureData.getClassname(classIndex);
         newAnalysisNode.resourceId = viewCaptureNode.getId();
+        newAnalysisNode.nodeIdentity =
+                getNodeIdentity(newAnalysisNode.className, newAnalysisNode.resourceId);
         newAnalysisNode.parent = parent;
         newAnalysisNode.left = left;
         newAnalysisNode.top = top;
@@ -185,13 +212,17 @@ public class ViewCaptureAnalyzer {
         newAnalysisNode.alpha = alpha;
         newAnalysisNode.frameN = frameN;
         newAnalysisNode.viewCaptureNode = viewCaptureNode;
-        ANOMALY_DETECTORS.forEach(detector -> detector.initializeNode(newAnalysisNode));
+        Arrays.stream(ANOMALY_DETECTORS).forEach(
+                detector -> detector.initializeNode(newAnalysisNode));
 
         // Detect anomalies for the view
         final AnalysisNode oldAnalysisNode = lastSeenNodes.get(hashcode); // may be null
         if (frameN != 0 && !viewCaptureNode.getWillNotDraw()) {
-            ANOMALY_DETECTORS.forEach(
-                    detector -> detector.detectAnomalies(oldAnalysisNode, newAnalysisNode, frameN));
+            Arrays.stream(ANOMALY_DETECTORS).forEach(
+                    detector ->
+                            detectAnomaly(detector, frameN, oldAnalysisNode, newAnalysisNode,
+                                    anomalies)
+            );
         }
         lastSeenNodes.put(hashcode, newAnalysisNode);
 
@@ -206,8 +237,20 @@ public class ViewCaptureAnalyzer {
             if (child.getClassnameIndex() == scrimClassIndex) break;
 
             analyzeView(child, newAnalysisNode, frameN, leftShiftForChildren, topShiftForChildren,
-                    viewCaptureData, lastSeenNodes,
-                    scrimClassIndex);
+                    viewCaptureData, lastSeenNodes, scrimClassIndex, anomalies);
+        }
+    }
+
+    private static void detectAnomaly(AnomalyDetector detector, int frameN,
+            AnalysisNode oldAnalysisNode, AnalysisNode newAnalysisNode,
+            Map<String, String> anomalies) {
+        final String maybeAnomaly =
+                detector.detectAnomalies(oldAnalysisNode, newAnalysisNode, frameN);
+        if (maybeAnomaly != null) {
+            final String viewDiagPath = diagPathFromRoot(newAnalysisNode);
+            if (!anomalies.containsKey(viewDiagPath)) {
+                anomalies.put(viewDiagPath, maybeAnomaly);
+            }
         }
     }
 
@@ -221,18 +264,20 @@ public class ViewCaptureAnalyzer {
         return className.substring(className.lastIndexOf(".") + 1);
     }
 
-    static String diagPathFromRoot(AnalysisNode nodeBox) {
-        final StringBuilder path = new StringBuilder(diagPathElement(nodeBox));
-        for (AnalysisNode ancestor = nodeBox.parent; ancestor != null; ancestor = ancestor.parent) {
-            path.insert(0, diagPathElement(ancestor) + "|");
+    private static String diagPathFromRoot(AnalysisNode analysisNode) {
+        final StringBuilder path = new StringBuilder(analysisNode.nodeIdentity);
+        for (AnalysisNode ancestor = analysisNode.parent;
+                ancestor != null;
+                ancestor = ancestor.parent) {
+            path.insert(0, ancestor.nodeIdentity + "|");
         }
         return path.toString();
     }
 
-    private static String diagPathElement(AnalysisNode nodeBox) {
+    private static String getNodeIdentity(String className, String resourceId) {
         final StringBuilder sb = new StringBuilder();
-        sb.append(classNameToSimpleName(nodeBox.className));
-        if (!"NO_ID".equals(nodeBox.resourceId)) sb.append(":" + nodeBox.resourceId);
+        sb.append(classNameToSimpleName(className));
+        if (!"NO_ID".equals(resourceId)) sb.append(":" + resourceId);
         return sb.toString();
     }
 }

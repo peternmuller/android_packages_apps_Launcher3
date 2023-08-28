@@ -65,7 +65,6 @@ import com.android.launcher3.util.SimpleBroadcastReceiver;
 import com.android.launcher3.util.TestUtil;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.FailureWatcher;
-import com.android.launcher3.util.rule.LauncherActivityRule;
 import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
 import com.android.launcher3.util.rule.ShellCommandRule;
@@ -101,7 +100,7 @@ public abstract class AbstractLauncherUiTest {
 
     private static boolean sDumpWasGenerated = false;
     private static boolean sActivityLeakReported = false;
-    private static boolean sSeenKeygard = false;
+    private static boolean sSeenKeyguard = false;
 
     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
 
@@ -182,8 +181,6 @@ public abstract class AbstractLauncherUiTest {
         mLauncher.setOnLauncherCrashed(() -> mLauncherPid = 0);
     }
 
-    protected final LauncherActivityRule mActivityMonitor = new LauncherActivityRule();
-
     @Rule
     public ShellCommandRule mDisableHeadsUpNotification =
             ShellCommandRule.disableHeadsUpNotification();
@@ -204,7 +201,8 @@ public abstract class AbstractLauncherUiTest {
     }
 
     protected TestRule getRulesInsideActivityMonitor() {
-        final ViewCaptureRule viewCaptureRule = new ViewCaptureRule(mActivityMonitor::getActivity);
+        final ViewCaptureRule viewCaptureRule = new ViewCaptureRule(
+                Launcher.ACTIVITY_TRACKER::getCreatedActivity);
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
@@ -219,7 +217,6 @@ public abstract class AbstractLauncherUiTest {
     public TestRule mOrderSensitiveRules = RuleChain
             .outerRule(new SamplerRule())
             .around(new TestStabilityRule())
-            .around(mActivityMonitor)
             .around(getRulesInsideActivityMonitor());
 
     public UiDevice getDevice() {
@@ -264,9 +261,9 @@ public abstract class AbstractLauncherUiTest {
     }
 
     private static void verifyKeyguardInvisible() {
-        final boolean keyguardAlreadyVisible = sSeenKeygard;
+        final boolean keyguardAlreadyVisible = sSeenKeyguard;
 
-        sSeenKeygard = sSeenKeygard
+        sSeenKeyguard = sSeenKeyguard
                 || !TestHelpers.wait(
                 Until.gone(By.res(SYSTEMUI_PACKAGE, "keyguard_status_view")), 60000);
 
@@ -274,7 +271,7 @@ public abstract class AbstractLauncherUiTest {
                 "Keyguard is visible, which is likely caused by a crash in SysUI, seeing keyguard"
                         + " for the first time = "
                         + !keyguardAlreadyVisible,
-                sSeenKeygard);
+                sSeenKeyguard);
     }
 
     @After
@@ -322,7 +319,7 @@ public abstract class AbstractLauncherUiTest {
 
     protected <T> T getFromLauncher(Function<Launcher, T> f) {
         if (!TestHelpers.isInLauncherProcess()) return null;
-        return getOnUiThread(() -> f.apply(mActivityMonitor.getActivity()));
+        return getOnUiThread(() -> f.apply(Launcher.ACTIVITY_TRACKER.getCreatedActivity()));
     }
 
     protected void executeOnLauncher(Consumer<Launcher> f) {

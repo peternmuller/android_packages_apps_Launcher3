@@ -56,15 +56,15 @@ import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.responsive.AllAppsSpecs;
 import com.android.launcher3.responsive.CalculatedAllAppsSpec;
 import com.android.launcher3.responsive.CalculatedFolderSpec;
+import com.android.launcher3.responsive.CalculatedWorkspaceSpec;
 import com.android.launcher3.responsive.FolderSpecs;
+import com.android.launcher3.responsive.WorkspaceSpecs;
 import com.android.launcher3.uioverrides.ApiWrapper;
 import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.DisplayController.Info;
 import com.android.launcher3.util.IconSizeSteps;
 import com.android.launcher3.util.ResourceHelper;
 import com.android.launcher3.util.WindowBounds;
-import com.android.launcher3.workspace.CalculatedWorkspaceSpec;
-import com.android.launcher3.workspace.WorkspaceSpecs;
 
 import java.io.PrintWriter;
 import java.util.Locale;
@@ -115,13 +115,10 @@ public class DeviceProfile {
 
     // Responsive grid
     private final boolean mIsResponsiveGrid;
-    private WorkspaceSpecs mWorkspaceSpecs;
     private CalculatedWorkspaceSpec mResponsiveWidthSpec;
     private CalculatedWorkspaceSpec mResponsiveHeightSpec;
-    private AllAppsSpecs mAllAppsSpecs;
     private CalculatedAllAppsSpec mAllAppsResponsiveWidthSpec;
     private CalculatedAllAppsSpec mAllAppsResponsiveHeightSpec;
-    private FolderSpecs mFolderSpecs;
     private CalculatedFolderSpec mResponsiveFolderWidthSpec;
     private CalculatedFolderSpec mResponsiveFolderHeightSpec;
 
@@ -545,29 +542,35 @@ public class DeviceProfile {
         // Needs to be calculated after hotseatBarSizePx is correct,
         // for the available height to be correct
         if (mIsResponsiveGrid) {
-            mWorkspaceSpecs = new WorkspaceSpecs(new ResourceHelper(context, inv.workspaceSpecsId));
+            WorkspaceSpecs workspaceSpecs = WorkspaceSpecs.create(
+                    new ResourceHelper(context,
+                            isTwoPanels ? inv.workspaceSpecsTwoPanelId : inv.workspaceSpecsId));
             int availableResponsiveWidth =
                     availableWidthPx - (isVerticalBarLayout() ? hotseatBarSizePx : 0);
+            int numColumns = getPanelCount() * inv.numColumns;
             // don't use availableHeightPx because it subtracts bottom padding,
             // but the workspace go behind it
             int availableResponsiveHeight =
                     heightPx - mInsets.top - (isVerticalBarLayout() ? 0 : hotseatBarSizePx);
-            mResponsiveWidthSpec = mWorkspaceSpecs.getCalculatedWidthSpec(inv.numColumns,
+            mResponsiveWidthSpec = workspaceSpecs.getCalculatedWidthSpec(numColumns,
                     availableResponsiveWidth);
-            mResponsiveHeightSpec = mWorkspaceSpecs.getCalculatedHeightSpec(inv.numRows,
+            mResponsiveHeightSpec = workspaceSpecs.getCalculatedHeightSpec(inv.numRows,
                     availableResponsiveHeight);
 
-            mAllAppsSpecs = new AllAppsSpecs(new ResourceHelper(context, inv.allAppsSpecsId));
-            mAllAppsResponsiveWidthSpec = mAllAppsSpecs.getCalculatedWidthSpec(inv.numColumns,
+            AllAppsSpecs allAppsSpecs = AllAppsSpecs.create(
+                    new ResourceHelper(context,
+                            isTwoPanels ? inv.allAppsSpecsTwoPanelId : inv.allAppsSpecsId));
+            mAllAppsResponsiveWidthSpec = allAppsSpecs.getCalculatedWidthSpec(numColumns,
                     mResponsiveWidthSpec.getAvailableSpace(), mResponsiveWidthSpec);
-            mAllAppsResponsiveHeightSpec = mAllAppsSpecs.getCalculatedHeightSpec(inv.numRows,
-                    mResponsiveHeightSpec.getAvailableSpace(),
-                    mResponsiveHeightSpec);
+            mAllAppsResponsiveHeightSpec = allAppsSpecs.getCalculatedHeightSpec(inv.numRows,
+                    mResponsiveHeightSpec.getAvailableSpace(), mResponsiveHeightSpec);
 
-            mFolderSpecs = new FolderSpecs(new ResourceHelper(context, inv.folderSpecsId));
-            mResponsiveFolderWidthSpec = mFolderSpecs.getWidthSpec(inv.numFolderColumns,
+            FolderSpecs folderSpecs = FolderSpecs.create(
+                    new ResourceHelper(context,
+                            isTwoPanels ? inv.folderSpecsTwoPanelId : inv.folderSpecsId));
+            mResponsiveFolderWidthSpec = folderSpecs.getCalculatedWidthSpec(inv.numFolderColumns,
                     mResponsiveWidthSpec.getAvailableSpace(), mResponsiveWidthSpec);
-            mResponsiveFolderHeightSpec = mFolderSpecs.getHeightSpec(inv.numFolderRows,
+            mResponsiveFolderHeightSpec = folderSpecs.getCalculatedHeightSpec(inv.numFolderRows,
                     mResponsiveHeightSpec.getAvailableSpace(), mResponsiveHeightSpec);
         }
 
@@ -581,13 +584,11 @@ public class DeviceProfile {
         overviewTaskIconDrawableSizeGridPx =
                 res.getDimensionPixelSize(R.dimen.task_thumbnail_icon_drawable_size_grid);
         overviewTaskThumbnailTopMarginPx = overviewTaskIconSizePx + overviewTaskMarginPx;
-        // Don't add margin with floating search bar to minimize risk of overlapping.
-        overviewActionsTopMarginPx = FeatureFlags.ENABLE_FLOATING_SEARCH_BAR.get() ? 0
-                : res.getDimensionPixelSize(R.dimen.overview_actions_top_margin);
+        overviewActionsTopMarginPx = res.getDimensionPixelSize(R.dimen.overview_actions_top_margin);
         overviewPageSpacing = res.getDimensionPixelSize(R.dimen.overview_page_spacing);
         overviewActionsButtonSpacing = res.getDimensionPixelSize(
                 R.dimen.overview_actions_button_spacing);
-        overviewActionsHeight = res.getDimensionPixelSize(R.dimen.overview_actions_height);
+        overviewActionsHeight = res.getDimensionPixelSize(R.dimen.overview_actions_size);
         overviewRowSpacing = res.getDimensionPixelSize(R.dimen.overview_grid_row_spacing);
         overviewGridSideMargin = res.getDimensionPixelSize(R.dimen.overview_grid_side_margin);
 
@@ -884,6 +885,10 @@ public class DeviceProfile {
 
         updateIconSize(1f, res);
         updateWorkspacePadding();
+
+        if (mIsResponsiveGrid) {
+            return 0;
+        }
 
         // Check to see if the icons fit within the available height.
         float usedHeight = getCellLayoutHeightSpecification();
@@ -1206,7 +1211,6 @@ public class DeviceProfile {
         allAppsStyle.recycle();
     }
 
-    // TODO(b/288075868): Resize the icon size to make sure it will fit inside the cell size
     private void updateAvailableFolderCellDimensions(Resources res) {
         updateFolderCellSize(1f, res);
 
@@ -1255,7 +1259,7 @@ public class DeviceProfile {
             folderFooterHeightPx = mResponsiveFolderHeightSpec.getEndPaddingPx();
 
             folderCellLayoutBorderSpacePx = new Point(mResponsiveFolderWidthSpec.getGutterPx(),
-                    mResponsiveHeightSpec.getGutterPx());
+                    mResponsiveFolderHeightSpec.getGutterPx());
 
             folderContentPaddingLeftRight = mResponsiveFolderWidthSpec.getStartPaddingPx();
 

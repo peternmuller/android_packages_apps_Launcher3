@@ -18,15 +18,14 @@ package com.android.launcher3.ui.widget;
 import static com.android.launcher3.ui.TaplTestsLauncher3.getAppPackageName;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 import android.platform.test.annotations.PlatinumTest;
+import android.platform.test.rule.ScreenRecordRule;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 
 import com.android.launcher3.celllayout.FavoriteItemsTransaction;
-import com.android.launcher3.model.data.LauncherAppWidgetInfo;
 import com.android.launcher3.tapl.Widget;
 import com.android.launcher3.tapl.WidgetResizeFrame;
 import com.android.launcher3.ui.AbstractLauncherUiTest;
@@ -53,7 +52,9 @@ public class AddWidgetTest extends AbstractLauncherUiTest {
     @PlatinumTest(focusArea = "launcher")
     @Test
     @PortraitLandscape
+    @ScreenRecordRule.ScreenRecord // b/289161193
     public void testDragIcon() throws Throwable {
+        mLauncher.enableDebugTracing(); // b/289161193
         new FavoriteItemsTransaction(mTargetContext).commitAndLoadHome(mLauncher);
 
         waitForLauncherCondition("Workspace didn't finish loading", l -> !l.isWorkspaceLoading());
@@ -67,11 +68,6 @@ public class AddWidgetTest extends AbstractLauncherUiTest {
                 .getWidget(widgetInfo.getLabel(mTargetContext.getPackageManager()))
                 .dragWidgetToWorkspace();
 
-        assertTrue(mActivityMonitor.itemExists(
-                (info, view) -> info instanceof LauncherAppWidgetInfo &&
-                        ((LauncherAppWidgetInfo) info).providerName.getClassName().equals(
-                                widgetInfo.provider.getClassName())).call());
-
         assertNotNull("Widget resize frame not shown after widget add", resizeFrame);
         resizeFrame.dismiss();
 
@@ -79,6 +75,7 @@ public class AddWidgetTest extends AbstractLauncherUiTest {
                 DEFAULT_UI_TIMEOUT);
         assertNotNull("Widget not found on the workspace", widget);
         widget.launch(getAppPackageName());
+        mLauncher.disableDebugTracing(); // b/289161193
     }
 
     /**

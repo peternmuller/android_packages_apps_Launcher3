@@ -83,11 +83,11 @@ public final class FeatureFlags {
      */
     // TODO(Block 1): Clean up flags
     public static final BooleanFlag ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES = getReleaseFlag(
-            270394041, "ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES", DISABLED,
+            270394041, "ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES", TEAMFOOD,
             "Enable option to replace decorator-based search result backgrounds with drawables");
 
     public static final BooleanFlag ENABLE_SEARCH_RESULT_LAUNCH_TRANSITION = getReleaseFlag(
-            270394392, "ENABLE_SEARCH_RESULT_LAUNCH_TRANSITION", DISABLED,
+            270394392, "ENABLE_SEARCH_RESULT_LAUNCH_TRANSITION", TEAMFOOD,
             "Enable option to launch search results using the new view container transitions");
 
     // TODO(Block 2): Clean up flags
@@ -129,7 +129,7 @@ public final class FeatureFlags {
 
     // TODO(Block 5): Clean up flags
     public static final BooleanFlag ENABLE_TWOLINE_DEVICESEARCH = getDebugFlag(201388851,
-            "ENABLE_TWOLINE_DEVICESEARCH", TEAMFOOD,
+            "ENABLE_TWOLINE_DEVICESEARCH", ENABLED,
             "Enable two line label for icons with labels on device search.");
 
     public static final BooleanFlag ENABLE_ICON_IN_TEXT_HEADER = getDebugFlag(270395143,
@@ -182,6 +182,22 @@ public final class FeatureFlags {
             "ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION", DISABLED,
             "Enables predictive back animation from all apps and widgets to home");
 
+    // TODO(Block 11): Clean up flags
+    public static final BooleanFlag ENABLE_PARAMETRIZE_REORDER = getDebugFlag(289420844,
+            "ENABLE_PARAMETRIZE_REORDER", DISABLED,
+            "Enables generating the reorder using a set of parameters");
+
+    public static final BooleanFlag ENABLE_TWO_PANEL_HOME = getDebugFlag(270392643,
+            "ENABLE_TWO_PANEL_HOME", ENABLED,
+            "Uses two panel on home screen. Only applicable on large screen devices.");
+
+    public static final BooleanFlag FOLDABLE_WORKSPACE_REORDER = getDebugFlag(270395070,
+            "FOLDABLE_WORKSPACE_REORDER", DISABLED,
+            "In foldables, when reordering the icons and widgets, is now going to use both sides");
+
+    public static final BooleanFlag FOLDABLE_SINGLE_PAGE = getDebugFlag(270395274,
+            "FOLDABLE_SINGLE_PAGE", DISABLED, "Use a single page for the workspace");
+
     // TODO(Block 12): Clean up flags
     public static final BooleanFlag ENABLE_MULTI_INSTANCE = getDebugFlag(270396680,
             "ENABLE_MULTI_INSTANCE", DISABLED,
@@ -222,7 +238,7 @@ public final class FeatureFlags {
             "COLLECT_SEARCH_HISTORY", DISABLED, "Allow launcher to collect search history for log");
 
     public static final BooleanFlag ENABLE_TWOLINE_ALLAPPS = getDebugFlag(270390937,
-            "ENABLE_TWOLINE_ALLAPPS", TEAMFOOD, "Enables two line label inside all apps.");
+            "ENABLE_TWOLINE_ALLAPPS", ENABLED, "Enables two line label inside all apps.");
 
     public static final BooleanFlag IME_STICKY_SNACKBAR_EDU = getDebugFlag(270391693,
             "IME_STICKY_SNACKBAR_EDU", ENABLED, "Show sticky IME edu in AllApps");
@@ -250,11 +266,6 @@ public final class FeatureFlags {
                     + "taskbar flavors");
 
     // TODO(Block 18): Clean up flags
-    public static final BooleanFlag ENABLE_LAUNCH_FROM_STAGED_APP = getDebugFlag(270395567,
-            "ENABLE_LAUNCH_FROM_STAGED_APP", ENABLED,
-            "Enable the ability to tap a staged app during split select to launch it in full "
-                    + "screen");
-
     public static final BooleanFlag ENABLE_APP_PAIRS = getDebugFlag(274189428,
             "ENABLE_APP_PAIRS", DISABLED,
             "Enables the ability to create and save app pairs on the Home screen for easy"
@@ -358,16 +369,12 @@ public final class FeatureFlags {
             "Use inbuilt monochrome icons if app doesn't provide one");
 
     // TODO(Block 28): Clean up flags
-    public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE = getDebugFlag(270393906,
-            "ENABLE_SPLIT_FROM_WORKSPACE", ENABLED,
-            "Enable initiating split screen from workspace.");
-
     public static final BooleanFlag ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS =
             getDebugFlag(270394122, "ENABLE_SPLIT_FROM_FULLSCREEN_SHORTCUT", DISABLED,
                     "Enable splitting from fullscreen app with keyboard shortcuts");
 
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE = getDebugFlag(
-            270393453, "ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE", DISABLED,
+            270393453, "ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE", TEAMFOOD,
             "Enable initiating split screen from workspace to workspace.");
 
     public static final BooleanFlag ENABLE_TRACKPAD_GESTURE = getDebugFlag(271010401,
@@ -390,16 +397,24 @@ public final class FeatureFlags {
             "USE_SEARCH_REQUEST_TIMEOUT_OVERRIDES", DISABLED,
             "Use local overrides for search request timeout");
 
-    // TODO(Block 31)
-    public static final BooleanFlag ENABLE_SPLIT_LAUNCH_DATA_REFACTOR = getDebugFlag(279494325,
-            "ENABLE_SPLIT_LAUNCH_DATA_REFACTOR", ENABLED,
-            "Use refactored split launching code path");
+    // TODO(Block 31): Clean up flags
 
-    // TODO(Block 32): Empty block
-
+    // TODO(Block 32): Clean up flags
     public static final BooleanFlag ENABLE_RESPONSIVE_WORKSPACE = getDebugFlag(241386436,
             "ENABLE_RESPONSIVE_WORKSPACE", DISABLED,
             "Enables new workspace grid calculations method.");
+
+    // TODO(Block 33): Clean up flags
+    public static final BooleanFlag ENABLE_ALL_APPS_RV_PREINFLATION = getDebugFlag(288161355,
+            "ENABLE_ALL_APPS_RV_PREINFLATION", ENABLED,
+            "Enables preinflating all apps icons to avoid scrolling jank.");
+
+    // TODO(Block 34): Clean up flags
+    public static final BooleanFlag ALL_APPS_GONE_VISIBILITY = getDebugFlag(291651514,
+            "ALL_APPS_GONE_VISIBILITY", ENABLED,
+            "Set all apps container view's hidden visibility to GONE instead of INVISIBLE.");
+
+    // TODO(Block 35): Empty block
 
     public static class BooleanFlag {
 

@@ -20,9 +20,7 @@ import static android.app.admin.DevicePolicyManager.ACTION_DEVICE_POLICY_RESOURC
 
 import static com.android.launcher3.LauncherAppState.ACTION_FORCE_ROLOAD;
 import static com.android.launcher3.config.FeatureFlags.IS_STUDIO_BUILD;
-import static com.android.launcher3.testing.shared.TestProtocol.WORK_TAB_MISSING;
 import static com.android.launcher3.testing.shared.TestProtocol.sDebugTracing;
-import static com.android.launcher3.testing.shared.TestProtocol.testLogD;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
 
@@ -69,7 +67,6 @@ import com.android.launcher3.pm.InstallSessionTracker;
 import com.android.launcher3.pm.PackageInstallInfo;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.shortcuts.ShortcutRequest;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.ItemInfoMatcher;
 import com.android.launcher3.util.PackageUserKey;
@@ -104,6 +101,9 @@ public class LauncherModel extends LauncherApps.Callback implements InstallSessi
     @Nullable
     private LoaderTask mLoaderTask;
     private boolean mIsLoaderTaskRunning;
+
+    // only allow this once per reboot to reload work apps
+    private boolean mShouldReloadWorkProfile = true;
 
     // Indicates whether the current model data is valid or not.
     // We start off with everything not loaded. After that, we assume that
@@ -310,23 +310,20 @@ public class LauncherModel extends LauncherApps.Callback implements InstallSessi
      * @see UserCache#addUserEventListener
      */
     public void onUserEvent(UserHandle user, String action) {
-        if (TestProtocol.sDebugTracing) {
-            Log.d(TestProtocol.WORK_TAB_MISSING, "onBroadcastIntent intentAction: "
-                    + action + " user: " + user);
-        }
-
         if (Intent.ACTION_MANAGED_PROFILE_AVAILABLE.equals(action)
+                && mShouldReloadWorkProfile) {
+            mShouldReloadWorkProfile = false;
+            forceReload();
+        } else if (Intent.ACTION_MANAGED_PROFILE_AVAILABLE.equals(action)
                 || Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE.equals(action)) {
+            mShouldReloadWorkProfile = false;
             enqueueModelUpdateTask(new PackageUpdatedTask(
                     PackageUpdatedTask.OP_USER_AVAILABILITY_CHANGE, user));
-        }
-
-        if (UserCache.ACTION_PROFILE_LOCKED.equals(action)
+        } else if (UserCache.ACTION_PROFILE_LOCKED.equals(action)
                 || UserCache.ACTION_PROFILE_UNLOCKED.equals(action)) {
             enqueueModelUpdateTask(new UserLockStateChangedTask(
                     user, UserCache.ACTION_PROFILE_UNLOCKED.equals(action)));
-        }
-        if (UserCache.ACTION_PROFILE_ADDED.equals(action)
+        } else if (UserCache.ACTION_PROFILE_ADDED.equals(action)
                 || UserCache.ACTION_PROFILE_REMOVED.equals(action)) {
             forceReload();
         }
@@ -562,7 +559,6 @@ public class LauncherModel extends LauncherApps.Callback implements InstallSessi
             synchronized (mLock) {
                 // Everything loaded bind the data.
                 mModelLoaded = true;
-                testLogD(WORK_TAB_MISSING, "launcher model loaded");
             }
         }
 

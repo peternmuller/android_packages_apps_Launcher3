@@ -194,6 +194,7 @@ import com.android.launcher3.states.RotationHelper;
 import com.android.launcher3.testing.TestLogging;
 import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.touch.AllAppsSwipeController;
+import com.android.launcher3.touch.ItemLongClickListener;
 import com.android.launcher3.uioverrides.plugins.PluginManagerWrapper;
 import com.android.launcher3.util.ActivityResultInfo;
 import com.android.launcher3.util.ActivityTracker;
@@ -1391,9 +1392,10 @@ public class Launcher extends StatefulActivity<LauncherState>
      * @param info   The data structure describing the shortcut.
      * @return A View inflated from layoutResId.
      */
-    public View createShortcut(ViewGroup parent, WorkspaceItemInfo info) {
-        BubbleTextView favorite = (BubbleTextView) LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.app_icon, parent, false);
+    public View createShortcut(@Nullable ViewGroup parent, WorkspaceItemInfo info) {
+        BubbleTextView favorite =
+                (BubbleTextView) LayoutInflater.from(parent != null ? parent.getContext() : this)
+                        .inflate(R.layout.app_icon, parent, false);
         favorite.applyFromWorkspaceItem(info);
         favorite.setOnClickListener(getItemOnClickListener());
         favorite.setOnFocusChangeListener(mFocusHandler);
@@ -1661,7 +1663,8 @@ public class Launcher extends StatefulActivity<LauncherState>
         if (isActionMain) {
             if (!internalStateHandled) {
                 // In all these cases, only animate if we're already on home
-                closeOpenViews(isStarted());
+                AbstractFloatingView.closeAllOpenViewsExcept(
+                        this, isStarted(), AbstractFloatingView.TYPE_LISTENER);
 
                 if (!isInState(NORMAL)) {
                     // Only change state, if not already the same. This prevents cancelling any
@@ -1682,6 +1685,9 @@ public class Launcher extends StatefulActivity<LauncherState>
             if (mLauncherCallbacks != null) {
                 mLauncherCallbacks.onHomeIntent(internalStateHandled);
             }
+            if (FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
+                handleSplitAnimationGoingToHome();
+            }
             mOverlayManager.hideOverlay(isStarted() && !isForceInvisible());
             handleGestureContract(intent);
         } else if (Intent.ACTION_ALL_APPS.equals(intent.getAction())) {
@@ -1693,6 +1699,11 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         TraceHelper.INSTANCE.endSection();
+    }
+
+    /** Handle animating away split placeholder view when user taps on home button */
+    protected void handleSplitAnimationGoingToHome() {
+        // Overridden
     }
 
     protected void toggleAllAppsFromIntent(boolean alreadyOnHome) {
@@ -2175,6 +2186,8 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     /**
      * Returns the CellLayout of the specified container at the specified screen.
+     *
+     * @param screenId must be presenterPos and not modelPos.
      */
     public CellLayout getCellLayout(int container, int screenId) {
         return (container == LauncherSettings.Favorites.CONTAINER_HOTSEAT)
@@ -2960,7 +2973,7 @@ public class Launcher extends StatefulActivity<LauncherState>
             Map<PackageUserKey, Integer> packageUserKeytoUidMap) {
         Preconditions.assertUIThread();
         boolean hadWorkApps = mAppsView.shouldShowTabs();
-        AllAppsStore appsStore = mAppsView.getAppsStore();
+        AllAppsStore<Launcher> appsStore = mAppsView.getAppsStore();
         appsStore.setApps(apps, flags, packageUserKeytoUidMap);
         PopupContainerWithArrow.dismissInvalidPopup(this);
         if (hadWorkApps != mAppsView.shouldShowTabs()) {
@@ -3371,5 +3384,10 @@ public class Launcher extends StatefulActivity<LauncherState>
      */
     public boolean areFreeformTasksVisible() {
         return false; // Base launcher does not track freeform tasks
+    }
+
+    @Override
+    public View.OnLongClickListener getAllAppsItemLongClickListener() {
+        return ItemLongClickListener.INSTANCE_ALL_APPS;
     }
 }

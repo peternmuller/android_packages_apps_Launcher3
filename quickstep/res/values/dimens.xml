@@ -38,6 +38,8 @@
     <dimen name="task_thumbnail_icon_size">48dp</dimen>
     <!--  The icon size for the focused task, placed in center of touch target  -->
     <dimen name="task_thumbnail_icon_drawable_size">44dp</dimen>
+    <!--  The border width shown when task is hovered  -->
+    <dimen name="task_hover_border_width">4dp</dimen>
     <!--  The space under the focused task icon  -->
     <dimen name="overview_task_margin">16dp</dimen>
     <!--  The horizontal space between tasks  -->
@@ -48,8 +50,10 @@
 
     <!-- Overrideable in overlay that provides the Overview Actions. -->
     <dimen name="overview_actions_top_margin">24dp</dimen>
-    <dimen name="overview_actions_height">48dp</dimen>
+    <dimen name="overview_actions_size">60dp</dimen>
     <dimen name="overview_actions_button_spacing">36dp</dimen>
+    <!-- 12dp + 156dp floating search pill width (note this is in addition to normal 36dp) -->
+    <dimen name="overview_actions_additional_floating_search_spacing">168dp</dimen>
 
     <!-- These speeds are in dp/s -->
     <dimen name="max_task_dismiss_drag_velocity">2.25dp</dimen>
@@ -359,6 +363,7 @@
     <dimen name="bubblebar_stashed_size">@dimen/transient_taskbar_stashed_height</dimen>
     <dimen name="bubblebar_stashed_handle_height">@dimen/taskbar_stashed_handle_height</dimen>
     <dimen name="bubblebar_pointer_size">8dp</dimen>
+    <dimen name="bubblebar_elevation">1dp</dimen>
 
     <dimen name="bubblebar_icon_size">50dp</dimen>
     <dimen name="bubblebar_badge_size">24dp</dimen>
@@ -366,6 +371,13 @@
     <dimen name="bubblebar_overflow_inset">24dp</dimen>
     <dimen name="bubblebar_icon_spacing">3dp</dimen>
     <dimen name="bubblebar_icon_elevation">1dp</dimen>
+
+    <!-- Bubble bar dismiss view -->
+    <dimen name="bubblebar_dismiss_target_size">96dp</dimen>
+    <dimen name="bubblebar_dismiss_target_small_size">60dp</dimen>
+    <dimen name="bubblebar_dismiss_target_icon_size">24dp</dimen>
+    <dimen name="bubblebar_dismiss_target_bottom_margin">50dp</dimen>
+    <dimen name="bubblebar_dismiss_floating_gradient_height">548dp</dimen>
 
     <!-- Launcher splash screen -->
     <!-- Note: keep this value in sync with the WindowManager/Shell dimens.xml -->

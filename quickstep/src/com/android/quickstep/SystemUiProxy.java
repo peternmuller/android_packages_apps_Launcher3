@@ -19,6 +19,7 @@ import static android.app.ActivityManager.RECENT_IGNORE_UNAVAILABLE;
 
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
+import static com.android.quickstep.util.LogUtils.splitFailureMessage;
 
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
@@ -645,16 +646,43 @@ public class SystemUiProxy implements ISystemUiProxy {
     /**
      * Tells SysUI to show the bubble with the provided key.
      * @param key the key of the bubble to show.
-     * @param onLauncherHome whether the bubble is showing on launcher home or not (modifies where
-     *                       the expanded bubble view is placed).
+     * @param bubbleBarOffsetX the offset of the bubble bar from the edge of the screen on the X
+     *                         axis.
+     * @param bubbleBarOffsetY the offset of the bubble bar from the edge of the screen on the Y
+     *                         axis.
      */
-    public void showBubble(String key, boolean onLauncherHome) {
+    public void showBubble(String key, int bubbleBarOffsetX, int bubbleBarOffsetY) {
         if (mBubbles != null) {
             try {
-                mBubbles.showBubble(key, onLauncherHome);
+                mBubbles.showBubble(key, bubbleBarOffsetX, bubbleBarOffsetY);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call showBubble");
             }
+        }
+    }
+
+    /**
+     * Tells SysUI to remove the bubble with the provided key.
+     * @param key the key of the bubble to show.
+     */
+    public void removeBubble(String key) {
+        if (mBubbles == null) return;
+        try {
+            mBubbles.removeBubble(key);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed call removeBubble");
+        }
+    }
+
+    /**
+     * Tells SysUI to remove all bubbles.
+     */
+    public void removeAllBubbles() {
+        if (mBubbles == null) return;
+        try {
+            mBubbles.removeAllBubbles();
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed call removeAllBubbles");
         }
     }
 
@@ -668,6 +696,21 @@ public class SystemUiProxy implements ISystemUiProxy {
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call collapseBubbles");
             }
+        }
+    }
+
+    /**
+     * Tells SysUI when the bubble is being dragged.
+     * Should be called only when the bubble bar is expanded.
+     * @param bubbleKey the key of the bubble to collapse/expand
+     * @param isBeingDragged whether the bubble is being dragged
+     */
+    public void onBubbleDrag(@Nullable String bubbleKey, boolean isBeingDragged) {
+        if (mBubbles == null) return;
+        try {
+            mBubbles.onBubbleDrag(bubbleKey, isBeingDragged);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed call onBubbleDrag");
         }
     }
 
@@ -706,7 +749,7 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startTasks(taskId1, options1, taskId2, options2, splitPosition,
                         splitRatio, remoteTransition, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startTasks");
+                Log.w(TAG, splitFailureMessage("startTasks", "RemoteException"), e);
             }
         }
     }
@@ -719,7 +762,7 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startIntentAndTask(pendingIntent, userId1, options1, taskId, options2,
                         splitPosition, splitRatio, remoteTransition, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startIntentAndTask");
+                Log.w(TAG, splitFailureMessage("startIntentAndTask", "RemoteException"), e);
             }
         }
     }
@@ -735,7 +778,7 @@ public class SystemUiProxy implements ISystemUiProxy {
                         pendingIntent2, userId2, shortcutInfo2, options2, splitPosition, splitRatio,
                         remoteTransition, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startIntents");
+                Log.w(TAG, splitFailureMessage("startIntents", "RemoteException"), e);
             }
         }
     }
@@ -748,7 +791,7 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startShortcutAndTask(shortcutInfo, options1, taskId, options2,
                         splitPosition, splitRatio, remoteTransition, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startShortcutAndTask");
+                Log.w(TAG, splitFailureMessage("startShortcutAndTask", "RemoteException"), e);
             }
         }
     }
@@ -764,7 +807,8 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startTasksWithLegacyTransition(taskId1, options1, taskId2, options2,
                         splitPosition, splitRatio, adapter, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startTasksWithLegacyTransition");
+                Log.w(TAG, splitFailureMessage(
+                        "startTasksWithLegacyTransition", "RemoteException"), e);
             }
         }
     }
@@ -778,7 +822,8 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startIntentAndTaskWithLegacyTransition(pendingIntent, userId1,
                         options1, taskId, options2, splitPosition, splitRatio, adapter, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startIntentAndTaskWithLegacyTransition");
+                Log.w(TAG, splitFailureMessage(
+                        "startIntentAndTaskWithLegacyTransition", "RemoteException"), e);
             }
         }
     }
@@ -791,7 +836,8 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startShortcutAndTaskWithLegacyTransition(shortcutInfo, options1,
                         taskId, options2, splitPosition, splitRatio, adapter, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startShortcutAndTaskWithLegacyTransition");
+                Log.w(TAG, splitFailureMessage(
+                        "startShortcutAndTaskWithLegacyTransition", "RemoteException"), e);
             }
         }
     }
@@ -811,7 +857,8 @@ public class SystemUiProxy implements ISystemUiProxy {
                         shortcutInfo1, options1, pendingIntent2, userId2, shortcutInfo2, options2,
                         sidePosition, splitRatio, adapter, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startIntentsWithLegacyTransition");
+                Log.w(TAG, splitFailureMessage(
+                        "startIntentsWithLegacyTransition", "RemoteException"), e);
             }
         }
     }
@@ -823,7 +870,7 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startShortcut(packageName, shortcutId, position, options,
                         user, instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startShortcut");
+                Log.w(TAG, splitFailureMessage("startShortcut", "RemoteException"), e);
             }
         }
     }
@@ -835,7 +882,7 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSplitScreen.startIntent(intent, userId, fillInIntent, position, options,
                         instanceId);
             } catch (RemoteException e) {
-                Log.w(TAG, "Failed call startIntent");
+                Log.w(TAG, splitFailureMessage("startIntent", "RemoteException"), e);
             }
         }
     }

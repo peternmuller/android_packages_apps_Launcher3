@@ -16,6 +16,7 @@
 
 package com.android.quickstep;
 
+import static com.android.launcher3.testing.shared.TestProtocol.FLAKY_QUICK_SWITCH_TO_PREVIOUS_APP;
 import static com.android.launcher3.ui.TaplTestsLauncher3.getAppPackageName;
 import static com.android.quickstep.TaskbarModeSwitchRule.Mode.PERSISTENT;
 
@@ -27,6 +28,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Intent;
 import android.platform.test.annotations.PlatinumTest;
+import android.util.Log;
 
 import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -42,8 +44,10 @@ import com.android.launcher3.tapl.LauncherInstrumentation.NavigationModel;
 import com.android.launcher3.tapl.Overview;
 import com.android.launcher3.tapl.OverviewActions;
 import com.android.launcher3.tapl.OverviewTask;
+import com.android.launcher3.tapl.OverviewTaskMenu;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 import com.android.launcher3.ui.TaplTestsLauncher3;
+import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
 import com.android.quickstep.NavigationModeSwitchRule.NavigationModeSwitch;
@@ -144,7 +148,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         assertNotNull("overview.getCurrentTask() returned null (1)", task);
         assertNotNull("OverviewTask.open returned null", task.open());
         assertTrue("Test activity didn't open from Overview", mDevice.wait(Until.hasObject(
-                By.pkg(getAppPackageName()).text("TestActivity2")),
+                        By.pkg(getAppPackageName()).text("TestActivity2")),
                 DEFAULT_UI_TIMEOUT));
         executeOnLauncher(launcher -> assertTrue(
                 "Launcher activity is the top activity; expecting another activity to be the top "
@@ -193,6 +197,19 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         actionsView.clickAndDismissScreenshot();
     }
 
+
+    @Test
+    public void testOverviewActionsMenu() throws Exception {
+        startTestAppsWithCheck();
+
+        OverviewTaskMenu menu = mLauncher.goHome().switchToOverview().getCurrentTask().tapMenu();
+
+        assertNotNull("Tapping App info menu item returned null", menu.tapAppInfoMenuItem());
+        executeOnLauncher(launcher -> assertTrue(
+                "Launcher activity is the top activity; expecting another activity to be the top",
+                isInLaunchedApp(launcher)));
+    }
+
     private int getCurrentOverviewPage(Launcher launcher) {
         return launcher.<RecentsView>getOverviewPanel().getCurrentPage();
     }
@@ -238,16 +255,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
                 isInState(() -> LauncherState.OVERVIEW));
     }
 
-    private LaunchedAppState getAndAssertLaunchedApp() {
-        final LaunchedAppState launchedAppState = mLauncher.getLaunchedAppState();
-        assertNotNull("Launcher.getLaunchedApp() returned null", launchedAppState);
-        executeOnLauncher(launcher -> assertTrue(
-                "Launcher activity is the top activity; expecting another activity to be the top "
-                        + "one",
-                isInLaunchedApp(launcher)));
-        return launchedAppState;
-    }
-
     private void quickSwitchToPreviousAppAndAssert(boolean toRight) {
         final LaunchedAppState launchedAppState = getAndAssertLaunchedApp();
         if (toRight) {
@@ -289,22 +296,22 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         startTestActivity(4);
 
         quickSwitchToPreviousAppAndAssert(true /* toRight */);
-        assertTrue("The first app we should have quick switched to is not running",
-                isTestActivityRunning(3));
+        assertTestActivityIsRunning(3,
+                "The first app we should have quick switched to is not running");
 
         quickSwitchToPreviousAppAndAssert(true /* toRight */);
         if (mLauncher.getNavigationModel() == NavigationModel.THREE_BUTTON) {
             // 3-button mode toggles between 2 apps, rather than going back further.
-            assertTrue("Second quick switch should have returned to the first app.",
-                    isTestActivityRunning(4));
+            assertTestActivityIsRunning(4,
+                    "Second quick switch should have returned to the first app.");
         } else {
-            assertTrue("The second app we should have quick switched to is not running",
-                    isTestActivityRunning(2));
+            assertTestActivityIsRunning(2,
+                    "The second app we should have quick switched to is not running");
         }
 
         quickSwitchToPreviousAppAndAssert(false /* toRight */);
-        assertTrue("The 2nd app we should have quick switched to is not running",
-                isTestActivityRunning(3));
+        assertTestActivityIsRunning(3,
+                "The 2nd app we should have quick switched to is not running");
 
         final LaunchedAppState launchedAppState = getAndAssertLaunchedApp();
         launchedAppState.switchToOverview();
@@ -313,7 +320,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @Test
     @ScreenRecord // b/242163205
     @PlatinumTest(focusArea = "launcher")
-    @TaskbarModeSwitch(mode = PERSISTENT)
     public void testQuickSwitchToPreviousAppForTablet() throws Exception {
         assumeTrue(mLauncher.isTablet());
         startTestActivity(2);
@@ -329,17 +335,20 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         // Quick-switch to the test app with swiping to right.
         quickSwitchToPreviousAppAndAssert(true /* toRight */);
 
-        assertTrue("The first app we should have quick switched to is not running",
-                isTestActivityRunning(2));
+        assertTestActivityIsRunning(2,
+                "The first app we should have quick switched to is not running");
         // Expect task bar visible when the launched app was the test activity.
         launchedAppState = getAndAssertLaunchedApp();
-        launchedAppState.assertTaskbarVisible();
-    }
 
-    private boolean isTestActivityRunning(int activityNumber) {
-        return mDevice.wait(Until.hasObject(By.pkg(getAppPackageName())
-                        .text("TestActivity" + activityNumber)),
-                DEFAULT_UI_TIMEOUT);
+        Log.e(FLAKY_QUICK_SWITCH_TO_PREVIOUS_APP,
+                "is Taskbar Transient : " + DisplayController.isTransientTaskbar(mTargetContext));
+        // TODO(b/286084688): Remove this branching check after test corruption is resolved.
+        // Branching this check because of test corruption.
+        if (DisplayController.isTransientTaskbar(mTargetContext)) {
+            launchedAppState.assertTaskbarHidden();
+        } else {
+            launchedAppState.assertTaskbarVisible();
+        }
     }
 
     @Test
@@ -349,8 +358,8 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     public void testQuickSwitchFromHome() throws Exception {
         startTestActivity(2);
         mLauncher.goHome().quickSwitchToPreviousApp();
-        assertTrue("The most recent task is not running after quick switching from home",
-                isTestActivityRunning(2));
+        assertTestActivityIsRunning(2,
+                "The most recent task is not running after quick switching from home");
         getAndAssertLaunchedApp();
     }
 

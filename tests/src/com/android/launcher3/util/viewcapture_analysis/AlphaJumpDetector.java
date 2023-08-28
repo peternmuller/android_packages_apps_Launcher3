@@ -15,77 +15,224 @@
  */
 package com.android.launcher3.util.viewcapture_analysis;
 
-import static com.android.launcher3.util.viewcapture_analysis.ViewCaptureAnalyzer.diagPathFromRoot;
-
 import com.android.launcher3.util.viewcapture_analysis.ViewCaptureAnalyzer.AnalysisNode;
 import com.android.launcher3.util.viewcapture_analysis.ViewCaptureAnalyzer.AnomalyDetector;
 
-import java.util.Collection;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Anomaly detector that triggers an error when alpha of a view changes too rapidly.
  * Invisible views are treated as if they had zero alpha.
  */
 final class AlphaJumpDetector extends AnomalyDetector {
+    // Commonly used parts of the paths to ignore.
+    private static final String CONTENT = "DecorView|LinearLayout|FrameLayout:id/content|";
+    private static final String DRAG_LAYER =
+            CONTENT + "LauncherRootView:id/launcher|DragLayer:id/drag_layer|";
+    private static final String RECENTS_DRAG_LAYER =
+            CONTENT + "LauncherRootView:id/launcher|RecentsDragLayer:id/drag_layer|";
+
     // Paths of nodes that are excluded from analysis.
-    private static final Collection<String> PATHS_TO_IGNORE = Set.of(
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|SearchContainerView:id/apps_view|SearchRecyclerView:id"
-                    + "/search_results_list_view|SearchResultSmallIconRow",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|SearchContainerView:id/apps_view|SearchRecyclerView:id"
-                    + "/search_results_list_view|SearchResultIcon",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|LauncherRecentsView:id/overview_panel|TaskView",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|WidgetsFullSheet|SpringRelativeLayout:id/container"
-                    + "|WidgetsRecyclerView:id/primary_widgets_list_view|WidgetsListHeader:id"
-                    + "/widgets_list_header",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|WidgetsFullSheet|SpringRelativeLayout:id/container"
-                    + "|WidgetsRecyclerView:id/primary_widgets_list_view"
-                    + "|StickyHeaderLayout$EmptySpaceView",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|SearchContainerView:id/apps_view|AllAppsRecyclerView:id"
-                    + "/apps_list_view|BubbleTextView:id/icon",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|LauncherRecentsView:id/overview_panel|ClearAllButton:id"
-                    + "/clear_all",
-            "DecorView|LinearLayout|FrameLayout:id/content|LauncherRootView:id/launcher|DragLayer"
-                    + ":id/drag_layer|NexusOverviewActionsView:id/overview_actions_view"
-                    + "|LinearLayout:id/action_buttons"
+    private static final Iterable<String> PATHS_TO_IGNORE = List.of(
+            CONTENT
+                    + "AddItemDragLayer:id/add_item_drag_layer|AddItemWidgetsBottomSheet:id"
+                    + "/add_item_bottom_sheet|LinearLayout:id/add_item_bottom_sheet_content"
+                    + "|ScrollView:id/widget_preview_scroll_view|WidgetCell:id/widget_cell"
+                    + "|WidgetCellPreview:id/widget_preview_container|ImageView:id/widget_badge",
+            CONTENT
+                    + "AddItemDragLayer:id/add_item_drag_layer|AddItemWidgetsBottomSheet:id"
+                    + "/add_item_bottom_sheet|LinearLayout:id/add_item_bottom_sheet_content"
+                    + "|ScrollView:id/widget_preview_scroll_view|WidgetCell:id/widget_cell"
+                    + "|WidgetCellPreview:id/widget_preview_container|WidgetCell$1|FrameLayout"
+                    + "|ImageView:id/icon",
+            CONTENT + "AddItemDragLayer:id/add_item_drag_layer|View",
+            DRAG_LAYER
+                    + "AppWidgetResizeFrame|FrameLayout|ImageButton:id/widget_reconfigure_button",
+            DRAG_LAYER
+                    + "AppWidgetResizeFrame|FrameLayout|ImageView:id/widget_resize_bottom_handle",
+            DRAG_LAYER + "AppWidgetResizeFrame|FrameLayout|ImageView:id/widget_resize_frame",
+            DRAG_LAYER + "AppWidgetResizeFrame|FrameLayout|ImageView:id/widget_resize_left_handle",
+            DRAG_LAYER + "AppWidgetResizeFrame|FrameLayout|ImageView:id/widget_resize_right_handle",
+            DRAG_LAYER + "AppWidgetResizeFrame|FrameLayout|ImageView:id/widget_resize_top_handle",
+            DRAG_LAYER + "FloatingTaskView|FloatingTaskThumbnailView:id/thumbnail",
+            DRAG_LAYER + "FloatingTaskView|SplitPlaceholderView:id/split_placeholder",
+            DRAG_LAYER + "Folder|FolderPagedView:id/folder_content",
+            DRAG_LAYER + "LauncherAllAppsContainerView:id/apps_view",
+            DRAG_LAYER + "LauncherDragView",
+            DRAG_LAYER + "LauncherRecentsView:id/overview_panel",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view|FrameLayout:id"
+                    + "/select_mode_buttons|ImageButton:id/close",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view|LinearLayout:id"
+                    + "/action_buttons|Button:id/action_screenshot",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view|LinearLayout:id"
+                    + "/action_buttons|Button:id/action_select",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view|LinearLayout:id"
+                    + "/action_buttons|Button:id/action_split",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view|LinearLayout:id"
+                    + "/action_buttons|Space:id/action_split_space",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/deep_shortcuts_container|DeepShortcutView:id/deep_shortcut_material"
+                    + "|DeepShortcutTextView:id/bubble_text",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/deep_shortcuts_container|DeepShortcutView:id/deep_shortcut_material|View"
+                    + ":id/icon",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/system_shortcuts_container|DeepShortcutView:id/system_shortcut"
+                    + "|BubbleTextView:id/bubble_text",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/system_shortcuts_container|DeepShortcutView:id/system_shortcut|View:id"
+                    + "/icon",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/system_shortcuts_container|ImageView",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/widget_shortcut_container|DeepShortcutView:id/system_shortcut"
+                    + "|BubbleTextView:id/bubble_text",
+            DRAG_LAYER
+                    + "PopupContainerWithArrow:id/popup_container|LinearLayout:id"
+                    + "/widget_shortcut_container|DeepShortcutView:id/system_shortcut|View:id/icon",
+            DRAG_LAYER + "SearchContainerView:id/apps_view",
+            DRAG_LAYER + "Snackbar|TextView:id/action",
+            DRAG_LAYER + "Snackbar|TextView:id/label",
+            DRAG_LAYER + "SplitInstructionsView|AppCompatTextView:id/split_instructions_text",
+            DRAG_LAYER + "TaskMenuView|LinearLayout:id/menu_option_layout",
+            DRAG_LAYER + "TaskMenuView|TextView:id/task_name",
+            DRAG_LAYER + "View",
+            DRAG_LAYER + "WidgetsFullSheet|SpringRelativeLayout:id/container",
+            DRAG_LAYER + "WidgetsTwoPaneSheet|SpringRelativeLayout:id/container",
+            CONTENT + "LauncherRootView:id/launcher|FloatingIconView",
+            RECENTS_DRAG_LAYER + "ArrowTipView",
+            DRAG_LAYER + "FallbackRecentsView:id/overview_panel",
+            RECENTS_DRAG_LAYER + "FallbackRecentsView:id/overview_panel",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view"
+                    + "|LinearLayout:id/action_buttons|ImageButton:id/action_screenshot",
+            RECENTS_DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view"
+                    + "|LinearLayout:id/action_buttons|ImageButton:id/action_screenshot",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view"
+                    + "|LinearLayout:id/action_buttons|ImageButton:id/action_select",
+            RECENTS_DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view"
+                    + "|LinearLayout:id/action_buttons|ImageButton:id/action_select",
+            DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view"
+                    + "|LinearLayout:id/action_buttons|ImageButton:id/action_split",
+            RECENTS_DRAG_LAYER
+                    + "NexusOverviewActionsView:id/overview_actions_view"
+                    + "|LinearLayout:id/action_buttons|ImageButton:id/action_split",
+            DRAG_LAYER + "IconView"
     );
+
+    /**
+     * Element of the tree of ignored nodes.
+     * If the "children" map is empty, then this node should be ignored, i.e. alpha jumps analysis
+     * shouldn't run for it.
+     * I.e. ignored nodes correspond to the leaves in the ignored nodes tree.
+     */
+    private static class IgnoreNode {
+        // Map from child node identities to ignore-nodes for these children.
+        public final Map<String, IgnoreNode> children = new HashMap<>();
+    }
+
+    private static final IgnoreNode IGNORED_NODES_ROOT = buildIgnoreNodesTree();
+
+    // Converts the list of full paths of nodes to ignore to a more efficient tree of ignore-nodes.
+    private static IgnoreNode buildIgnoreNodesTree() {
+        final IgnoreNode root = new IgnoreNode();
+        for (String pathToIgnore : PATHS_TO_IGNORE) {
+            // Scan the diag path of an ignored node and add its elements into the tree.
+            IgnoreNode currentIgnoreNode = root;
+            for (String part : pathToIgnore.split("\\|")) {
+                // Ensure that the child of the node is added to the tree.
+                IgnoreNode child = currentIgnoreNode.children.get(part);
+                if (child == null) {
+                    currentIgnoreNode.children.put(part, child = new IgnoreNode());
+                }
+                currentIgnoreNode = child;
+            }
+        }
+        return root;
+    }
+
     // Minimal increase or decrease of view's alpha between frames that triggers the error.
     private static final float ALPHA_JUMP_THRESHOLD = 1f;
 
-    @Override
-    void initializeNode(AnalysisNode info) {
-        // If the parent view ignores alpha jumps, its descendants will too.
-        final boolean parentIgnoreAlphaJumps = info.parent != null && info.parent.ignoreAlphaJumps;
-        info.ignoreAlphaJumps = parentIgnoreAlphaJumps
-                || PATHS_TO_IGNORE.contains(diagPathFromRoot(info));
+    // Per-AnalysisNode data that's specific to this detector.
+    private static class NodeData {
+        public boolean ignoreAlphaJumps;
+
+        // If ignoreNode is null, then this AnalysisNode node will be ignored if its parent is
+        // ignored.
+        // Otherwise, this AnalysisNode will be ignored if ignoreNode is a leaf i.e. has no
+        // children.
+        public IgnoreNode ignoreNode;
+    }
+
+    private NodeData getNodeData(AnalysisNode info) {
+        return (NodeData) info.detectorsData[detectorOrdinal];
     }
 
     @Override
-    void detectAnomalies(AnalysisNode oldInfo, AnalysisNode newInfo, int frameN) {
+    void initializeNode(AnalysisNode info) {
+        final NodeData nodeData = new NodeData();
+        info.detectorsData[detectorOrdinal] = nodeData;
+
+        // If the parent view ignores alpha jumps, its descendants will too.
+        final boolean parentIgnoresAlphaJumps = info.parent != null && getNodeData(
+                info.parent).ignoreAlphaJumps;
+        if (parentIgnoresAlphaJumps) {
+            nodeData.ignoreAlphaJumps = true;
+            return;
+        }
+
+        // Parent view doesn't ignore alpha jumps.
+        // Initialize this AnalysisNode's ignore-node with the corresponding child of the
+        // ignore-node of the parent, if present.
+        final IgnoreNode parentIgnoreNode = info.parent != null
+                ? getNodeData(info.parent).ignoreNode
+                : IGNORED_NODES_ROOT;
+        nodeData.ignoreNode = parentIgnoreNode != null
+                ? parentIgnoreNode.children.get(info.nodeIdentity) : null;
+        // AnalysisNode will be ignored if the corresponding ignore-node is a leaf.
+        nodeData.ignoreAlphaJumps =
+                nodeData.ignoreNode != null && nodeData.ignoreNode.children.isEmpty();
+    }
+
+    @Override
+    String detectAnomalies(AnalysisNode oldInfo, AnalysisNode newInfo, int frameN) {
         // If the view was previously seen, proceed with analysis only if it was present in the
         // view hierarchy in the previous frame.
-        if (oldInfo != null && oldInfo.frameN != frameN) return;
+        if (oldInfo != null && oldInfo.frameN != frameN) return null;
 
         final AnalysisNode latestInfo = newInfo != null ? newInfo : oldInfo;
-        if (latestInfo.ignoreAlphaJumps) return;
+        final NodeData nodeData = getNodeData(latestInfo);
+        if (nodeData.ignoreAlphaJumps) return null;
 
         final float oldAlpha = oldInfo != null ? oldInfo.alpha : 0;
         final float newAlpha = newInfo != null ? newInfo.alpha : 0;
         final float alphaDeltaAbs = Math.abs(newAlpha - oldAlpha);
 
         if (alphaDeltaAbs >= ALPHA_JUMP_THRESHOLD) {
-            throw new AssertionError(
-                    String.format(
-                            "Alpha jump detected in ViewCapture data: alpha change: %s (%s -> %s)"
-                                    + ", threshold: %s, view: %s",
-                            alphaDeltaAbs, oldAlpha, newAlpha, ALPHA_JUMP_THRESHOLD, latestInfo));
+            nodeData.ignoreAlphaJumps = true; // No need to report alpha jump in children.
+            return String.format(
+                    "Alpha jump detected in ViewCapture data: alpha change: %s (%s -> %s)"
+                            + ", threshold: %s, %s", // ----------- no need to include view?
+                    alphaDeltaAbs, oldAlpha, newAlpha, ALPHA_JUMP_THRESHOLD, latestInfo);
         }
+        return null;
     }
 }

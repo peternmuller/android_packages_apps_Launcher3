@@ -43,7 +43,6 @@ import static com.android.launcher3.Utilities.mapToRange;
 import static com.android.launcher3.Utilities.squaredHypot;
 import static com.android.launcher3.Utilities.squaredTouchSlop;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_GRID_ONLY_OVERVIEW;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_LAUNCH_FROM_STAGED_APP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_OVERVIEW_ACTIONS_SPLIT;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_CLEAR_ALL;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_DISMISS_SWIPE_UP;
@@ -54,6 +53,7 @@ import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.launcher3.util.MultiPropertyFactory.MULTI_PROPERTY_VALUE;
 import static com.android.launcher3.util.SystemUiController.UI_STATE_FULLSCREEN_TASK;
 import static com.android.quickstep.TaskUtils.checkCurrentOrManagedUserId;
+import static com.android.quickstep.util.LogUtils.splitFailureMessage;
 import static com.android.quickstep.views.ClearAllButton.DISMISS_ALPHA;
 import static com.android.quickstep.views.DesktopTaskView.DESKTOP_MODE_SUPPORTED;
 import static com.android.quickstep.views.OverviewActionsView.FLAG_IS_NOT_TABLET;
@@ -165,6 +165,7 @@ import com.android.launcher3.util.VibratorWrapper;
 import com.android.launcher3.util.ViewPool;
 import com.android.quickstep.BaseActivityInterface;
 import com.android.quickstep.GestureState;
+import com.android.quickstep.OverviewCommandHelper;
 import com.android.quickstep.RecentsAnimationController;
 import com.android.quickstep.RecentsAnimationTargets;
 import com.android.quickstep.RecentsFilterState;
@@ -1368,9 +1369,15 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             return null;
         }
 
+        // We're looking for a taskView that matches these ids, regardless of order
+        int[] taskIdsCopy = Arrays.copyOf(taskIds, taskIds.length);
+        Arrays.sort(taskIdsCopy);
+
         for (int i = 0; i < getTaskViewCount(); i++) {
             TaskView taskView = requireTaskViewAt(i);
-            if (Arrays.equals(taskIds, taskView.getTaskIds())) {
+            int[] taskViewIdsCopy = taskView.getTaskIds();
+            Arrays.sort(taskViewIdsCopy);
+            if (Arrays.equals(taskIdsCopy, taskViewIdsCopy)) {
                 return taskView;
             }
         }
@@ -2367,14 +2374,14 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     }
 
     public void startHome(boolean animated) {
-        if (!isCommandQueueEmpty()) return;
+        if (!canStartHomeSafely()) return;
         handleStartHome(animated);
     }
 
     protected abstract void handleStartHome(boolean animated);
 
-    /** Returns whether the overview command helper queue is empty. */
-    protected abstract boolean isCommandQueueEmpty();
+    /** Returns whether user can start home based on state in {@link OverviewCommandHelper}. */
+    protected abstract boolean canStartHomeSafely();
 
     public void reset() {
         setCurrentTask(-1);
@@ -3242,9 +3249,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         mSplitSelectStateController.setFirstFloatingTaskView(firstFloatingTaskView);
 
         // Allow user to click staged app to launch into fullscreen
-        if (ENABLE_LAUNCH_FROM_STAGED_APP.get()) {
-            firstFloatingTaskView.setOnClickListener(this::animateToFullscreen);
-        }
+        firstFloatingTaskView.setOnClickListener(this::animateToFullscreen);
 
         // SplitInstructionsView: animate in
         safeRemoveDragLayerView(mSplitInstructionsView);
@@ -4725,6 +4730,8 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             return false;
         }
         if (mSplitSelectStateController.isBothSplitAppsConfirmed()) {
+            Log.w(TAG, splitFailureMessage(
+                    "confirmSplitSelect", "both apps have already been set"));
             return true;
         }
         // Second task is selected either as an already-running Task or an Intent
@@ -4732,6 +4739,9 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             if (!task.isDockable) {
                 // Task does not support split screen
                 mSplitUnsupportedToast.show();
+                Log.w(TAG, splitFailureMessage("confirmSplitSelect",
+                        "selected Task (" + task.key.getPackageName()
+                                + ") is not dockable / does not support splitscreen"));
                 return true;
             }
             mSplitSelectStateController.setSecondTask(task);
@@ -4813,6 +4823,8 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             mSecondFloatingTaskView = null;
             mSplitInstructionsView = null;
             mSplitSelectSource = null;
+            mSplitSelectStateController.getSplitAnimationController()
+                    .removeSplitInstructionsView(mActivity);
         }
 
         if (mSecondSplitHiddenView != null) {
@@ -5210,6 +5222,11 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         });
     }
 
+    /** @return {@code true} if floating search bar is visible in Recents. */
+    public boolean isFloatingSearchVisible() {
+        return false;
+    }
+
     public RemoteTargetHandle[] getRemoteTargetHandles() {
         return mRemoteTargetHandles;
     }
@@ -5229,7 +5246,8 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
                     true /* forDesktop */);
             mRemoteTargetHandles = gluer.assignTargetsForDesktop(recentsAnimationTargets);
         } else {
-            gluer = new RemoteTargetGluer(getContext(), getSizeStrategy());
+            gluer = new RemoteTargetGluer(getContext(), getSizeStrategy(), recentsAnimationTargets,
+                    false);
             mRemoteTargetHandles = gluer.assignTargetsForSplitScreen(recentsAnimationTargets);
         }
         mSplitBoundsConfig = gluer.getSplitBounds();
@@ -6017,11 +6035,6 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     @Nullable
     public RecentsAnimationController getRecentsAnimationController() {
         return mRecentsAnimationController;
-    }
-
-    @Nullable
-    public FloatingTaskView getFirstFloatingTaskView() {
-        return mSplitSelectStateController.getFirstFloatingTaskView();
     }
 
     @Nullable

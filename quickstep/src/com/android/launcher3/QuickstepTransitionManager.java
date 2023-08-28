@@ -158,6 +158,7 @@ import com.android.systemui.shared.system.QuickStepContract;
 import com.android.systemui.shared.system.RemoteAnimationRunnerCompat;
 import com.android.wm.shell.startingsurface.IStartingWindowListener;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -182,7 +183,7 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
     private static final String CONTROL_REMOTE_APP_TRANSITION_PERMISSION =
             "android.permission.CONTROL_REMOTE_APP_TRANSITION_ANIMATIONS";
 
-    private static final long APP_LAUNCH_DURATION = 500;
+    public static final long APP_LAUNCH_DURATION = 500;
 
     private static final long APP_LAUNCH_ALPHA_DURATION = 50;
     private static final long APP_LAUNCH_ALPHA_START_DELAY = 25;
@@ -285,7 +286,7 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
 
         mOpeningXInterpolator = AnimationUtils.loadInterpolator(context, R.interpolator.app_open_x);
         mOpeningInterpolator = AnimationUtils.loadInterpolator(context,
-                R.interpolator.three_point_fast_out_extra_slow_in);
+                R.interpolator.emphasized_interpolator);
     }
 
     @Override
@@ -476,6 +477,9 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
             }
         });
     }
+
+    /** Dump debug logs to bug report. */
+    public void dump(@NonNull String prefix, @NonNull PrintWriter printWriter) {}
 
     /**
      * Content is everything on screen except the background and the floating view (if any).
@@ -1046,7 +1050,7 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
         boolean allowBlurringLauncher = mLauncher.getStateManager().getState() != OVERVIEW
                 && BlurUtils.supportsBlursOnWindows();
 
-        MyDepthController depthController = new MyDepthController(mLauncher);
+        LaunchDepthController depthController = new LaunchDepthController(mLauncher);
         ObjectAnimator backgroundRadiusAnim = ObjectAnimator.ofFloat(depthController.stateDepth,
                         MULTI_PROPERTY_VALUE, BACKGROUND_APP.getDepth(mLauncher))
                 .setDuration(APP_LAUNCH_DURATION);
@@ -2047,11 +2051,14 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
         }
     }
 
-    private static class MyDepthController extends DepthController {
-        MyDepthController(Launcher l) {
-            super(l);
+    private static class LaunchDepthController extends DepthController {
+        LaunchDepthController(QuickstepLauncher launcher) {
+            super(launcher);
             setCrossWindowBlursEnabled(
                     CrossWindowBlurListeners.getInstance().isCrossWindowBlurEnabled());
+            // Make sure that the starting value matches the current depth set by the main
+            // controller.
+            stateDepth.setValue(launcher.getDepthController().stateDepth.getValue());
         }
     }
 }

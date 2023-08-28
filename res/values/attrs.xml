@@ -205,13 +205,16 @@
         <!-- File that contains the specs for the workspace.
         Needs FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE enabled -->
         <attr name="workspaceSpecsId" format="reference" />
+        <attr name="workspaceSpecsTwoPanelId" format="reference" />
         <!-- File that contains the specs for all apps.
         Needs FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE enabled -->
         <attr name="allAppsSpecsId" format="reference" />
+        <attr name="allAppsSpecsTwoPanelId" format="reference" />
 
         <!-- File that contains the specs for the workspace.
         Needs FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE enabled -->
         <attr name="folderSpecsId" format="reference" />
+        <attr name="folderSpecsTwoPanelId" format="reference" />
 
         <!-- By default all categories are enabled -->
         <attr name="deviceCategory" format="integer">
@@ -252,7 +255,7 @@
     </declare-styleable>
 
     <!--  Responsive grids attributes  -->
-    <declare-styleable name="WorkspaceSpec">
+    <declare-styleable name="ResponsiveSpec">
         <attr name="specType" format="integer">
             <enum name="height" value="0" />
             <enum name="width" value="1" />
@@ -260,12 +263,9 @@
         <attr name="maxAvailableSize" format="dimension" />
     </declare-styleable>
 
-    <declare-styleable name="SizeSpec">
-        <attr name="fixedSize" format="dimension" />
-        <attr name="ofAvailableSpace" format="float" />
-        <attr name="ofRemainderSpace" format="float" />
-        <attr name="matchWorkspace" format="boolean" />
-        <attr name="maxSize" format="dimension" />
+    <declare-styleable name="WorkspaceSpec">
+        <attr name="specType" />
+        <attr name="maxAvailableSize" />
     </declare-styleable>
 
     <declare-styleable name="FolderSpec">
@@ -276,6 +276,14 @@
     <declare-styleable name="AllAppsSpec">
         <attr name="specType" />
         <attr name="maxAvailableSize" />
+    </declare-styleable>
+
+    <declare-styleable name="SizeSpec">
+        <attr name="fixedSize" format="dimension" />
+        <attr name="ofAvailableSpace" format="float" />
+        <attr name="ofRemainderSpace" format="float" />
+        <attr name="matchWorkspace" format="boolean" />
+        <attr name="maxSize" format="dimension" />
     </declare-styleable>
 
     <declare-styleable name="ProfileDisplayOption">
@@ -587,5 +595,6 @@
 
     <declare-styleable name="ArrowTipView">
         <attr name="arrowTipBackground" format="color" />
+        <attr name="arrowTipTextColor" format="color" />
     </declare-styleable>
 </resources>

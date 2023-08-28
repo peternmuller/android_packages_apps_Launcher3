@@ -19,6 +19,7 @@ import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
 
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
+import static com.android.launcher3.util.NavigationMode.NO_BUTTON;
 import static com.android.quickstep.GestureState.GestureEndTarget.RECENTS;
 import static com.android.quickstep.GestureState.STATE_RECENTS_ANIMATION_INITIALIZED;
 import static com.android.quickstep.GestureState.STATE_RECENTS_ANIMATION_STARTED;
@@ -37,6 +38,7 @@ import androidx.annotation.UiThread;
 
 import com.android.launcher3.Utilities;
 import com.android.launcher3.config.FeatureFlags;
+import com.android.launcher3.util.DisplayController;
 import com.android.quickstep.TopTaskTracker.CachedTaskInfo;
 import com.android.quickstep.util.ActiveGestureLog;
 import com.android.quickstep.views.DesktopTaskView;
@@ -59,7 +61,7 @@ public class TaskAnimationManager implements RecentsAnimationCallbacks.RecentsAn
     private RecentsAnimationTargets mTargets;
     // Temporary until we can hook into gesture state events
     private GestureState mLastGestureState;
-    private RemoteAnimationTarget mLastAppearedTaskTarget;
+    private RemoteAnimationTarget[] mLastAppearedTaskTargets;
     private Runnable mLiveTileCleanUpHandler;
     private Context mCtx;
 
@@ -141,8 +143,15 @@ public class TaskAnimationManager implements RecentsAnimationCallbacks.RecentsAn
                 }
                 mController = controller;
                 mTargets = targets;
-                mLastAppearedTaskTarget = mTargets.findTask(mLastGestureState.getRunningTaskId());
-                mLastGestureState.updateLastAppearedTaskTarget(mLastAppearedTaskTarget);
+                // TODO(b/236226779): We can probably get away w/ setting mLastAppearedTaskTargets
+                //  to all appeared targets directly vs just looking at running ones
+                int[] runningTaskIds = mLastGestureState.getRunningTaskIds(targets.apps.length > 1);
+                mLastAppearedTaskTargets = new RemoteAnimationTarget[runningTaskIds.length];
+                for (int i = 0; i < runningTaskIds.length; i++) {
+                    RemoteAnimationTarget task = mTargets.findTask(runningTaskIds[i]);
+                    mLastAppearedTaskTargets[i] = task;
+                }
+                mLastGestureState.updateLastAppearedTaskTargets(mLastAppearedTaskTargets);
             }
 
             @Override
@@ -162,10 +171,16 @@ public class TaskAnimationManager implements RecentsAnimationCallbacks.RecentsAn
 
                 for (RemoteAnimationTarget compat : appearedTaskTargets) {
                     if (compat.windowConfiguration.getActivityType() == ACTIVITY_TYPE_HOME
-                            && activityInterface.getCreatedActivity() instanceof RecentsActivity) {
-                        // When receive opening home activity while recents is running, enter home
-                        // and dismiss recents.
-                        ((RecentsActivity) activityInterface.getCreatedActivity()).startHome();
+                            && activityInterface.getCreatedActivity() instanceof RecentsActivity
+                            && DisplayController.getNavigationMode(mCtx) != NO_BUTTON) {
+                        // The only time we get onTasksAppeared() in button navigation with a
+                        // 3p launcher is if the user goes to overview first, and in this case we
+                        // can immediately finish the transition
+                        RecentsView recentsView =
+                                activityInterface.getCreatedActivity().getOverviewPanel();
+                        if (recentsView != null) {
+                            recentsView.finishRecentsAnimation(true, null);
+                        }
                         return;
                     }
                 }
@@ -196,14 +211,18 @@ public class TaskAnimationManager implements RecentsAnimationCallbacks.RecentsAn
                             true /*shown*/, null /* animatorHandler */);
                 }
                 if (mController != null) {
-                    if (mLastAppearedTaskTarget == null
-                            || appearedTaskTarget.taskId != mLastAppearedTaskTarget.taskId) {
-                        if (mLastAppearedTaskTarget != null) {
-                            mController.removeTaskTarget(mLastAppearedTaskTarget);
+                    if (mLastAppearedTaskTargets != null) {
+                        for (RemoteAnimationTarget lastTarget : mLastAppearedTaskTargets) {
+                            for (RemoteAnimationTarget appearedTarget : appearedTaskTargets) {
+                                if (lastTarget != null &&
+                                        appearedTarget.taskId != lastTarget.taskId) {
+                                    mController.removeTaskTarget(lastTarget.taskId);
+                                }
+                            }
                         }
-                        mLastAppearedTaskTarget = appearedTaskTarget;
-                        mLastGestureState.updateLastAppearedTaskTarget(mLastAppearedTaskTarget);
                     }
+                    mLastAppearedTaskTargets = appearedTaskTargets;
+                    mLastGestureState.updateLastAppearedTaskTargets(mLastAppearedTaskTargets);
                 }
             }
 
@@ -268,7 +287,7 @@ public class TaskAnimationManager implements RecentsAnimationCallbacks.RecentsAn
         mCallbacks.addListener(gestureState);
         gestureState.setState(STATE_RECENTS_ANIMATION_INITIALIZED
                 | STATE_RECENTS_ANIMATION_STARTED);
-        gestureState.updateLastAppearedTaskTarget(mLastAppearedTaskTarget);
+        gestureState.updateLastAppearedTaskTargets(mLastAppearedTaskTargets);
         return mCallbacks;
     }
 
@@ -369,7 +388,7 @@ public class TaskAnimationManager implements RecentsAnimationCallbacks.RecentsAn
         mCallbacks = null;
         mTargets = null;
         mLastGestureState = null;
-        mLastAppearedTaskTarget = null;
+        mLastAppearedTaskTargets = null;
     }
 
     @Nullable

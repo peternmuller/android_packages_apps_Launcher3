@@ -20,6 +20,7 @@ import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 import static com.android.launcher3.LauncherState.ALL_APPS;
 import static com.android.launcher3.LauncherState.CLEAR_ALL_BUTTON;
 import static com.android.launcher3.LauncherState.EDIT_MODE;
+import static com.android.launcher3.LauncherState.FLOATING_SEARCH_BAR;
 import static com.android.launcher3.LauncherState.NORMAL;
 import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
@@ -86,12 +87,22 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
         StateManager stateManager = mActivity.getStateManager();
         animated &= stateManager.shouldAnimateStateChange();
         stateManager.goToState(NORMAL, animated);
+        if (FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
+            mSplitSelectStateController.getSplitAnimationController()
+                    .playPlaceholderDismissAnim(mActivity);
+        }
         AbstractFloatingView.closeAllOpenViews(mActivity, animated);
     }
 
     @Override
-    protected boolean isCommandQueueEmpty() {
-        return mActivity.isCommandQueueEmpty();
+    protected boolean canStartHomeSafely() {
+        return mActivity.canStartHomeSafely();
+    }
+
+    @Override
+    public boolean isFloatingSearchVisible() {
+        return FeatureFlags.ENABLE_FLOATING_SEARCH_BAR.get()
+                && OVERVIEW.areElementsVisible(mActivity, FLOATING_SEARCH_BAR);
     }
 
     @Override
@@ -238,7 +249,7 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
         DesktopVisibilityController desktopVisibilityController =
                 mActivity.getDesktopVisibilityController();
         if (desktopVisibilityController != null) {
-            desktopVisibilityController.setGestureInProgress(true);
+            desktopVisibilityController.setRecentsGestureStart();
         }
     }
 
@@ -246,9 +257,11 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
     public void onGestureAnimationEnd() {
         DesktopVisibilityController desktopVisibilityController = null;
         boolean showDesktopApps = false;
+        GestureState.GestureEndTarget endTarget = null;
         if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             desktopVisibilityController = mActivity.getDesktopVisibilityController();
-            if (mCurrentGestureEndTarget == GestureState.GestureEndTarget.LAST_TASK
+            endTarget = mCurrentGestureEndTarget;
+            if (endTarget == GestureState.GestureEndTarget.LAST_TASK
                     && desktopVisibilityController.areFreeformTasksVisible()) {
                 // Recents gesture was cancelled and we are returning to the previous task.
                 // After super class has handled clean up, show desktop apps on top again
@@ -257,7 +270,7 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
         }
         super.onGestureAnimationEnd();
         if (desktopVisibilityController != null) {
-            desktopVisibilityController.setGestureInProgress(false);
+            desktopVisibilityController.setRecentsGestureEnd(endTarget);
         }
         if (showDesktopApps) {
             SystemUiProxy.INSTANCE.get(mActivity).showDesktopApps(mActivity.getDisplayId());

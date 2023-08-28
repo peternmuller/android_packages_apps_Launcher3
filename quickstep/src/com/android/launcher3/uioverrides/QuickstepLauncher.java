@@ -33,7 +33,6 @@ import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
 import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.sendCustomAccessibilityEvent;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE;
 import static com.android.launcher3.config.FeatureFlags.RECEIVE_UNFOLD_EVENTS_FROM_SYSUI;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_APP_LAUNCH_TAP;
@@ -193,6 +192,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -202,6 +202,8 @@ public class QuickstepLauncher extends Launcher {
             SystemProperties.getBoolean("persist.wm.debug.enable_pip_keep_clear_algorithm", true);
 
     public static final boolean GO_LOW_RAM_RECENTS_ENABLED = false;
+
+    protected static final String RING_APPEAR_ANIMATION_PREFIX = "RingAppearAnimation\t";
 
     private FixedContainerItems mAllAppsPredictions;
     private HotseatPredictionController mHotseatPredictionController;
@@ -405,8 +407,7 @@ public class QuickstepLauncher extends Launcher {
     }
 
     private List<SystemShortcut.Factory<QuickstepLauncher>> getSplitShortcuts() {
-
-        if (!ENABLE_SPLIT_FROM_WORKSPACE.get() || !mDeviceProfile.isTablet) {
+        if (!mDeviceProfile.isTablet || mSplitSelectStateController.isSplitSelectActive()) {
             return Collections.emptyList();
         }
         RecentsView recentsView = getOverviewPanel();
@@ -545,11 +546,14 @@ public class QuickstepLauncher extends Launcher {
 
         ArrayList<TouchController> list = new ArrayList<>();
         list.add(getDragController());
+        Consumer<AnimatorSet> splitAnimator = animatorSet ->
+                animatorSet.play(mSplitSelectStateController.getSplitAnimationController()
+                        .createPlaceholderDismissAnim(this));
         switch (mode) {
             case NO_BUTTON:
                 list.add(new NoButtonQuickSwitchTouchController(this));
-                list.add(new NavBarToHomeTouchController(this));
-                list.add(new NoButtonNavbarToOverviewTouchController(this));
+                list.add(new NavBarToHomeTouchController(this, splitAnimator));
+                list.add(new NoButtonNavbarToOverviewTouchController(this, splitAnimator));
                 break;
             case TWO_BUTTONS:
                 list.add(new TwoButtonNavbarTouchController(this));
@@ -560,8 +564,8 @@ public class QuickstepLauncher extends Launcher {
                 break;
             case THREE_BUTTONS:
                 list.add(new NoButtonQuickSwitchTouchController(this));
-                list.add(new NavBarToHomeTouchController(this));
-                list.add(new NoButtonNavbarToOverviewTouchController(this));
+                list.add(new NavBarToHomeTouchController(this, splitAnimator));
+                list.add(new NoButtonNavbarToOverviewTouchController(this, splitAnimator));
                 list.add(new PortraitStatesTouchController(this));
                 break;
             default:
@@ -660,9 +664,13 @@ public class QuickstepLauncher extends Launcher {
             @Override
             public void onAnimationCancel(Animator animation) {
                 getDragLayer().removeView(floatingTaskView);
+                mSplitSelectStateController.getSplitAnimationController()
+                        .removeSplitInstructionsView(QuickstepLauncher.this);
                 mSplitSelectStateController.resetState();
             }
         });
+        anim.add(mSplitSelectStateController.getSplitAnimationController()
+                .getShowSplitInstructionsAnim(this).buildAnim());
         anim.buildAnim().start();
     }
 
@@ -859,7 +867,7 @@ public class QuickstepLauncher extends Launcher {
         if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             DesktopVisibilityController controller = mDesktopVisibilityController;
             if (controller != null && controller.areFreeformTasksVisible()
-                    && !controller.isGestureInProgress()) {
+                    && !controller.isRecentsGestureInProgress()) {
                 // Return early to skip setting activity to appear as resumed
                 // TODO(b/255649902): shouldn't be needed when we have a separate launcher state
                 //  for desktop that we can use to control other parts of launcher
@@ -985,6 +993,13 @@ public class QuickstepLauncher extends Launcher {
 
     public SplitToWorkspaceController getSplitToWorkspaceController() {
         return mSplitToWorkspaceController;
+    }
+
+    @Override
+    protected void handleSplitAnimationGoingToHome() {
+        super.handleSplitAnimationGoingToHome();
+        mSplitSelectStateController.getSplitAnimationController()
+                .playPlaceholderDismissAnim(this);
     }
 
     public <T extends OverviewActionsView> T getActionsView() {
@@ -1311,9 +1326,9 @@ public class QuickstepLauncher extends Launcher {
                                 : groupTask.mSplitBounds.leftTaskPercent);
     }
 
-    public boolean isCommandQueueEmpty() {
+    public boolean canStartHomeSafely() {
         OverviewCommandHelper overviewCommandHelper = mTISBindHelper.getOverviewCommandHelper();
-        return overviewCommandHelper == null || overviewCommandHelper.isCommandQueueEmpty();
+        return overviewCommandHelper == null || overviewCommandHelper.canStartHomeSafely();
     }
 
     private static final class LauncherTaskViewController extends
@@ -1351,6 +1366,9 @@ public class QuickstepLauncher extends Launcher {
                 recentsView.getPagedViewOrientedState()));
         if (recentsView != null) {
             recentsView.getSplitSelectController().dump(prefix, writer);
+        }
+        if (mAppTransitionManager != null) {
+            mAppTransitionManager.dump(prefix + "\t" + RING_APPEAR_ANIMATION_PREFIX, writer);
         }
     }
 }
