@@ -119,6 +119,7 @@ import com.android.systemui.unfold.updates.RotationChangeProvider;
 import com.android.systemui.unfold.util.ScopedUnfoldTransitionProgressProvider;
 
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.Optional;
 
 /**
@@ -146,7 +147,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     private int mLastRequestedNonFullscreenHeight;
 
     private NavigationMode mNavMode;
-    private final boolean mImeDrawsImeNavBar;
+    private boolean mImeDrawsImeNavBar;
     private final ViewCache mViewCache = new ViewCache();
 
     private final boolean mIsSafeModeEnabled;
@@ -299,6 +300,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
 
     public void init(@NonNull TaskbarSharedState sharedState) {
+        mImeDrawsImeNavBar = getBoolByName(IME_DRAWS_IME_NAV_BAR_RES_NAME, getResources(), false);
         mLastRequestedNonFullscreenHeight = getDefaultTaskbarWindowHeight();
         mWindowLayoutParams = createAllWindowParams();
 
@@ -331,6 +333,11 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
      */
     public void showTaskbarFromBroadcast() {
         mControllers.taskbarStashController.showTaskbarFromBroadcast();
+    }
+
+    /** Toggles Taskbar All Apps overlay. */
+    public void toggleAllApps() {
+        mControllers.taskbarAllAppsController.toggle();
     }
 
     @Override
@@ -996,9 +1003,10 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         if (recents == null) {
             return;
         }
-        recents.getSplitSelectController().findLastActiveTaskAndRunCallback(
-                info.getComponentKey(),
-                foundTask -> {
+        recents.getSplitSelectController().findLastActiveTasksAndRunCallback(
+                Collections.singletonList(info.getComponentKey()),
+                foundTasks -> {
+                    @Nullable Task foundTask = foundTasks.get(0);
                     if (foundTask != null) {
                         TaskView foundTaskView =
                                 recents.getTaskViewByTaskId(foundTask.key.id);

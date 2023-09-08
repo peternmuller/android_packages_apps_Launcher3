@@ -58,7 +58,6 @@ import static com.android.systemui.shared.system.ActivityManagerWrapper.CLOSE_SY
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
-import android.animation.ValueAnimator;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.content.Context;
@@ -75,13 +74,11 @@ import android.hardware.display.DisplayManager;
 import android.media.permission.SafeCloseable;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.CancellationSignal;
 import android.os.IBinder;
 import android.os.SystemProperties;
 import android.os.Trace;
 import android.view.Display;
 import android.view.HapticFeedbackConstants;
-import android.view.RemoteAnimationTarget;
 import android.view.View;
 import android.window.BackEvent;
 import android.window.OnBackAnimationCallback;
@@ -109,7 +106,6 @@ import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.anim.PendingAnimation;
 import com.android.launcher3.appprediction.PredictionRowView;
 import com.android.launcher3.config.FeatureFlags;
-import com.android.launcher3.dragndrop.DragOptions;
 import com.android.launcher3.hybridhotseat.HotseatPredictionController;
 import com.android.launcher3.logging.InstanceId;
 import com.android.launcher3.logging.StatsLogManager;
@@ -117,6 +113,7 @@ import com.android.launcher3.logging.StatsLogManager.StatsLogger;
 import com.android.launcher3.model.BgDataModel.FixedContainerItems;
 import com.android.launcher3.model.WellbeingModel;
 import com.android.launcher3.model.data.ItemInfo;
+import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.popup.SystemShortcut;
 import com.android.launcher3.proxy.ProxyActivityStarter;
 import com.android.launcher3.statehandlers.DepthController;
@@ -162,8 +159,6 @@ import com.android.quickstep.util.GroupTask;
 import com.android.quickstep.util.LauncherUnfoldAnimationController;
 import com.android.quickstep.util.ProxyScreenStatusProvider;
 import com.android.quickstep.util.QuickstepOnboardingPrefs;
-import com.android.quickstep.util.RemoteAnimationProvider;
-import com.android.quickstep.util.RemoteFadeOutAnimationListener;
 import com.android.quickstep.util.SplitSelectStateController;
 import com.android.quickstep.util.SplitToWorkspaceController;
 import com.android.quickstep.util.SplitWithKeyboardShortcutController;
@@ -173,6 +168,7 @@ import com.android.quickstep.views.FloatingTaskView;
 import com.android.quickstep.views.OverviewActionsView;
 import com.android.quickstep.views.RecentsView;
 import com.android.quickstep.views.TaskView;
+import com.android.systemui.shared.recents.model.Task;
 import com.android.systemui.shared.system.ActivityManagerWrapper;
 import com.android.systemui.unfold.RemoteUnfoldSharedComponent;
 import com.android.systemui.unfold.UnfoldSharedComponent;
@@ -200,6 +196,10 @@ public class QuickstepLauncher extends Launcher {
 
     public static final boolean ENABLE_PIP_KEEP_CLEAR_ALGORITHM =
             SystemProperties.getBoolean("persist.wm.debug.enable_pip_keep_clear_algorithm", true);
+    private static final boolean TRACE_LAYOUTS =
+            SystemProperties.getBoolean("persist.debug.trace_layouts", false);
+    private static final String TRACE_RELAYOUT_CLASS =
+            SystemProperties.get("persist.debug.trace_request_layout_class", null);
 
     public static final boolean GO_LOW_RAM_RECENTS_ENABLED = false;
 
@@ -214,7 +214,6 @@ public class QuickstepLauncher extends Launcher {
     private TISBindHelper mTISBindHelper;
     private @Nullable LauncherTaskbarUIController mTaskbarUIController;
     // Will be updated when dragging from taskbar.
-    private @Nullable DragOptions mNextWorkspaceDragOptions = null;
     private @Nullable UnfoldTransitionProgressProvider mUnfoldTransitionProgressProvider;
     private @Nullable LauncherUnfoldAnimationController mLauncherUnfoldAnimationController;
 
@@ -259,6 +258,7 @@ public class QuickstepLauncher extends Launcher {
         mDesktopVisibilityController = new DesktopVisibilityController(this);
         if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             mDesktopVisibilityController.registerSystemUiListener();
+            mSplitSelectStateController.initSplitFromDesktopController(this);
         }
         mHotseatPredictionController = new HotseatPredictionController(this);
 
@@ -611,6 +611,8 @@ public class QuickstepLauncher extends Launcher {
             mViewCapture = SettingsAwareViewCapture.getInstance(this).startCapture(getWindow());
         }
         getWindow().addPrivateFlags(PRIVATE_FLAG_OPTIMIZE_MEASURE);
+        View.setTraceLayoutSteps(TRACE_LAYOUTS);
+        View.setTracedRequestLayoutClassClass(TRACE_RELAYOUT_CLASS);
     }
 
     @Override
@@ -618,9 +620,10 @@ public class QuickstepLauncher extends Launcher {
         RecentsView recentsView = getOverviewPanel();
         // Check if there is already an instance of this app running, if so, initiate the split
         // using that.
-        mSplitSelectStateController.findLastActiveTaskAndRunCallback(
-                splitSelectSource.itemInfo.getComponentKey(),
-                foundTask -> {
+        mSplitSelectStateController.findLastActiveTasksAndRunCallback(
+                Collections.singletonList(splitSelectSource.itemInfo.getComponentKey()),
+                foundTasks -> {
+                    @Nullable Task foundTask = foundTasks.get(0);
                     boolean taskWasFound = foundTask != null;
                     splitSelectSource.alreadyRunningTaskId = taskWasFound
                             ? foundTask.key.id
@@ -1038,41 +1041,6 @@ public class QuickstepLauncher extends Launcher {
     }
 
     @Override
-    public DragOptions getDefaultWorkspaceDragOptions() {
-        if (mNextWorkspaceDragOptions != null) {
-            DragOptions options = mNextWorkspaceDragOptions;
-            mNextWorkspaceDragOptions = null;
-            return options;
-        }
-        return super.getDefaultWorkspaceDragOptions();
-    }
-
-    public void setNextWorkspaceDragOptions(DragOptions dragOptions) {
-        mNextWorkspaceDragOptions = dragOptions;
-    }
-
-    @Override
-    public void useFadeOutAnimationForLauncherStart(CancellationSignal signal) {
-        QuickstepTransitionManager appTransitionManager = getAppTransitionManager();
-        appTransitionManager.setRemoteAnimationProvider(new RemoteAnimationProvider() {
-            @Override
-            public AnimatorSet createWindowAnimation(RemoteAnimationTarget[] appTargets,
-                    RemoteAnimationTarget[] wallpaperTargets) {
-
-                // On the first call clear the reference.
-                signal.cancel();
-
-                ValueAnimator fadeAnimation = ValueAnimator.ofFloat(1, 0);
-                fadeAnimation.addUpdateListener(new RemoteFadeOutAnimationListener(appTargets,
-                        wallpaperTargets));
-                AnimatorSet anim = new AnimatorSet();
-                anim.play(fadeAnimation);
-                return anim;
-            }
-        }, signal);
-    }
-
-    @Override
     public float[] getNormalOverviewScaleAndOffset() {
         return DisplayController.getNavigationMode(this).hasGestures
                 ? new float[] {1, 1} : new float[] {1.1f, NO_OFFSET};
@@ -1324,6 +1292,13 @@ public class QuickstepLauncher extends Launcher {
                         : groupTask.mSplitBounds.appsStackedVertically
                                 ? groupTask.mSplitBounds.topTaskPercent
                                 : groupTask.mSplitBounds.leftTaskPercent);
+    }
+
+    /**
+     * Launches two apps as an app pair.
+     */
+    public void launchAppPair(WorkspaceItemInfo app1, WorkspaceItemInfo app2) {
+        mSplitSelectStateController.getAppPairsController().launchAppPair(app1, app2);
     }
 
     public boolean canStartHomeSafely() {

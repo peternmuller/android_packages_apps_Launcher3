@@ -22,6 +22,7 @@ import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR_PANEL;
 
 import static com.android.launcher3.LauncherPrefs.TASKBAR_PINNING;
 import static com.android.launcher3.LauncherPrefs.TASKBAR_PINNING_KEY;
+import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.util.DisplayController.TASKBAR_NOT_DESTROYED_TAG;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.launcher3.util.FlagDebugUtils.formatFlagChange;
@@ -40,6 +41,7 @@ import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.SystemProperties;
+import android.os.Trace;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Display;
@@ -180,6 +182,8 @@ public class TaskbarManager {
 
             @Override
             public void onConfigurationChanged(Configuration newConfig) {
+                Trace.instantForTrack(Trace.TRACE_TAG_APP, "TaskbarManager",
+                        "onConfigurationChanged: " + newConfig);
                 debugWhyTaskbarNotDestroyed(
                         "TaskbarManager#mComponentCallbacks.onConfigurationChanged: " + newConfig);
                 DeviceProfile dp = mUserUnlocked
@@ -268,6 +272,25 @@ public class TaskbarManager {
     }
 
     /**
+     * Toggles All Apps for Taskbar or Launcher depending on the current state.
+     *
+     * @param homeAllAppsIntent Intent used if Taskbar is not enabled or Launcher is resumed.
+     */
+    public void toggleAllApps(Intent homeAllAppsIntent) {
+        if (mTaskbarActivityContext == null) {
+            mContext.startActivity(homeAllAppsIntent);
+            return;
+        }
+
+        if (mActivity != null && mActivity.isResumed() && !mActivity.isInState(OVERVIEW)) {
+            mContext.startActivity(homeAllAppsIntent);
+            return;
+        }
+
+        mTaskbarActivityContext.toggleAllApps();
+    }
+
+    /**
      * Displays a frame of the first Launcher reveal animation.
      *
      * This should be used to run a first Launcher reveal animation whose progress matches a swipe
@@ -347,38 +370,44 @@ public class TaskbarManager {
      */
     @VisibleForTesting
     public void recreateTaskbar() {
-        DeviceProfile dp = mUserUnlocked ?
+        Trace.beginSection("recreateTaskbar");
+        try {
+            DeviceProfile dp = mUserUnlocked ?
                 LauncherAppState.getIDP(mContext).getDeviceProfile(mContext) : null;
 
-        destroyExistingTaskbar();
+            destroyExistingTaskbar();
 
-        boolean isTaskbarEnabled = dp != null && isTaskbarPresent(dp);
-        debugWhyTaskbarNotDestroyed("recreateTaskbar: isTaskbarEnabled=" + isTaskbarEnabled
+            boolean isTaskbarEnabled = dp != null && isTaskbarPresent(dp);
+            debugWhyTaskbarNotDestroyed("recreateTaskbar: isTaskbarEnabled=" + isTaskbarEnabled
                 + " [dp != null (i.e. mUserUnlocked)]=" + (dp != null)
                 + " FLAG_HIDE_NAVBAR_WINDOW=" + FLAG_HIDE_NAVBAR_WINDOW
                 + " dp.isTaskbarPresent=" + (dp == null ? "null" : dp.isTaskbarPresent));
-        if (!isTaskbarEnabled) {
-            SystemUiProxy.INSTANCE.get(mContext)
+            if (!isTaskbarEnabled) {
+                SystemUiProxy.INSTANCE.get(mContext)
                     .notifyTaskbarStatus(/* visible */ false, /* stashed */ false);
-            return;
-        }
+                return;
+            }
 
-        if (mTaskbarActivityContext == null) {
-            mTaskbarActivityContext = new TaskbarActivityContext(mContext, dp, mNavButtonController,
+            if (mTaskbarActivityContext == null) {
+                mTaskbarActivityContext = new TaskbarActivityContext(mContext, dp,
+                    mNavButtonController,
                     mUnfoldProgressProvider);
-        } else {
-            mTaskbarActivityContext.updateDeviceProfile(dp);
-        }
-        mTaskbarActivityContext.init(mSharedState);
+            } else {
+                mTaskbarActivityContext.updateDeviceProfile(dp);
+            }
+            mTaskbarActivityContext.init(mSharedState);
 
-        if (mActivity != null) {
-            mTaskbarActivityContext.setUIController(
+            if (mActivity != null) {
+                mTaskbarActivityContext.setUIController(
                     createTaskbarUIControllerForActivity(mActivity));
-        }
+            }
 
-        // We to wait until user unlocks the device to attach listener.
-        LauncherPrefs.get(mContext).addListener(mTaskbarPinningPreferenceChangeListener,
+            // We to wait until user unlocks the device to attach listener.
+            LauncherPrefs.get(mContext).addListener(mTaskbarPinningPreferenceChangeListener,
                 TASKBAR_PINNING);
+        } finally {
+            Trace.endSection();
+        }
     }
 
     public void onSystemUiFlagsChanged(int systemUiStateFlags) {

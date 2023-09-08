@@ -83,11 +83,11 @@ public final class FeatureFlags {
      */
     // TODO(Block 1): Clean up flags
     public static final BooleanFlag ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES = getReleaseFlag(
-            270394041, "ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES", TEAMFOOD,
+            270394041, "ENABLE_SEARCH_RESULT_BACKGROUND_DRAWABLES", ENABLED,
             "Enable option to replace decorator-based search result backgrounds with drawables");
 
     public static final BooleanFlag ENABLE_SEARCH_RESULT_LAUNCH_TRANSITION = getReleaseFlag(
-            270394392, "ENABLE_SEARCH_RESULT_LAUNCH_TRANSITION", TEAMFOOD,
+            270394392, "ENABLE_SEARCH_RESULT_LAUNCH_TRANSITION", ENABLED,
             "Enable option to launch search results using the new view container transitions");
 
     // TODO(Block 2): Clean up flags
@@ -183,10 +183,6 @@ public final class FeatureFlags {
             "Enables predictive back animation from all apps and widgets to home");
 
     // TODO(Block 11): Clean up flags
-    public static final BooleanFlag ENABLE_PARAMETRIZE_REORDER = getDebugFlag(289420844,
-            "ENABLE_PARAMETRIZE_REORDER", DISABLED,
-            "Enables generating the reorder using a set of parameters");
-
     public static final BooleanFlag ENABLE_TWO_PANEL_HOME = getDebugFlag(270392643,
             "ENABLE_TWO_PANEL_HOME", ENABLED,
             "Uses two panel on home screen. Only applicable on large screen devices.");
@@ -196,7 +192,11 @@ public final class FeatureFlags {
             "In foldables, when reordering the icons and widgets, is now going to use both sides");
 
     public static final BooleanFlag FOLDABLE_SINGLE_PAGE = getDebugFlag(270395274,
-            "FOLDABLE_SINGLE_PAGE", DISABLED, "Use a single page for the workspace");
+            "FOLDABLE_SINGLE_PAGE", ENABLED, "Use a single page for the workspace");
+
+    public static final BooleanFlag ENABLE_PARAMETRIZE_REORDER = getDebugFlag(289420844,
+            "ENABLE_PARAMETRIZE_REORDER", DISABLED,
+            "Enables generating the reorder using a set of parameters");
 
     // TODO(Block 12): Clean up flags
     public static final BooleanFlag ENABLE_MULTI_INSTANCE = getDebugFlag(270396680,
@@ -256,7 +256,7 @@ public final class FeatureFlags {
             "Inject fallback app corpus result when AiAi fails to return it.");
 
     public static final BooleanFlag ENABLE_LONG_PRESS_NAV_HANDLE =
-            getDebugFlag(282993230, "ENABLE_LONG_PRESS_NAV_HANDLE", DISABLED,
+            getReleaseFlag(282993230, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
                     "Enables long pressing on the bottom bar nav handle to trigger events.");
 
     // TODO(Block 17): Clean up flags
@@ -287,6 +287,10 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_BACK_SWIPE_HOME_ANIMATION = getDebugFlag(270393426,
             "ENABLE_BACK_SWIPE_HOME_ANIMATION", ENABLED,
             "Enables home animation to icon when user swipes back.");
+
+    public static final BooleanFlag ENABLE_DYNAMIC_TASKBAR_THRESHOLDS = getDebugFlag(294252473,
+            "ENABLE_DYNAMIC_TASKBAR_THRESHOLDS", TEAMFOOD,
+            "Enables taskbar thresholds that scale based on screen size.");
 
     // TODO(Block 21): Clean up flags
     public static final BooleanFlag ENABLE_APP_ICON_FOR_INLINE_SHORTCUTS = getDebugFlag(270395087,
@@ -370,12 +374,16 @@ public final class FeatureFlags {
 
     // TODO(Block 28): Clean up flags
     public static final BooleanFlag ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS =
-            getDebugFlag(270394122, "ENABLE_SPLIT_FROM_FULLSCREEN_SHORTCUT", DISABLED,
+            getDebugFlag(270394122, "ENABLE_SPLIT_FROM_FULLSCREEN_SHORTCUT", TEAMFOOD,
                     "Enable splitting from fullscreen app with keyboard shortcuts");
 
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE = getDebugFlag(
             270393453, "ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE", TEAMFOOD,
             "Enable initiating split screen from workspace to workspace.");
+
+    public static final BooleanFlag ENABLE_SPLIT_FROM_DESKTOP_TO_WORKSPACE = getDebugFlag(
+            279586624, "ENABLE_SPLIT_FROM_DESKTOP_TO_WORKSPACE", DISABLED,
+            "Enable initiating split screen from desktop mode to workspace.");
 
     public static final BooleanFlag ENABLE_TRACKPAD_GESTURE = getDebugFlag(271010401,
             "ENABLE_TRACKPAD_GESTURE", ENABLED, "Enables trackpad gesture.");
@@ -406,12 +414,12 @@ public final class FeatureFlags {
 
     // TODO(Block 33): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_RV_PREINFLATION = getDebugFlag(288161355,
-            "ENABLE_ALL_APPS_RV_PREINFLATION", ENABLED,
+            "ENABLE_ALL_APPS_RV_PREINFLATION", DISABLED,
             "Enables preinflating all apps icons to avoid scrolling jank.");
 
     // TODO(Block 34): Clean up flags
     public static final BooleanFlag ALL_APPS_GONE_VISIBILITY = getDebugFlag(291651514,
-            "ALL_APPS_GONE_VISIBILITY", ENABLED,
+            "ALL_APPS_GONE_VISIBILITY", DISABLED,
             "Set all apps container view's hidden visibility to GONE instead of INVISIBLE.");
 
     // TODO(Block 35): Empty block

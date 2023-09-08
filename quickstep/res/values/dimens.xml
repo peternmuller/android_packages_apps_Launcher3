@@ -50,10 +50,8 @@
 
     <!-- Overrideable in overlay that provides the Overview Actions. -->
     <dimen name="overview_actions_top_margin">24dp</dimen>
-    <dimen name="overview_actions_size">60dp</dimen>
+    <dimen name="overview_actions_height">48dp</dimen>
     <dimen name="overview_actions_button_spacing">36dp</dimen>
-    <!-- 12dp + 156dp floating search pill width (note this is in addition to normal 36dp) -->
-    <dimen name="overview_actions_additional_floating_search_spacing">168dp</dimen>
 
     <!-- These speeds are in dp/s -->
     <dimen name="max_task_dismiss_drag_velocity">2.25dp</dimen>
@@ -329,6 +327,12 @@
     <dimen name="taskbar_catch_up_threshold">264dp</dimen>
     <!-- Taskbar swipe down threshold -->
     <dimen name="taskbar_to_nav_threshold">24dp</dimen>
+
+    <!-- Taskbar swipe up threshold multipliers -->
+    <item name="taskbar_nav_threshold_mult" format="float" type="dimen">4.5</item>
+    <item name="taskbar_app_window_threshold_mult" format="float" type="dimen">10</item>
+    <item name="taskbar_home_overview_threshold_mult" format="float" type="dimen">18</item>
+    <item name="taskbar_catch_up_threshold_mult" format="float" type="dimen">30</item>
 
     <!--  Taskbar 3 button spacing  -->
     <dimen name="taskbar_button_space_inbetween">24dp</dimen>

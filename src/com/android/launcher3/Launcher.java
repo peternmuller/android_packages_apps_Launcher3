@@ -44,6 +44,7 @@ import static com.android.launcher3.LauncherState.NO_SCALE;
 import static com.android.launcher3.LauncherState.SPRING_LOADED;
 import static com.android.launcher3.Utilities.postAsyncCallback;
 import static com.android.launcher3.accessibility.LauncherAccessibilityDelegate.getSupportedActions;
+import static com.android.launcher3.config.FeatureFlags.FOLDABLE_SINGLE_PAGE;
 import static com.android.launcher3.config.FeatureFlags.MULTI_SELECT_EDIT_MODE;
 import static com.android.launcher3.config.FeatureFlags.SHOW_DOT_PAGINATION;
 import static com.android.launcher3.logging.StatsLogManager.EventEnum;
@@ -99,7 +100,6 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.CancellationSignal;
 import android.os.Parcelable;
 import android.os.StrictMode;
 import android.os.SystemClock;
@@ -145,6 +145,7 @@ import com.android.launcher3.allapps.AllAppsTransitionController;
 import com.android.launcher3.allapps.BaseSearchConfig;
 import com.android.launcher3.allapps.DiscoveryBounce;
 import com.android.launcher3.anim.PropertyListBuilder;
+import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.celllayout.CellPosMapper;
 import com.android.launcher3.celllayout.CellPosMapper.CellPos;
 import com.android.launcher3.celllayout.CellPosMapper.TwoPanelCellPosMapper;
@@ -153,7 +154,6 @@ import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.dot.DotInfo;
 import com.android.launcher3.dragndrop.DragController;
 import com.android.launcher3.dragndrop.DragLayer;
-import com.android.launcher3.dragndrop.DragOptions;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.dragndrop.LauncherDragController;
 import com.android.launcher3.folder.Folder;
@@ -725,18 +725,23 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     protected void onHandleConfigurationChanged() {
-        if (!initDeviceProfile(mDeviceProfile.inv)) {
-            return;
+        Trace.beginSection("Launcher#onHandleconfigurationChanged");
+        try {
+            if (!initDeviceProfile(mDeviceProfile.inv)) {
+                return;
+            }
+
+            dispatchDeviceProfileChanged();
+            reapplyUi();
+            mDragLayer.recreateControllers();
+
+            // Calling onSaveInstanceState ensures that static cache used by listWidgets is
+            // initialized properly.
+            onSaveInstanceState(new Bundle());
+            mModel.rebindCallbacks();
+        } finally {
+            Trace.endSection();
         }
-
-        dispatchDeviceProfileChanged();
-        reapplyUi();
-        mDragLayer.recreateControllers();
-
-        // Calling onSaveInstanceState ensures that static cache used by listWidgets is
-        // initialized properly.
-        onSaveInstanceState(new Bundle());
-        mModel.rebindCallbacks();
     }
 
     public void onAssistantVisibilityChanged(float visibility) {
@@ -760,7 +765,7 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         onDeviceProfileInitiated();
-        if (mDeviceProfile.isTwoPanels) {
+        if (FOLDABLE_SINGLE_PAGE.get() && mDeviceProfile.isTwoPanels) {
             mCellPosMapper = new TwoPanelCellPosMapper(mDeviceProfile.inv.numColumns);
         } else {
             mCellPosMapper = CellPosMapper.DEFAULT;
@@ -2446,9 +2451,9 @@ public class Launcher extends StatefulActivity<LauncherState>
                     break;
                 }
                 case LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR: {
-                    FolderInfo info = (FolderInfo) item;
-                    // TODO (jeremysim b/274189428): Create app pair icon
-                    view = null;
+                    view = AppPairIcon.inflateIcon(R.layout.app_pair_icon, this,
+                            (ViewGroup) workspace.getChildAt(workspace.getCurrentPage()),
+                            (FolderInfo) item);
                     break;
                 }
                 case LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET:
@@ -3243,8 +3248,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         return new TouchController[] {getDragController(), new AllAppsSwipeController(this)};
     }
 
-    public void useFadeOutAnimationForLauncherStart(CancellationSignal signal) { }
-
     public void onDragLayerHierarchyChanged() {
         updateDisallowBack();
     }
@@ -3308,10 +3311,6 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     public boolean supportsAdaptiveIconAnimation(View clickedView) {
         return false;
-    }
-
-    public DragOptions getDefaultWorkspaceDragOptions() {
-        return new DragOptions();
     }
 
     /**
@@ -3389,5 +3388,13 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Override
     public View.OnLongClickListener getAllAppsItemLongClickListener() {
         return ItemLongClickListener.INSTANCE_ALL_APPS;
+    }
+
+    /**
+     * Handles an app pair launch; overridden in
+     * {@link com.android.launcher3.uioverrides.QuickstepLauncher}
+     */
+    public void launchAppPair(WorkspaceItemInfo app1, WorkspaceItemInfo app2) {
+        // Overridden
     }
 }

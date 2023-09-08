@@ -621,6 +621,9 @@ public class StatsLogManager implements ResourceBasedOverride {
         @UiEvent(doc = "User has invoked split to left half with a keyboard shortcut.")
         LAUNCHER_KEYBOARD_SHORTCUT_SPLIT_LEFT_TOP(1233),
 
+        @UiEvent(doc = "User has invoked split to right half with desktop mode app icon")
+        LAUNCHER_DESKTOP_MODE_SPLIT_RIGHT_BOTTOM(1412),
+
         @UiEvent(doc = "User has collapsed the work FAB button by scrolling down in the all apps"
                 + " work A-Z list.")
         LAUNCHER_WORK_FAB_BUTTON_COLLAPSE(1276),
@@ -641,11 +644,17 @@ public class StatsLogManager implements ResourceBasedOverride {
         @UiEvent(doc = "User has swiped upwards from the gesture handle to show transient taskbar.")
         LAUNCHER_TRANSIENT_TASKBAR_SHOW(1331),
 
+        @UiEvent(doc = "User has clicked an app pair and launched directly into split screen.")
+        LAUNCHER_APP_PAIR_LAUNCH(1374),
+
+        @UiEvent(doc = "User saved an app pair.")
+        LAUNCHER_APP_PAIR_SAVE(1456),
+
         @UiEvent(doc = "App launched through pending intent")
-        LAUNCHER_APP_LAUNCH_PENDING_INTENT(1394),
-        ;
+        LAUNCHER_APP_LAUNCH_PENDING_INTENT(1394)
 
         // ADD MORE
+        ;
 
         private final int mId;
 
