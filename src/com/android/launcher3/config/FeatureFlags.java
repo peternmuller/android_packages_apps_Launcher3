@@ -27,6 +27,7 @@ import android.content.Context;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.BuildConfig;
+import com.android.launcher3.Flags;
 import com.android.launcher3.Utilities;
 
 import java.util.function.Predicate;
@@ -268,7 +269,7 @@ public final class FeatureFlags {
 
     // TODO(Block 17): Clean up flags
     public static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(270396583,
-            "ENABLE_TASKBAR_PINNING", TEAMFOOD,
+            "ENABLE_TASKBAR_PINNING", DISABLED,
             "Enables taskbar pinning to allow user to switch between transient and persistent "
                     + "taskbar flavors");
 
@@ -315,9 +316,14 @@ public final class FeatureFlags {
                     + "start receiving the events");
 
     // TODO(Block 23): Clean up flags
+    // Aconfig migration complete for ENABLE_GRID_ONLY_OVERVIEW.
+    @VisibleForTesting
     public static final BooleanFlag ENABLE_GRID_ONLY_OVERVIEW = getDebugFlag(270397206,
             "ENABLE_GRID_ONLY_OVERVIEW", TEAMFOOD,
             "Enable a grid-only overview without a focused task.");
+    public static boolean enableGridOnlyOverview() {
+        return ENABLE_GRID_ONLY_OVERVIEW.get() || Flags.enableGridOnlyOverview();
+    }
 
     public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
             "ENABLE_CURSOR_HOVER_STATES", TEAMFOOD,
