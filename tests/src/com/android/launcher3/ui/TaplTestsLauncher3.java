@@ -19,6 +19,8 @@ package com.android.launcher3.ui;
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.launcher3.testing.shared.TestProtocol.ICON_MISSING;
+import static com.android.launcher3.util.rule.TestStabilityRule.LOCAL;
+import static com.android.launcher3.util.rule.TestStabilityRule.PLATFORM_POSTSUBMIT;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -61,6 +63,7 @@ import com.android.launcher3.util.TestUtil;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
 import com.android.launcher3.util.rule.TISBindRule;
+import com.android.launcher3.util.rule.TestStabilityRule.Stability;
 import com.android.launcher3.widget.picker.WidgetsFullSheet;
 import com.android.launcher3.widget.picker.WidgetsRecyclerView;
 
@@ -229,7 +232,18 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
     @PortraitLandscape
     public void testAllAppsSwitchToWorkspace() {
         assertNotNull("switchToWorkspace() returned null",
-                mLauncher.getWorkspace().switchToAllApps().switchToWorkspace());
+                mLauncher.getWorkspace().switchToAllApps()
+                        .switchToWorkspace(/* swipeDown= */ true));
+        assertTrue("Launcher internal state is not Workspace",
+                isInState(() -> LauncherState.NORMAL));
+    }
+
+    @Test
+    @PortraitLandscape
+    public void testAllAppsSwipeUpToWorkspace() {
+        assertNotNull("testAllAppsSwipeUpToWorkspace() returned null",
+                mLauncher.getWorkspace().switchToAllApps()
+                        .switchToWorkspace(/* swipeDown= */ false));
         assertTrue("Launcher internal state is not Workspace",
                 isInState(() -> LauncherState.NORMAL));
     }
@@ -318,7 +332,8 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
     }
 
     @Test
-    @Ignore // b/293191790
+    @Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/293191790
+    @ScreenRecord
     @PortraitLandscape
     public void testWidgets() throws Exception {
         // Test opening widgets.
@@ -367,6 +382,28 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
             final AppIconMenu menu = allApps.
                     getAppIcon(APP_NAME).
                     openDeepShortcutMenu();
+
+            executeOnLauncher(
+                    launcher -> assertTrue("Launcher internal state didn't switch to Showing Menu",
+                            isOptionsPopupVisible(launcher)));
+
+            final AppIconMenuItem menuItem = menu.getMenuItem(1);
+            assertEquals("Wrong menu item", "Shortcut 2", menuItem.getText());
+            menuItem.launch(getAppPackageName());
+        } finally {
+            allApps.unfreeze();
+        }
+    }
+
+    @Test
+    public void testLaunchHomeScreenMenuItem() {
+        // Drag the test app icon to home screen and open short cut menu from the icon
+        final HomeAllApps allApps = mLauncher.getWorkspace().switchToAllApps();
+        allApps.freeze();
+        try {
+            allApps.getAppIcon(APP_NAME).dragToWorkspace(false, false);
+            final AppIconMenu menu = mLauncher.getWorkspace().getWorkspaceAppIcon(
+                    APP_NAME).openDeepShortcutMenu();
 
             executeOnLauncher(
                     launcher -> assertTrue("Launcher internal state didn't switch to Showing Menu",
@@ -520,6 +557,7 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
     @Test
     @PortraitLandscape
     @PlatinumTest(focusArea = "launcher")
+    @ScreenRecord // TODO(b/293944634): Remove after flaky debug
     public void testUninstallFromWorkspace() throws Exception {
         installDummyAppAndWaitForUIUpdate();
         try {
