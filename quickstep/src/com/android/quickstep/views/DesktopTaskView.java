@@ -68,17 +68,9 @@ import java.util.function.Consumer;
 // TODO(b/249371338): TaskView needs to be refactored to have better support for N tasks.
 public class DesktopTaskView extends TaskView {
 
-    /** Flag to indicate whether desktop windowing proto 1 is enabled */
-    private static final boolean DESKTOP_IS_PROTO1_ENABLED = SystemProperties.getBoolean(
-            "persist.wm.debug.desktop_mode", false);
-
     /** Flag to indicate whether desktop windowing proto 2 is enabled */
-    public static final boolean DESKTOP_IS_PROTO2_ENABLED = SystemProperties.getBoolean(
+    public static final boolean DESKTOP_MODE_SUPPORTED = SystemProperties.getBoolean(
             "persist.wm.debug.desktop_mode_2", false);
-
-    /** Flags to indicate whether desktop mode is available on the device */
-    public static final boolean DESKTOP_MODE_SUPPORTED =
-            DESKTOP_IS_PROTO1_ENABLED || DESKTOP_IS_PROTO2_ENABLED;
 
     private static final String TAG = DesktopTaskView.class.getSimpleName();
 
@@ -109,9 +101,17 @@ public class DesktopTaskView extends TaskView {
     public DesktopTaskView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-        mSnapshotDrawParams = new FullscreenDrawParams(
-                QuickStepContract.getWindowCornerRadius(context),
-                QuickStepContract.getWindowCornerRadius(context));
+        mSnapshotDrawParams = new FullscreenDrawParams(context) {
+            @Override
+            public float computeTaskCornerRadius(Context context) {
+                return QuickStepContract.getWindowCornerRadius(context);
+            }
+
+            @Override
+            public float computeWindowCornerRadius(Context context) {
+                return QuickStepContract.getWindowCornerRadius(context);
+            }
+        };
     }
 
     @Override

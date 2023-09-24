@@ -198,6 +198,7 @@ import com.android.launcher3.touch.ItemLongClickListener;
 import com.android.launcher3.uioverrides.plugins.PluginManagerWrapper;
 import com.android.launcher3.util.ActivityResultInfo;
 import com.android.launcher3.util.ActivityTracker;
+import com.android.launcher3.util.BackPressHandler;
 import com.android.launcher3.util.CannedAnimationCoordinator;
 import com.android.launcher3.util.ComponentKey;
 import com.android.launcher3.util.IntArray;
@@ -329,10 +330,7 @@ public class Launcher extends StatefulActivity<LauncherState>
     private static final FloatProperty<Hotseat> HOTSEAT_WIDGET_SCALE =
             HOTSEAT_SCALE_PROPERTY_FACTORY.get(SCALE_INDEX_WIDGET_TRANSITION);
 
-    private static final boolean DESKTOP_MODE_1_SUPPORTED =
-            "1".equals(Utilities.getSystemProperty("persist.wm.debug.desktop_mode", "0"));
-
-    private static final boolean DESKTOP_MODE_2_SUPPORTED =
+    private static final boolean DESKTOP_MODE_SUPPORTED =
             "1".equals(Utilities.getSystemProperty("persist.wm.debug.desktop_mode_2", "0"));
 
     @Thunk
@@ -424,6 +422,8 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     private final CannedAnimationCoordinator mAnimationCoordinator =
             new CannedAnimationCoordinator(this);
+
+    private final List<BackPressHandler> mBackPressedHandlers = new ArrayList<>();
 
     @Override
     @TargetApi(Build.VERSION_CODES.S)
@@ -604,6 +604,7 @@ public class Launcher extends StatefulActivity<LauncherState>
      *  <li> auto cancel action mode handler
      *  <li> drag handler
      *  <li> view handler
+     *  <li> registered {@link BackPressHandler}
      *  <li> state handler
      * </ol>
      *
@@ -633,7 +634,14 @@ public class Launcher extends StatefulActivity<LauncherState>
             return topView;
         }
 
-        // #4 state handler
+        // #4 Custom back handlers
+        for (BackPressHandler handler : mBackPressedHandlers) {
+            if (handler.canHandleBack()) {
+                return handler;
+            }
+        }
+
+        // #5 state handler
         return new OnBackAnimationCallback() {
             @Override
             public void onBackInvoked() {
@@ -3281,17 +3289,33 @@ public class Launcher extends StatefulActivity<LauncherState>
         updateDisallowBack();
     }
 
+    protected void addBackAnimationCallback(BackPressHandler callback) {
+        mBackPressedHandlers.add(callback);
+    }
+
+    protected void removeBackAnimationCallback(BackPressHandler callback) {
+        mBackPressedHandlers.remove(callback);
+    }
+
     private void updateDisallowBack() {
-        if (DESKTOP_MODE_1_SUPPORTED || DESKTOP_MODE_2_SUPPORTED) {
+        if (DESKTOP_MODE_SUPPORTED) {
             // Do not disable back in launcher when prototype behavior is enabled
             return;
         }
         LauncherRootView rv = getRootView();
         if (rv != null) {
+            boolean isSplitSelectionEnabled = isSplitSelectionEnabled();
             boolean disableBack = getStateManager().getState() == NORMAL
-                    && AbstractFloatingView.getTopOpenView(this) == null;
+                    && AbstractFloatingView.getTopOpenView(this) == null
+                    && !isSplitSelectionEnabled;
             rv.setDisallowBackGesture(disableBack);
         }
+    }
+
+    /** To be overridden by subclasses */
+    protected boolean isSplitSelectionEnabled() {
+        // Overridden
+        return false;
     }
 
     @Override

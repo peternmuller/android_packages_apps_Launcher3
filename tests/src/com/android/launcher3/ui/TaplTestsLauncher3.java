@@ -158,7 +158,6 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
     }
 
     @Test
-    @ScreenRecord
     public void testPressHomeOnAllAppsContextMenu() throws Exception {
         final AllApps allApps = mLauncher.getWorkspace().switchToAllApps();
         allApps.freeze();
@@ -261,7 +260,6 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
 
     @PlatinumTest(focusArea = "launcher")
     @Test
-    @ScreenRecord // b/202433017
     public void testWorkspace() throws Exception {
         // Set workspace  that includes the chrome Activity app icon on the hotseat.
         LauncherLayoutBuilder builder = new LauncherLayoutBuilder()
@@ -556,8 +554,9 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
 
     @Test
     @PortraitLandscape
-    @PlatinumTest(focusArea = "launcher")
-    @ScreenRecord // TODO(b/293944634): Remove after flaky debug
+    // TODO(b/293944634): Remove Screenrecord after flaky debug, and add
+    // @PlatinumTest(focusArea = "launcher") back
+    @ScreenRecord
     public void testUninstallFromWorkspace() throws Exception {
         installDummyAppAndWaitForUIUpdate();
         try {
@@ -619,10 +618,13 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
         }
     }
 
+    /**
+     * Adds three icons to the workspace and removes one of them by dragging to uninstall.
+     */
     @Test
     @ScreenRecord // b/241821721
     @PlatinumTest(focusArea = "launcher")
-    public void getIconsPosition_afterIconRemoved_notContained() throws IOException {
+    public void uninstallWorkspaceIcon() throws IOException {
         Point[] gridPositions = getCornersAndCenterPositions();
         StringBuilder sb = new StringBuilder();
         for (Point p : gridPositions) {
@@ -643,6 +645,10 @@ public class TaplTestsLauncher3 extends AbstractLauncherUiTest {
             mLauncher.getWorkspace().verifyWorkspaceAppIconIsGone(
                     DUMMY_APP_NAME + " was expected to disappear after uninstall.", DUMMY_APP_NAME);
 
+            // Debug for b/288944469 I want to test if we are not waiting enough after removing
+            // the icon to request the list of icons again, since the items are not removed
+            // immediately. This should reduce the flake rate
+            SystemClock.sleep(500);
             Map<String, Point> finalPositions =
                     mLauncher.getWorkspace().getWorkspaceIconsPositions();
             assertThat(finalPositions).doesNotContainKey(DUMMY_APP_NAME);

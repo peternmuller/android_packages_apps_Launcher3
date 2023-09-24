@@ -1396,6 +1396,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             // its thumbnail
             mTmpRunningTasks = null;
             mSplitBoundsConfig = null;
+            mTaskOverlayFactory.clearAllActiveState();
         }
         updateLocusId();
     }
@@ -1614,7 +1615,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         mMovingTaskView = null;
         runningTaskView.resetPersistentViewTransforms();
         int frontTaskIndex = 0;
-        if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED && mDesktopTaskView != null
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED && mDesktopTaskView != null
                 && !runningTaskView.isDesktopTask()) {
             // If desktop mode is enabled, desktop task view is pinned at first position if present.
             // Move running task to position 1.
@@ -1754,7 +1755,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
 
         if (!taskGroups.isEmpty()) {
             addView(mClearAllButton);
-            if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+            if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
                 // Check if we have apps on the desktop
                 if (desktopTask != null && !desktopTask.tasks.isEmpty()) {
                     // If we are actively choosing apps for split, skip the desktop tile
@@ -2059,7 +2060,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
                 mLastComputedGridSize);
         mSizeStrategy.calculateGridTaskSize(mActivity, mActivity.getDeviceProfile(),
                 mLastComputedGridTaskSize, mOrientationHandler);
-        if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             mSizeStrategy.calculateDesktopTaskSize(mActivity, mActivity.getDeviceProfile(),
                     mLastComputedDesktopTaskSize);
         }
@@ -2738,7 +2739,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     }
 
     private boolean hasDesktopTask(Task[] runningTasks) {
-        if (!DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+        if (!DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             return false;
         }
         for (Task task : runningTasks) {
@@ -3811,33 +3812,19 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
                                         taskViewIdArray.removeValue(
                                                 finalNextFocusedTaskView.getTaskViewId());
                                     }
-                                    try {
-                                        if (snappedIndex < taskViewIdArray.size()) {
-                                            taskViewIdToSnapTo = taskViewIdArray.get(snappedIndex);
-                                        } else if (snappedIndex == taskViewIdArray.size()) {
-                                            // If the snapped task is the last item from the
-                                            // dismissed row,
-                                            // snap to the same column in the other grid row
-                                            IntArray inverseRowTaskViewIdArray =
-                                                    isSnappedTaskInTopRow ? getBottomRowIdArray()
-                                                            : getTopRowIdArray();
-                                            if (snappedIndex < inverseRowTaskViewIdArray.size()) {
-                                                taskViewIdToSnapTo = inverseRowTaskViewIdArray.get(
-                                                        snappedIndex);
-                                            }
+                                    if (snappedIndex < taskViewIdArray.size()) {
+                                        taskViewIdToSnapTo = taskViewIdArray.get(snappedIndex);
+                                    } else if (snappedIndex == taskViewIdArray.size()) {
+                                        // If the snapped task is the last item from the
+                                        // dismissed row,
+                                        // snap to the same column in the other grid row
+                                        IntArray inverseRowTaskViewIdArray =
+                                                isSnappedTaskInTopRow ? getBottomRowIdArray()
+                                                        : getTopRowIdArray();
+                                        if (snappedIndex < inverseRowTaskViewIdArray.size()) {
+                                            taskViewIdToSnapTo = inverseRowTaskViewIdArray.get(
+                                                    snappedIndex);
                                         }
-                                    } catch (ArrayIndexOutOfBoundsException e) {
-                                        throw new IllegalStateException(
-                                                "b/269956477 invalid snappedIndex"
-                                                        + "\nsnappedTaskViewId: "
-                                                        + snappedTaskViewId
-                                                        + "\nfocusedTaskViewId: "
-                                                        + mFocusedTaskViewId
-                                                        + "\ntopRowIdArray: "
-                                                        + getTopRowIdArray().toConcatString()
-                                                        + "\nbottomRowIdArray: "
-                                                        + getBottomRowIdArray().toConcatString(),
-                                                e);
                                     }
                                 }
                             }
@@ -4632,7 +4619,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         mSplitSelectStateController.setAnimateCurrentTaskDismissal(
                 true /*animateCurrentTaskDismissal*/);
         mSplitHiddenTaskViewIndex = indexOfChild(taskView);
-        if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             updateDesktopTaskVisibility(false /* visible */);
         }
     }
@@ -4656,7 +4643,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         mSplitSelectStateController.setInitialTaskSelect(splitSelectSource.intent,
                 splitSelectSource.position.stagePosition, splitSelectSource.itemInfo,
                 splitSelectSource.splitEvent, splitSelectSource.alreadyRunningTaskId);
-        if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             updateDesktopTaskVisibility(false /* visible */);
         }
     }
@@ -4793,8 +4780,9 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
                         } else {
                             resetFromSplitSelectionState();
                         }
+                        InteractionJankMonitorWrapper.end(
+                                InteractionJankMonitorWrapper.CUJ_SPLIT_SCREEN_ENTER);
                     });
-            InteractionJankMonitorWrapper.end(InteractionJankMonitorWrapper.CUJ_SPLIT_SCREEN_ENTER);
         });
 
         mSecondSplitHiddenView = containerTaskView;
@@ -4861,7 +4849,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             mSplitHiddenTaskView.setThumbnailVisibility(VISIBLE, INVALID_TASK_ID);
             mSplitHiddenTaskView = null;
         }
-        if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
             updateDesktopTaskVisibility(true /* visible */);
         }
     }
@@ -5410,7 +5398,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     }
 
     private int getFirstViewIndex() {
-        if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED && mDesktopTaskView != null) {
+        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED && mDesktopTaskView != null) {
             // Desktop task is at position 0, that is the first view
             return 0;
         }

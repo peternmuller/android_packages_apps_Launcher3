@@ -154,8 +154,6 @@ public final class FeatureFlags {
             "Enable the ability to generate monochromatic icons, if it is not provided by the app");
 
     // TODO(Block 8): Clean up flags
-    public static final BooleanFlag ENABLE_MATERIAL_U_POPUP = getDebugFlag(270395516,
-            "ENABLE_MATERIAL_U_POPUP", ENABLED, "Switch popup UX to use material U");
 
     // TODO(Block 9): Clean up flags
     public static final BooleanFlag ENABLE_DOWNLOAD_APP_UX_V2 = getReleaseFlag(270395134,
@@ -230,6 +228,7 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_HIDE_HEADER = getReleaseFlag(270390930,
             "ENABLE_HIDE_HEADER", ENABLED, "Hide header on keyboard before typing in all apps");
 
+    // Aconfig migration complete for ENABLE_EXPANDING_PAUSE_WORK_BUTTON.
     public static final BooleanFlag ENABLE_EXPANDING_PAUSE_WORK_BUTTON = getDebugFlag(270390779,
             "ENABLE_EXPANDING_PAUSE_WORK_BUTTON", DISABLED,
             "Expand and collapse pause work button while scrolling");
@@ -237,6 +236,7 @@ public final class FeatureFlags {
     public static final BooleanFlag COLLECT_SEARCH_HISTORY = getReleaseFlag(270391455,
             "COLLECT_SEARCH_HISTORY", DISABLED, "Allow launcher to collect search history for log");
 
+    // Aconfig migration complete for ENABLE_TWOLINE_ALLAPPS.
     public static final BooleanFlag ENABLE_TWOLINE_ALLAPPS = getDebugFlag(270390937,
             "ENABLE_TWOLINE_ALLAPPS", DISABLED, "Enables two line label inside all apps.");
 
