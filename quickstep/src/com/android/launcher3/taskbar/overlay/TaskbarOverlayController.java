@@ -62,12 +62,30 @@ public final class TaskbarOverlayController {
         @Override
         public void onTaskCreated(int taskId, ComponentName componentName) {
             // Created task will be below existing overlay, so move out of the way.
-            hideWindow();
+            hideWindowOnTaskStackChange();
         }
 
         @Override
         public void onTaskMovedToFront(int taskId) {
             // New front task will be below existing overlay, so move out of the way.
+            hideWindowOnTaskStackChange();
+        }
+
+        @Override
+        public void onTaskStackChanged() {
+            // The other callbacks are insufficient for All Apps, because there are many cases where
+            // it can relaunch the same task already behind it. However, this callback needs to be a
+            // no-op when only EDU is shown, because going between the EDU steps invokes this
+            // callback.
+            if (mControllers.getSharedState() != null
+                    && mControllers.getSharedState().allAppsVisible) {
+                hideWindowOnTaskStackChange();
+            }
+        }
+
+        private void hideWindowOnTaskStackChange() {
+            // A task was launched while overlay window was open, so stash Taskbar.
+            mControllers.taskbarStashController.updateAndAnimateTransientTaskbar(true);
             hideWindow();
         }
     };
@@ -199,8 +217,10 @@ public final class TaskbarOverlayController {
 
         @Override
         protected void handleClose(boolean animate) {
-            mTaskbarContext.getDragLayer().removeView(this);
-            Optional.ofNullable(mOverlayContext).ifPresent(c -> closeAllOpenViews(c, animate));
+            if (mIsOpen) {
+                mTaskbarContext.getDragLayer().removeView(this);
+                Optional.ofNullable(mOverlayContext).ifPresent(c -> closeAllOpenViews(c, animate));
+            }
         }
 
         @Override

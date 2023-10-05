@@ -20,6 +20,8 @@ import android.widget.TextView;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiObject2;
 
+import com.android.launcher3.testing.shared.TestProtocol;
+
 import java.util.ArrayList;
 
 /**
@@ -43,8 +45,11 @@ public class SearchResultFromQsb {
     public void searchForInput(String input) {
         try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                 "want to search for result with an input");
-             LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
-            mLauncher.waitForLauncherObject(INPUT_RES).setText(input);
+            LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
+            mLauncher.executeAndWaitForLauncherEvent(
+                    () -> mLauncher.waitForLauncherObject(INPUT_RES).setText(input),
+                    event -> TestProtocol.SEARCH_RESULT_COMPLETE.equals(event.getClassName()),
+                    () -> "Didn't receive a search result completed message", "searching");
         }
     }
 
@@ -91,7 +96,7 @@ public class SearchResultFromQsb {
      * Taps outside bottom sheet to dismiss and return to workspace. Available on tablets only.
      * @param tapRight Tap on the right of bottom sheet if true, or left otherwise.
      */
-    public Workspace dismissByTappingOutsideForTablet(boolean tapRight) {
+    public void dismissByTappingOutsideForTablet(boolean tapRight) {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck();
              LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                      "want to tap outside AllApps bottom sheet on the "
@@ -101,8 +106,12 @@ public class SearchResultFromQsb {
             mLauncher.touchOutsideContainer(allAppsBottomSheet, tapRight);
             try (LauncherInstrumentation.Closable tapped = mLauncher.addContextLayer(
                     "tapped outside AllApps bottom sheet")) {
-                return mLauncher.getWorkspace();
+                verifyVisibleContainerOnDismiss();
             }
         }
+    }
+
+    protected void verifyVisibleContainerOnDismiss() {
+        mLauncher.getWorkspace();
     }
 }

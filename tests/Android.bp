@@ -42,6 +42,7 @@ filegroup {
 filegroup {
     name: "launcher-oop-tests-src",
     srcs: [
+      "src/com/android/launcher3/allapps/OopTaplOpenCloseAllApps.java",
       "src/com/android/launcher3/ui/AbstractLauncherUiTest.java",
       "src/com/android/launcher3/ui/PortraitLandscapeRunner.java",
       "src/com/android/launcher3/ui/TaplTestsLauncher3.java",
@@ -54,6 +55,7 @@ filegroup {
       "src/com/android/launcher3/util/rule/SamplerRule.java",
       "src/com/android/launcher3/util/rule/ScreenRecordRule.java",
       "src/com/android/launcher3/util/rule/ShellCommandRule.java",
+      "src/com/android/launcher3/util/rule/TestIsolationRule.java",
       "src/com/android/launcher3/util/rule/TestStabilityRule.java",
       "src/com/android/launcher3/util/rule/TISBindRule.java",
       "src/com/android/launcher3/util/viewcapture_analysis/*.java",

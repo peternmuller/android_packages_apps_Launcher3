@@ -28,6 +28,7 @@ public final class TestProtocol {
     public static final String PAUSE_DETECTED_MESSAGE = "TAPL_PAUSE_DETECTED";
     public static final String DISMISS_ANIMATION_ENDS_MESSAGE = "TAPL_DISMISS_ANIMATION_ENDS";
     public static final String FOLDER_OPENED_MESSAGE = "TAPL_FOLDER_OPENED";
+    public static final String SEARCH_RESULT_COMPLETE = "SEARCH_RESULT_COMPLETE";
     public static final int NORMAL_STATE_ORDINAL = 0;
     public static final int SPRING_LOADED_STATE_ORDINAL = 1;
     public static final int OVERVIEW_STATE_ORDINAL = 2;
@@ -102,6 +103,7 @@ public final class TestProtocol {
     public static final String REQUEST_WIDGETS_SCROLL_Y = "widgets-scroll-y";
     public static final String REQUEST_TARGET_INSETS = "target-insets";
     public static final String REQUEST_WINDOW_INSETS = "window-insets";
+    public static final String REQUEST_IME_INSETS = "ime-insets";
     public static final String REQUEST_PID = "pid";
     public static final String REQUEST_FORCE_GC = "gc";
     public static final String REQUEST_RECENT_TASKS_LIST = "recent-tasks-list";
@@ -120,7 +122,6 @@ public final class TestProtocol {
             "get-activities-created-count";
     public static final String REQUEST_GET_ACTIVITIES = "get-activities";
     public static final String REQUEST_HAS_TIS = "has-touch-interaction-service";
-    public static final String REQUEST_IS_TRACKPAD_GESTURE_ENABLED = "is-trackpad-gesture-enabled";
     public static final String REQUEST_TASKBAR_ALL_APPS_TOP_PADDING =
             "taskbar-all-apps-top-padding";
     public static final String REQUEST_ALL_APPS_TOP_PADDING = "all-apps-top-padding";

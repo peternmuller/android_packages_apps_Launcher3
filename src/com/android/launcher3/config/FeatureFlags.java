@@ -27,6 +27,7 @@ import android.content.Context;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.BuildConfig;
+import com.android.launcher3.Flags;
 import com.android.launcher3.Utilities;
 
 import java.util.function.Predicate;
@@ -141,7 +142,7 @@ public final class FeatureFlags {
 
     // TODO(Block 6): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_SEARCH_IN_TASKBAR = getDebugFlag(270393900,
-            "ENABLE_ALL_APPS_SEARCH_IN_TASKBAR", DISABLED,
+            "ENABLE_ALL_APPS_SEARCH_IN_TASKBAR", TEAMFOOD,
             "Enables Search box in Taskbar All Apps.");
 
     public static final BooleanFlag SECONDARY_DRAG_N_DROP_TO_PIN = getDebugFlag(270395140,
@@ -175,22 +176,17 @@ public final class FeatureFlags {
             "MULTI_SELECT_EDIT_MODE", DISABLED, "Enable new multi-select edit mode "
                     + "for home screen");
 
+    public static final BooleanFlag SMARTSPACE_AS_A_WIDGET = getDebugFlag(299181941,
+            "SMARTSPACE_AS_A_WIDGET", DISABLED, "Enable SmartSpace as a widget");
+
     // TODO(Block 10): Clean up flags
     public static final BooleanFlag ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION = getDebugFlag(270614790,
             "ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION", DISABLED,
             "Enables predictive back animation from all apps and widgets to home");
 
     // TODO(Block 11): Clean up flags
-    public static final BooleanFlag ENABLE_TWO_PANEL_HOME = getDebugFlag(270392643,
-            "ENABLE_TWO_PANEL_HOME", ENABLED,
-            "Uses two panel on home screen. Only applicable on large screen devices.");
-
-    public static final BooleanFlag FOLDABLE_WORKSPACE_REORDER = getDebugFlag(270395070,
-            "FOLDABLE_WORKSPACE_REORDER", DISABLED,
-            "In foldables, when reordering the icons and widgets, is now going to use both sides");
-
     public static final BooleanFlag FOLDABLE_SINGLE_PAGE = getDebugFlag(270395274,
-            "FOLDABLE_SINGLE_PAGE", ENABLED, "Use a single page for the workspace");
+            "FOLDABLE_SINGLE_PAGE", DISABLED, "Use a single page for the workspace");
 
     public static final BooleanFlag ENABLE_PARAMETRIZE_REORDER = getDebugFlag(289420844,
             "ENABLE_PARAMETRIZE_REORDER", DISABLED,
@@ -212,6 +208,10 @@ public final class FeatureFlags {
 
     public static final BooleanFlag ENABLE_TRANSIENT_TASKBAR = getDebugFlag(270395798,
             "ENABLE_TRANSIENT_TASKBAR", ENABLED, "Enables transient taskbar.");
+
+    public static final BooleanFlag ENABLE_TASKBAR_NO_RECREATION = getDebugFlag(299193589,
+            "ENABLE_TASKBAR_NO_RECREATION", DISABLED,
+            "Enables taskbar with no recreation from lifecycle changes of TaskbarActivityContext.");
 
     // TODO(Block 16): Clean up flags
     // When enabled the promise icon is visible in all apps while installation an app.
@@ -308,9 +308,14 @@ public final class FeatureFlags {
                     + "start receiving the events");
 
     // TODO(Block 23): Clean up flags
+    // Aconfig migration complete for ENABLE_GRID_ONLY_OVERVIEW.
+    @VisibleForTesting
     public static final BooleanFlag ENABLE_GRID_ONLY_OVERVIEW = getDebugFlag(270397206,
             "ENABLE_GRID_ONLY_OVERVIEW", TEAMFOOD,
             "Enable a grid-only overview without a focused task.");
+    public static boolean enableGridOnlyOverview() {
+        return ENABLE_GRID_ONLY_OVERVIEW.get() || Flags.enableGridOnlyOverview();
+    }
 
     public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
             "ENABLE_CURSOR_HOVER_STATES", TEAMFOOD,

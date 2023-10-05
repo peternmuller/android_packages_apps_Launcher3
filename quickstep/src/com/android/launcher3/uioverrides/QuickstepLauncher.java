@@ -133,7 +133,6 @@ import com.android.launcher3.uioverrides.touchcontrollers.TaskViewTouchControlle
 import com.android.launcher3.uioverrides.touchcontrollers.TransposedQuickSwitchTouchController;
 import com.android.launcher3.uioverrides.touchcontrollers.TwoButtonNavbarTouchController;
 import com.android.launcher3.util.ActivityOptionsWrapper;
-import com.android.launcher3.util.BackPressHandler;
 import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.Executors;
 import com.android.launcher3.util.IntSet;
@@ -345,9 +344,7 @@ public class QuickstepLauncher extends Launcher {
         mHotseatPredictionController.setPauseUIUpdate(getTaskbarUIController() == null);
         RunnableList result = super.startActivitySafely(v, intent, item);
         if (result == null) {
-            if (getTaskbarUIController() == null) {
-                mHotseatPredictionController.setPauseUIUpdate(false);
-            }
+            mHotseatPredictionController.setPauseUIUpdate(false);
         } else {
             result.add(() -> mHotseatPredictionController.setPauseUIUpdate(false));
         }
@@ -1272,6 +1269,16 @@ public class QuickstepLauncher extends Launcher {
         return overviewCommandHelper == null || overviewCommandHelper.canStartHomeSafely();
     }
 
+    @Override
+    public boolean isBubbleBarEnabled() {
+        return (mTaskbarUIController != null && mTaskbarUIController.isBubbleBarEnabled());
+    }
+
+    @Override
+    public boolean hasBubbles() {
+        return (mTaskbarUIController != null && mTaskbarUIController.hasBubbles());
+    }
+
     private static final class LauncherTaskViewController extends
             TaskViewTouchController<Launcher> {
 
@@ -1310,6 +1317,9 @@ public class QuickstepLauncher extends Launcher {
         }
         if (mAppTransitionManager != null) {
             mAppTransitionManager.dump(prefix + "\t" + RING_APPEAR_ANIMATION_PREFIX, writer);
+        }
+        if (mHotseatPredictionController != null) {
+            mHotseatPredictionController.dump(prefix, writer);
         }
     }
 }
