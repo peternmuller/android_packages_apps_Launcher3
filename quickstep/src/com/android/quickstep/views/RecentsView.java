@@ -42,7 +42,7 @@ import static com.android.launcher3.Utilities.EDGE_NAV_BAR;
 import static com.android.launcher3.Utilities.mapToRange;
 import static com.android.launcher3.Utilities.squaredHypot;
 import static com.android.launcher3.Utilities.squaredTouchSlop;
-import static com.android.launcher3.config.FeatureFlags.enableGridOnlyOverview;
+import static com.android.launcher3.Flags.enableGridOnlyOverview;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_OVERVIEW_ACTIONS_SPLIT;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_CLEAR_ALL;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_DISMISS_SWIPE_UP;
@@ -5943,6 +5943,13 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     protected void onScrollChanged(int l, int t, int oldl, int oldt) {
         super.onScrollChanged(l, t, oldl, oldt);
         dispatchScrollChanged();
+    }
+
+    @Override
+    protected boolean shouldHandleRequestChildFocus() {
+        // If we are already scrolling to a task view, then the focus request has already been
+        // handled
+        return mScroller.isFinished();
     }
 
     private void dispatchScrollChanged() {
