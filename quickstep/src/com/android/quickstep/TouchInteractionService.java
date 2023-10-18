@@ -102,6 +102,7 @@ import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.LockedUserState;
 import com.android.launcher3.util.OnboardingPrefs;
 import com.android.launcher3.util.SafeCloseable;
+import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.TraceHelper;
 import com.android.quickstep.inputconsumers.AccessibilityInputConsumer;
 import com.android.quickstep.inputconsumers.AssistantInputConsumer;
@@ -119,6 +120,7 @@ import com.android.quickstep.inputconsumers.TaskbarUnstashInputConsumer;
 import com.android.quickstep.inputconsumers.TrackpadStatusBarInputConsumer;
 import com.android.quickstep.util.ActiveGestureLog;
 import com.android.quickstep.util.ActiveGestureLog.CompoundString;
+import com.android.quickstep.util.AssistStateManager;
 import com.android.quickstep.util.AssistUtils;
 import com.android.systemui.shared.recents.IOverviewProxy;
 import com.android.systemui.shared.recents.ISystemUiProxy;
@@ -451,6 +453,8 @@ public class TouchInteractionService extends Service {
     private final AbsSwipeUpHandler.Factory mFallbackSwipeHandlerFactory =
             this::createFallbackSwipeHandler;
 
+    private final ScreenOnTracker.ScreenOnListener mScreenOnListener = this::onScreenOnChanged;
+
     private ActivityManagerWrapper mAM;
     private OverviewCommandHelper mOverviewCommandHelper;
     private OverviewComponentObserver mOverviewComponentObserver;
@@ -487,6 +491,8 @@ public class TouchInteractionService extends Service {
         LockedUserState.get(this).runOnUserUnlocked(mTaskbarManager::onUserUnlocked);
         mDeviceState.addNavigationModeChangedCallback(this::onNavigationModeChanged);
         sConnected = true;
+
+        ScreenOnTracker.INSTANCE.get(this).addListener(mScreenOnListener);
     }
 
     private void disposeEventHandlers(String reason) {
@@ -659,6 +665,8 @@ public class TouchInteractionService extends Service {
 
         mTaskbarManager.destroy();
         sConnected = false;
+
+        ScreenOnTracker.INSTANCE.get(this).removeListener(mScreenOnListener);
         super.onDestroy();
     }
 
@@ -666,6 +674,17 @@ public class TouchInteractionService extends Service {
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "Touch service connected: user=" + getUserId());
         return mTISBinder;
+    }
+
+    protected void onScreenOnChanged(boolean isOn) {
+        if (isOn) {
+            return;
+        }
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent cancelEvent = MotionEvent.obtain(
+                currentTime, currentTime, ACTION_CANCEL, 0f, 0f, 0);
+        onInputEvent(cancelEvent);
+        cancelEvent.recycle();
     }
 
     private void onInputEvent(InputEvent ev) {
@@ -731,29 +750,42 @@ public class TouchInteractionService extends Service {
         }
 
         if (mUncheckedConsumer != InputConsumer.NO_OP) {
-            switch (event.getActionMasked()) {
+            switch (action) {
                 case ACTION_DOWN:
                     // fall through
                 case ACTION_UP:
                     ActiveGestureLog.INSTANCE.addLog(
-                            /* event= */ "onMotionEvent(" + (int) event.getRawX() + ", "
-                                    + (int) event.getRawY() + "): "
-                                    + MotionEvent.actionToString(event.getActionMasked()) + ", "
-                                    + MotionEvent.classificationToString(event.getClassification()),
-                            /* gestureEvent= */ event.getActionMasked() == ACTION_DOWN
+                            new CompoundString("onMotionEvent(")
+                                    .append((int) event.getRawX())
+                                    .append(", ")
+                                    .append((int) event.getRawY())
+                                    .append("): ")
+                                    .append(MotionEvent.actionToString(action))
+                                    .append(", ")
+                                    .append(MotionEvent.classificationToString(
+                                            event.getClassification())),
+                            /* gestureEvent= */ action == ACTION_DOWN
                                     ? MOTION_DOWN
                                     : MOTION_UP);
                     break;
                 case ACTION_MOVE:
-                    ActiveGestureLog.INSTANCE.addLog("onMotionEvent: "
-                            + MotionEvent.actionToString(event.getActionMasked()) + ","
-                            + MotionEvent.classificationToString(event.getClassification())
-                            + ", pointerCount: " + event.getPointerCount(), MOTION_MOVE);
+                    ActiveGestureLog.INSTANCE.addLog(
+                            new CompoundString("onMotionEvent: ")
+                                    .append(MotionEvent.actionToString(action))
+                                    .append(",")
+                                    .append(MotionEvent.classificationToString(
+                                            event.getClassification()))
+                                    .append(", pointerCount: ")
+                                    .append(event.getPointerCount()),
+                            MOTION_MOVE);
                     break;
                 default: {
-                    ActiveGestureLog.INSTANCE.addLog("onMotionEvent: "
-                            + MotionEvent.actionToString(event.getActionMasked()) + ","
-                            + MotionEvent.classificationToString(event.getClassification()));
+                    ActiveGestureLog.INSTANCE.addLog(
+                            new CompoundString("onMotionEvent: ")
+                                    .append(MotionEvent.actionToString(action))
+                                    .append(",")
+                                    .append(MotionEvent.classificationToString(
+                                            event.getClassification())));
                 }
             }
         }
@@ -1321,6 +1353,8 @@ public class TouchInteractionService extends Service {
             createdOverviewActivity.getDeviceProfile().dump(this, "", pw);
         }
         mTaskbarManager.dumpLogs("", pw);
+        pw.println("AssistStateManager:");
+        AssistStateManager.INSTANCE.get(this).dump("  ", pw);
     }
 
     private AbsSwipeUpHandler createLauncherSwipeHandler(

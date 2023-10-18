@@ -110,7 +110,6 @@ import com.android.quickstep.util.TaskRemovedDuringLaunchListener;
 import com.android.quickstep.util.TransformParams;
 import com.android.systemui.shared.recents.model.Task;
 import com.android.systemui.shared.recents.model.ThumbnailData;
-import com.android.systemui.shared.recents.utilities.PreviewPositionHelper;
 import com.android.systemui.shared.system.ActivityManagerWrapper;
 import com.android.systemui.shared.system.QuickStepContract;
 
@@ -444,7 +443,7 @@ public class TaskView extends FrameLayout implements Reusable {
                 || DesktopTaskView.DESKTOP_MODE_SUPPORTED;
 
         boolean willDrawBorder =
-                keyboardFocusHighlightEnabled || FeatureFlags.ENABLE_CURSOR_HOVER_STATES.get();
+                keyboardFocusHighlightEnabled || FeatureFlags.enableCursorHoverStates();
         setWillNotDraw(!willDrawBorder);
 
         if (willDrawBorder) {
@@ -462,7 +461,7 @@ public class TaskView extends FrameLayout implements Reusable {
                             /* targetView= */ this)) : null;
 
             mHoverBorderAnimator =
-                    FeatureFlags.ENABLE_CURSOR_HOVER_STATES.get() ? new BorderAnimator(
+                    FeatureFlags.enableCursorHoverStates() ? new BorderAnimator(
                             /* borderRadiusPx= */ (int) mCurrentFullscreenParams.mCornerRadius,
                             /* borderColor= */ styledAttrs.getColor(
                                     R.styleable.TaskView_hoverBorderColor, DEFAULT_BORDER_COLOR),
@@ -537,7 +536,7 @@ public class TaskView extends FrameLayout implements Reusable {
 
     @Override
     public boolean onHoverEvent(MotionEvent event) {
-        if (FeatureFlags.ENABLE_CURSOR_HOVER_STATES.get()) {
+        if (FeatureFlags.enableCursorHoverStates()) {
             switch (event.getAction()) {
                 case MotionEvent.ACTION_HOVER_ENTER:
                     mHoverBorderAnimator.buildAnimator(/* isAppearing= */ true).start();
@@ -554,7 +553,7 @@ public class TaskView extends FrameLayout implements Reusable {
 
     @Override
     public boolean onInterceptHoverEvent(MotionEvent event) {
-        if (FeatureFlags.ENABLE_CURSOR_HOVER_STATES.get()) {
+        if (FeatureFlags.enableCursorHoverStates()) {
             // avoid triggering hover event on child elements which would cause HOVER_EXIT for this
             // task view
             return true;
@@ -1708,21 +1707,20 @@ public class TaskView extends FrameLayout implements Reusable {
     }
 
     protected void updateSnapshotRadius() {
-        updateCurrentFullscreenParams(mSnapshotView.getPreviewPositionHelper());
+        updateCurrentFullscreenParams();
         mSnapshotView.setFullscreenParams(mCurrentFullscreenParams);
     }
 
-    void updateCurrentFullscreenParams(PreviewPositionHelper previewPositionHelper) {
-        updateFullscreenParams(mCurrentFullscreenParams, previewPositionHelper);
+    void updateCurrentFullscreenParams() {
+        updateFullscreenParams(mCurrentFullscreenParams);
     }
 
-    protected void updateFullscreenParams(TaskView.FullscreenDrawParams fullscreenParams,
-            PreviewPositionHelper previewPositionHelper) {
+    protected void updateFullscreenParams(TaskView.FullscreenDrawParams fullscreenParams) {
         if (getRecentsView() == null) {
             return;
         }
         fullscreenParams.setProgress(mFullscreenProgress, getRecentsView().getScaleX(),
-                getScaleX(), getWidth(), mActivity.getDeviceProfile(), previewPositionHelper);
+                getScaleX());
     }
 
     /**
@@ -1893,8 +1891,7 @@ public class TaskView extends FrameLayout implements Reusable {
         /**
          * Sets the progress in range [0, 1]
          */
-        public void setProgress(float fullscreenProgress, float parentScale, float taskViewScale,
-                int previewWidth, DeviceProfile dp, PreviewPositionHelper pph) {
+        public void setProgress(float fullscreenProgress, float parentScale, float taskViewScale) {
             mCurrentDrawnCornerRadius =
                     Utilities.mapRange(fullscreenProgress, mCornerRadius, mWindowCornerRadius)
                             / parentScale / taskViewScale;
