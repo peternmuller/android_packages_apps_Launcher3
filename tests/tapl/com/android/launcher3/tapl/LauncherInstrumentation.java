@@ -20,7 +20,10 @@ import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
 import static android.content.pm.PackageManager.DONT_KILL_APP;
 import static android.content.pm.PackageManager.MATCH_ALL;
 import static android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS;
+import static android.view.KeyEvent.ACTION_DOWN;
+import static android.view.MotionEvent.ACTION_UP;
 import static android.view.MotionEvent.AXIS_GESTURE_SWIPE_FINGER_COUNT;
+
 import static com.android.launcher3.tapl.Folder.FOLDER_CONTENT_RES_ID;
 import static com.android.launcher3.tapl.TestHelpers.getOverviewPackageName;
 import static com.android.launcher3.testing.shared.TestProtocol.NORMAL_STATE_ORDINAL;
@@ -49,6 +52,9 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.InputDevice;
+import android.view.InputEvent;
+import android.view.KeyCharacterMap;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
@@ -170,6 +176,7 @@ public final class LauncherInstrumentation {
     private static final String OPEN_FOLDER_RES_ID = "folder_content";
     static final String TASKBAR_RES_ID = "taskbar_view";
     private static final String SPLIT_PLACEHOLDER_RES_ID = "split_placeholder";
+    static final String KEYBOARD_QUICK_SWITCH_RES_ID = "keyboard_quick_switch_view";
     public static final int WAIT_TIME_MS = 30000;
     static final long DEFAULT_POLL_INTERVAL = 1000;
     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
@@ -697,6 +704,7 @@ public final class LauncherInstrumentation {
 
     /**
      * Set the trackpad gesture type of the interaction.
+     *
      * @param trackpadGestureType whether it's not from trackpad, two-finger, three-finger, or
      *                            four-finger gesture.
      */
@@ -755,7 +763,7 @@ public final class LauncherInstrumentation {
         return isTablet() ? getLauncherPackageName() : SYSTEMUI_PACKAGE;
     }
 
-    private UiObject2 verifyContainerType(ContainerType containerType) {
+    UiObject2 verifyContainerType(ContainerType containerType) {
         waitForLauncherInitialized();
 
         if (mExpectedRotationCheckEnabled && mExpectedRotation != null) {
@@ -784,6 +792,7 @@ public final class LauncherInstrumentation {
                     waitUntilLauncherObjectGone(WIDGETS_RES_ID);
                     waitUntilSystemLauncherObjectGone(OVERVIEW_RES_ID);
                     waitUntilSystemLauncherObjectGone(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
 
                     if (is3PLauncher() && isTablet()) {
                         waitForSystemLauncherObject(TASKBAR_RES_ID);
@@ -798,6 +807,7 @@ public final class LauncherInstrumentation {
                     waitUntilLauncherObjectGone(APPS_RES_ID);
                     waitUntilSystemLauncherObjectGone(OVERVIEW_RES_ID);
                     waitUntilSystemLauncherObjectGone(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
 
                     if (is3PLauncher() && isTablet()) {
                         waitForSystemLauncherObject(TASKBAR_RES_ID);
@@ -813,6 +823,7 @@ public final class LauncherInstrumentation {
                     waitUntilSystemLauncherObjectGone(OVERVIEW_RES_ID);
                     waitUntilSystemLauncherObjectGone(TASKBAR_RES_ID);
                     waitUntilSystemLauncherObjectGone(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
 
                     return waitForLauncherObject(APPS_RES_ID);
                 }
@@ -821,6 +832,7 @@ public final class LauncherInstrumentation {
                     waitUntilLauncherObjectGone(WIDGETS_RES_ID);
                     waitUntilSystemLauncherObjectGone(OVERVIEW_RES_ID);
                     waitUntilSystemLauncherObjectGone(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
 
                     if (is3PLauncher() && isTablet()) {
                         waitForSystemLauncherObject(TASKBAR_RES_ID);
@@ -841,6 +853,7 @@ public final class LauncherInstrumentation {
                         waitUntilSystemLauncherObjectGone(TASKBAR_RES_ID);
                     }
                     waitUntilSystemLauncherObjectGone(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
 
                     return waitForSystemLauncherObject(OVERVIEW_RES_ID);
                 }
@@ -855,6 +868,7 @@ public final class LauncherInstrumentation {
                     }
 
                     waitForSystemLauncherObject(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
                     return waitForSystemLauncherObject(OVERVIEW_RES_ID);
                 }
                 case LAUNCHED_APP: {
@@ -863,6 +877,7 @@ public final class LauncherInstrumentation {
                     waitUntilLauncherObjectGone(WIDGETS_RES_ID);
                     waitUntilSystemLauncherObjectGone(OVERVIEW_RES_ID);
                     waitUntilSystemLauncherObjectGone(SPLIT_PLACEHOLDER_RES_ID);
+                    waitUntilLauncherObjectGone(KEYBOARD_QUICK_SWITCH_RES_ID);
 
                     if (mIgnoreTaskbarVisibility) {
                         return null;
@@ -977,6 +992,25 @@ public final class LauncherInstrumentation {
      */
     @Deprecated
     public Workspace pressHome() {
+        return goHome();
+    }
+
+    /**
+     * Goes to home from immersive fullscreen app by first swiping up to bring navbar, and then
+     * performing {@code goHome()} action.
+     * Currently only supports gesture navigation mode.
+     *
+     * @return the Workspace object.
+     */
+    public Workspace goHomeFromImmersiveFullscreenApp() {
+        assertTrue("expected gesture navigation mode",
+                getNavigationModel() == NavigationModel.ZERO_BUTTON);
+        final Point displaySize = getRealDisplaySize();
+        linearGesture(
+                displaySize.x / 2, displaySize.y - 1,
+                displaySize.x / 2, 0,
+                ZERO_BUTTON_STEPS_FROM_BACKGROUND_TO_HOME,
+                false, GestureScope.EXPECT_PILFER);
         return goHome();
     }
 
@@ -1170,6 +1204,14 @@ public final class LauncherInstrumentation {
         }
     }
 
+    LaunchedAppState assertAppLaunched(@NonNull String expectedPackageName) {
+        BySelector packageSelector = By.pkg(expectedPackageName);
+        assertTrue("App didn't start: (" + packageSelector + ")",
+                mDevice.wait(Until.hasObject(packageSelector),
+                        LauncherInstrumentation.WAIT_TIME_MS));
+        return new LaunchedAppState(this);
+    }
+
     void waitUntilLauncherObjectGone(String resId) {
         waitUntilGoneBySelector(getLauncherObjectSelector(resId));
     }
@@ -1297,6 +1339,16 @@ public final class LauncherInstrumentation {
             assertTrue("Timed out waiting for object to be enabled for " + waitReason + " "
                             + object.getResourceName(),
                     object.wait(Until.enabled(true), WAIT_TIME_MS));
+        } catch (StaleObjectException e) {
+            fail("The object disappeared from screen");
+        }
+    }
+
+    void waitForObjectFocused(UiObject2 object, String waitReason) {
+        try {
+            assertTrue("Timed out waiting for object to be focused for " + waitReason + " "
+                            + object.getResourceName(),
+                    object.wait(Until.focused(true), WAIT_TIME_MS));
         } catch (StaleObjectException e) {
             fail("The object disappeared from screen");
         }
@@ -1735,6 +1787,11 @@ public final class LauncherInstrumentation {
                 InputDevice.SOURCE_TOUCHSCREEN);
     }
 
+    private void injectEvent(InputEvent event) {
+        assertTrue("injectInputEvent failed: event=" + event,
+                mInstrumentation.getUiAutomation().injectInputEvent(event, true, false));
+    }
+
     public void sendPointer(long downTime, long currentTime, int action, Point point,
             GestureScope gestureScope, int source) {
         final boolean hasTIS = hasTIS();
@@ -1765,16 +1822,46 @@ public final class LauncherInstrumentation {
 
         final MotionEvent event = isTrackpadGesture
                 ? getTrackpadMotionEvent(
-                        downTime, currentTime, action, point.x, point.y, pointerCount,
-                        mTrackpadGestureType)
+                downTime, currentTime, action, point.x, point.y, pointerCount,
+                mTrackpadGestureType)
                 : getMotionEvent(downTime, currentTime, action, point.x, point.y, source);
         if (action == MotionEvent.ACTION_BUTTON_PRESS
                 || action == MotionEvent.ACTION_BUTTON_RELEASE) {
             event.setActionButton(MotionEvent.BUTTON_PRIMARY);
         }
-        assertTrue("injectInputEvent failed",
-                mInstrumentation.getUiAutomation().injectInputEvent(event, true, false));
-        event.recycle();
+        injectEvent(event);
+    }
+
+    private KeyEvent createKeyEvent(int keyCode, int metaState, boolean actionDown) {
+        long eventTime = SystemClock.uptimeMillis();
+        return KeyEvent.obtain(
+                eventTime,
+                eventTime,
+                actionDown ? ACTION_DOWN : ACTION_UP,
+                keyCode,
+                /* repeat= */ 0,
+                metaState,
+                KeyCharacterMap.VIRTUAL_KEYBOARD,
+                /* scancode= */ 0,
+                /* flags= */ 0,
+                InputDevice.SOURCE_KEYBOARD,
+                /* characters =*/ null);
+    }
+
+    /**
+     * Sends a {@link KeyEvent} with {@link ACTION_DOWN} for the given key codes without sending
+     * a {@link KeyEvent} with {@link ACTION_UP}.
+     */
+    public void pressAndHoldKeyCode(int keyCode, int metaState) {
+        injectEvent(createKeyEvent(keyCode, metaState, true));
+    }
+
+
+    /**
+     * Sends a {@link KeyEvent} with {@link ACTION_UP} for the given key codes.
+     */
+    public void unpressKeyCode(int keyCode, int metaState) {
+        injectEvent(createKeyEvent(keyCode, metaState, false));
     }
 
     public long movePointer(long downTime, long startTime, long duration, Point from, Point to,
@@ -1966,6 +2053,12 @@ public final class LauncherInstrumentation {
         getTestInfo(TestProtocol.REQUEST_RECREATE_TASKBAR);
     }
 
+    // TODO(b/270393900): Remove with ENABLE_ALL_APPS_SEARCH_IN_TASKBAR flag cleanup.
+    /** Refreshes the known overview target in TIS. */
+    public void refreshOverviewTarget() {
+        getTestInfo(TestProtocol.REQUEST_REFRESH_OVERVIEW_TARGET);
+    }
+
     public List<String> getHotseatIconNames() {
         return getTestInfo(TestProtocol.REQUEST_HOTSEAT_ICON_NAMES)
                 .getStringArrayList(TestProtocol.TEST_INFO_RESPONSE_FIELD);
@@ -1980,14 +2073,16 @@ public final class LauncherInstrumentation {
         return String.join(", ", getActivities());
     }
 
-    public boolean noLeakedActivities() {
+    /** Returns whether no leaked activities are detected. */
+    public boolean noLeakedActivities(boolean requireOneActiveActivity) {
         final String[] activities = getActivities();
+
         for (String activity : activities) {
             if (activity.contains("(destroyed)")) {
                 return false;
             }
         }
-        return activities.length <= 2;
+        return activities.length <= (requireOneActiveActivity ? 1 : 2);
     }
 
     public int getActivitiesCreated() {
@@ -2125,6 +2220,8 @@ public final class LauncherInstrumentation {
                     containerBounds.bottom,
                     getRealDisplaySize().y - getImeInsets().bottom);
             int y = (bottomBound - containerBounds.top) / 2;
+            // Do not tap in the status bar.
+            y = Math.max(y, getWindowInsets().top);
 
             final long downTime = SystemClock.uptimeMillis();
             final Point tapTarget = new Point(x, y);

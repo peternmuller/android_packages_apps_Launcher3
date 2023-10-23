@@ -37,6 +37,7 @@ import com.android.launcher3.util.ComponentKey;
 import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.views.ActivityContext;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -82,17 +83,29 @@ public class AllAppsStore<T extends Context & ActivityContext> {
     }
 
     /**
+     * Calling {@link #setApps(AppInfo[], int, Map, boolean)} with shouldPreinflate set to
+     * {@code true}. This method should be called in launcher (not for taskbar).
+     */
+    public void setApps(@Nullable AppInfo[] apps, int flags, Map<PackageUserKey, Integer> map) {
+        setApps(apps, flags, map, /* shouldPreinflate= */ true);
+    }
+
+    /**
      * Sets the current set of apps and sets mapping for {@link PackageUserKey} to Uid for
      * the current set of apps.
+     *
+     * <p> Note that shouldPreinflate param should be set to {@code false} for taskbar, because this
+     * method is too late to preinflate all apps, as user will open all apps in the same frame.
      */
-    public void setApps(@Nullable AppInfo[] apps, int flags, Map<PackageUserKey, Integer> map)  {
+    public void setApps(@Nullable AppInfo[] apps, int flags, Map<PackageUserKey, Integer> map,
+            boolean shouldPreinflate)  {
         mApps = apps == null ? EMPTY_ARRAY : apps;
         mModelFlags = flags;
         notifyUpdate();
         mPackageUserKeytoUidMap = map;
         // Preinflate all apps RV when apps has changed, which can happen after unlocking screen,
         // rotating screen, or downloading/upgrading apps.
-        if (ENABLE_ALL_APPS_RV_PREINFLATION.get()) {
+        if (shouldPreinflate && ENABLE_ALL_APPS_RV_PREINFLATION.get()) {
             mAllAppsRecyclerViewPool.preInflateAllAppsViewHolders(mContext);
         }
     }
@@ -225,5 +238,14 @@ public class AllAppsStore<T extends Context & ActivityContext> {
 
     public interface OnUpdateListener {
         void onAppsUpdated();
+    }
+
+    /** Generate a dumpsys for each app package name and position in the apps list */
+    public void dump(String prefix, PrintWriter writer) {
+        writer.println(prefix + "\tAllAppsStore Apps[] size: " + mApps.length);
+        for (int i = 0; i < mApps.length; i++) {
+            writer.println(String.format("%s\tPackage index and name: %d/%s", prefix, i,
+                    mApps[i].componentName.getPackageName()));
+        }
     }
 }

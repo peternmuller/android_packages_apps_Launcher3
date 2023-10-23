@@ -126,6 +126,7 @@ public final class TestProtocol {
             "taskbar-all-apps-top-padding";
     public static final String REQUEST_ALL_APPS_TOP_PADDING = "all-apps-top-padding";
     public static final String REQUEST_ALL_APPS_BOTTOM_PADDING = "all-apps-bottom-padding";
+    public static final String REQUEST_REFRESH_OVERVIEW_TARGET = "refresh-overview-target";
 
     public static final String REQUEST_WORKSPACE_CELL_LAYOUT_SIZE = "workspace-cell-layout-size";
     public static final String REQUEST_WORKSPACE_CELL_CENTER = "workspace-cell-center";
@@ -155,7 +156,6 @@ public final class TestProtocol {
 
     public static final String PERMANENT_DIAG_TAG = "TaplTarget";
     public static final String TWO_TASKBAR_LONG_CLICKS = "b/262282528";
-    public static final String FLAKY_QUICK_SWITCH_TO_PREVIOUS_APP = "b/286084688";
     public static final String ICON_MISSING = "b/282963545";
     public static final String INCORRECT_HOME_STATE = "b/293191790";
 

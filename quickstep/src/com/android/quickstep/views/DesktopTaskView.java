@@ -44,10 +44,10 @@ import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.desktop.DesktopRecentsTransitionController;
 import com.android.launcher3.icons.IconProvider;
 import com.android.launcher3.util.RunnableList;
 import com.android.quickstep.RecentsModel;
-import com.android.quickstep.SystemUiProxy;
 import com.android.quickstep.TaskThumbnailCache;
 import com.android.quickstep.util.CancellableTask;
 import com.android.quickstep.util.RecentsOrientedState;
@@ -61,6 +61,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
+
+import kotlin.Unit;
 
 /**
  * TaskView that contains all tasks that are part of the desktop.
@@ -142,9 +144,10 @@ public class DesktopTaskView extends TaskView {
     }
 
     @Override
-    protected void updateBorderBounds(Rect bounds) {
+    protected Unit updateBorderBounds(@NonNull Rect bounds) {
         bounds.set(mBackgroundView.getLeft(), mBackgroundView.getTop(), mBackgroundView.getRight(),
                 mBackgroundView.getBottom());
+        return Unit.INSTANCE;
     }
 
     @Override
@@ -327,21 +330,25 @@ public class DesktopTaskView extends TaskView {
     }
 
     @Override
-    protected boolean showTaskMenuWithContainer(IconView iconView) {
+    protected boolean showTaskMenuWithContainer(TaskViewIcon iconView) {
         return false;
-    }
-
-    @Override
-    public RunnableList launchTasks() {
-        SystemUiProxy.INSTANCE.get(getContext()).showDesktopApps(mActivity.getDisplayId());
-        Launcher.getLauncher(mActivity).getStateManager().goToState(NORMAL, false /* animated */);
-        return null;
     }
 
     @Nullable
     @Override
     public RunnableList launchTaskAnimated() {
-        return launchTasks();
+        RunnableList endCallback = new RunnableList();
+        endCallback.add(() -> Launcher.getLauncher(mActivity).getStateManager().goToState(NORMAL));
+
+        DesktopRecentsTransitionController recentsController =
+                getRecentsView().getDesktopRecentsController();
+        if (recentsController != null) {
+            recentsController.launchDesktopFromRecents(this, success -> {
+                endCallback.executeAllAndDestroy();
+            });
+        }
+
+        return endCallback;
     }
 
     @Override

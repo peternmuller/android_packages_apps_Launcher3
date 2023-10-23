@@ -32,8 +32,6 @@ import static com.android.launcher3.ui.TaplTestsLauncher3.getAppPackageName;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.rule.ShellCommandRule.disableHeadsUpNotification;
 import static com.android.launcher3.util.rule.ShellCommandRule.getLauncherCommand;
-import static com.android.launcher3.util.rule.TestStabilityRule.LOCAL;
-import static com.android.launcher3.util.rule.TestStabilityRule.PLATFORM_POSTSUBMIT;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -146,7 +144,7 @@ public class FallbackRecentsTest {
                 .around(new NavigationModeSwitchRule(mLauncher))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
                 .around(viewCaptureRule)
-                .around(new TestIsolationRule(mLauncher))
+                .around(new TestIsolationRule(mLauncher, false))
                 .around(setLauncherCommand);
 
         mOtherLauncherActivity = context.getPackageManager().queryIntentActivities(
@@ -169,7 +167,7 @@ public class FallbackRecentsTest {
     public void tearDown() {
         try {
             // Limits UI tests affecting tests running after them.
-            AbstractQuickStepTest.checkDetectedLeaks(mLauncher);
+            AbstractQuickStepTest.checkDetectedLeaks(mLauncher, true);
         } finally {
             mLauncher.onTestFinish();
         }

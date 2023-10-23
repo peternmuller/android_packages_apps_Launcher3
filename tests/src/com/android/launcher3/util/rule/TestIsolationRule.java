@@ -16,6 +16,8 @@
 package com.android.launcher3.util.rule;
 
 import androidx.annotation.NonNull;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.launcher3.tapl.LauncherInstrumentation;
 import com.android.launcher3.ui.AbstractLauncherUiTest;
@@ -28,10 +30,12 @@ import org.junit.runners.model.Statement;
  * Isolates tests from some of the state created by the previous test.
  */
 public class TestIsolationRule implements TestRule {
-    final LauncherInstrumentation mLauncher;
+    private final LauncherInstrumentation mLauncher;
+    private final boolean mRequireOneActiveActivity;
 
-    public TestIsolationRule(LauncherInstrumentation launcher) {
+    public TestIsolationRule(LauncherInstrumentation launcher, boolean requireOneActiveActivity) {
         mLauncher = launcher;
+        mRequireOneActiveActivity = requireOneActiveActivity;
     }
 
     @NonNull
@@ -42,8 +46,9 @@ public class TestIsolationRule implements TestRule {
             public void evaluate() throws Throwable {
                 base.evaluate();
                 // Make sure that Launcher workspace looks correct.
-                mLauncher.goHome();
-                AbstractLauncherUiTest.checkDetectedLeaks(mLauncher);
+
+                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressHome();
+                AbstractLauncherUiTest.checkDetectedLeaks(mLauncher, mRequireOneActiveActivity);
             }
         };
     }

@@ -16,6 +16,7 @@
 
 package com.android.launcher3.config;
 
+import static com.android.launcher3.BuildConfig.WIDGET_ON_FIRST_SCREEN;
 import static com.android.launcher3.config.FeatureFlags.FlagState.DISABLED;
 import static com.android.launcher3.config.FeatureFlags.FlagState.ENABLED;
 import static com.android.launcher3.config.FeatureFlags.FlagState.TEAMFOOD;
@@ -35,13 +36,7 @@ import java.util.function.ToIntFunction;
 
 /**
  * Defines a set of flags used to control various launcher behaviors.
- *
- * Please only add flags to your assigned block to prevent merge conflicts. If you do not have
- * a block, please update the current empty block and add a new empty block below to prevent
- * merge conflicts with the previous block.
- * List of blocks can be found:
- * <a href="http://go/gnl-flags-block-directory">here</a>
- *
+ * <p>
  * <p>All the flags should be defined here with appropriate default values.
  */
 public final class FeatureFlags {
@@ -142,7 +137,7 @@ public final class FeatureFlags {
 
     // TODO(Block 6): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_SEARCH_IN_TASKBAR = getDebugFlag(270393900,
-            "ENABLE_ALL_APPS_SEARCH_IN_TASKBAR", TEAMFOOD,
+            "ENABLE_ALL_APPS_SEARCH_IN_TASKBAR", ENABLED,
             "Enables Search box in Taskbar All Apps.");
 
     public static final BooleanFlag SECONDARY_DRAG_N_DROP_TO_PIN = getDebugFlag(270395140,
@@ -157,21 +152,6 @@ public final class FeatureFlags {
     // TODO(Block 8): Clean up flags
 
     // TODO(Block 9): Clean up flags
-    public static final BooleanFlag ENABLE_DOWNLOAD_APP_UX_V2 = getReleaseFlag(270395134,
-            "ENABLE_DOWNLOAD_APP_UX_V2", ENABLED, "Updates the download app UX"
-                    + " to have better visuals");
-
-    public static final BooleanFlag ENABLE_DOWNLOAD_APP_UX_V3 = getDebugFlag(270395186,
-            "ENABLE_DOWNLOAD_APP_UX_V3", ENABLED, "Updates the download app UX"
-                    + " to have better visuals, improve contrast, and color");
-
-    public static final BooleanFlag SHOW_DOT_PAGINATION = getDebugFlag(270395278,
-            "SHOW_DOT_PAGINATION", ENABLED, "Enable showing dot pagination in workspace");
-
-    public static final BooleanFlag LARGE_SCREEN_WIDGET_PICKER = getDebugFlag(270395809,
-            "LARGE_SCREEN_WIDGET_PICKER", ENABLED, "Enable new widget picker that takes "
-                    + "advantage of large screen format");
-
     public static final BooleanFlag UNFOLDED_WIDGET_PICKER = getDebugFlag(301918659,
             "UNFOLDED_WIDGET_PICKER", DISABLED, "Enable new widget picker that takes "
                     + "advantage of the unfolded foldable format");
@@ -182,6 +162,10 @@ public final class FeatureFlags {
 
     public static final BooleanFlag SMARTSPACE_AS_A_WIDGET = getDebugFlag(299181941,
             "SMARTSPACE_AS_A_WIDGET", DISABLED, "Enable SmartSpace as a widget");
+
+    public static boolean shouldShowFirstPageWidget() {
+        return SMARTSPACE_AS_A_WIDGET.get() && WIDGET_ON_FIRST_SCREEN;
+    }
 
     // TODO(Block 10): Clean up flags
     public static final BooleanFlag ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION = getDebugFlag(270614790,
@@ -195,6 +179,10 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_PARAMETRIZE_REORDER = getDebugFlag(289420844,
             "ENABLE_PARAMETRIZE_REORDER", DISABLED,
             "Enables generating the reorder using a set of parameters");
+
+    public static final BooleanFlag ENABLE_NO_LONG_PRESS_DRAG = getDebugFlag(299748096,
+            "ENABLE_NO_LONG_PRESS_DRAG", DISABLED,
+            "Don't trigger the drag if we are still under long press");
 
     // TODO(Block 12): Clean up flags
     public static final BooleanFlag ENABLE_MULTI_INSTANCE = getDebugFlag(270396680,
@@ -243,6 +231,9 @@ public final class FeatureFlags {
     // Aconfig migration complete for ENABLE_TWOLINE_ALLAPPS.
     public static final BooleanFlag ENABLE_TWOLINE_ALLAPPS = getDebugFlag(270390937,
             "ENABLE_TWOLINE_ALLAPPS", DISABLED, "Enables two line label inside all apps.");
+    public static boolean enableTwolineAllapps() {
+        return ENABLE_TWOLINE_ALLAPPS.get() || Flags.enableTwolineAllapps();
+    }
 
     public static final BooleanFlag IME_STICKY_SNACKBAR_EDU = getDebugFlag(270391693,
             "IME_STICKY_SNACKBAR_EDU", ENABLED, "Show sticky IME edu in AllApps");
@@ -324,6 +315,15 @@ public final class FeatureFlags {
             "Enable a grid-only overview without a focused task.");
     public static boolean enableGridOnlyOverview() {
         return ENABLE_GRID_ONLY_OVERVIEW.get() || Flags.enableGridOnlyOverview();
+    }
+
+    // Aconfig migration complete for ENABLE_OVERVIEW_ICON_MENU.
+    @VisibleForTesting
+    public static final BooleanFlag ENABLE_OVERVIEW_ICON_MENU = getDebugFlag(257950105,
+            "ENABLE_OVERVIEW_ICON_MENU", TEAMFOOD,
+            "Enable updated overview icon and menu within task.");
+    public static boolean enableOverviewIconMenu() {
+        return ENABLE_OVERVIEW_ICON_MENU.get() || Flags.enableOverviewIconMenu();
     }
 
     // Aconfig migration complete for ENABLE_CURSOR_HOVER_STATES.
@@ -422,21 +422,32 @@ public final class FeatureFlags {
     // TODO(Block 31): Clean up flags
 
     // TODO(Block 32): Clean up flags
+    // Aconfig migration complete for ENABLE_RESPONSIVE_WORKSPACE.
+    @VisibleForTesting
     public static final BooleanFlag ENABLE_RESPONSIVE_WORKSPACE = getDebugFlag(241386436,
-            "ENABLE_RESPONSIVE_WORKSPACE", DISABLED,
+            "ENABLE_RESPONSIVE_WORKSPACE", TEAMFOOD,
             "Enables new workspace grid calculations method.");
+    public static boolean enableResponsiveWorkspace() {
+        return ENABLE_RESPONSIVE_WORKSPACE.get() || Flags.enableResponsiveWorkspace();
+    }
 
     // TODO(Block 33): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_RV_PREINFLATION = getDebugFlag(288161355,
             "ENABLE_ALL_APPS_RV_PREINFLATION", ENABLED,
             "Enables preinflating all apps icons to avoid scrolling jank.");
-
-    // TODO(Block 34): Clean up flags
     public static final BooleanFlag ALL_APPS_GONE_VISIBILITY = getDebugFlag(291651514,
             "ALL_APPS_GONE_VISIBILITY", ENABLED,
             "Set all apps container view's hidden visibility to GONE instead of INVISIBLE.");
 
-    // TODO(Block 35): Empty block
+    // TODO(Block 34): Empty block
+    // Please only add flags to your assigned block. If you do not have a block:
+    // 1. Assign yourself this block
+    // 2. Add your flag to this block
+    // 3. Add a new empty block below this one
+    // 4. Move this comment to that new empty block
+    // This is all to prevent merge conflicts in the future and help keep track of who owns which
+    // flags.
+    // List of assigned blocks can be found: http://go/gnl-flags-block-directory
 
     public static class BooleanFlag {
 

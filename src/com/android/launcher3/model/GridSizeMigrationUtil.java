@@ -18,6 +18,7 @@ package com.android.launcher3.model;
 
 import static com.android.launcher3.LauncherSettings.Favorites.TABLE_NAME;
 import static com.android.launcher3.LauncherSettings.Favorites.TMP_TABLE;
+import static com.android.launcher3.config.FeatureFlags.shouldShowFirstPageWidget;
 import static com.android.launcher3.provider.LauncherDbUtils.copyTable;
 import static com.android.launcher3.provider.LauncherDbUtils.dropTable;
 
@@ -327,7 +328,9 @@ public class GridSizeMigrationUtil {
             @NonNull final List<DbEntry> sortedItemsToPlace, final boolean matchingScreenIdOnly) {
         final GridOccupancy occupied = new GridOccupancy(trgX, trgY);
         final Point trg = new Point(trgX, trgY);
-        final Point next = new Point(0, screenId == 0 && FeatureFlags.QSB_ON_FIRST_SCREEN
+        final Point next = new Point(0, screenId == 0
+                && (FeatureFlags.QSB_ON_FIRST_SCREEN
+                && !shouldShowFirstPageWidget())
                 ? 1 /* smartspace */ : 0);
         List<DbEntry> existedEntries = destReader.mWorkspaceEntriesByScreenId.get(screenId);
         if (existedEntries != null) {
@@ -465,6 +468,13 @@ public class GridSizeMigrationUtil {
                             }
                             break;
                         }
+                        case LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR: {
+                            int total = getFolderItemsCount(entry);
+                            if (total != 2) {
+                                throw new Exception("App pair contains fewer or more than 2 items");
+                            }
+                            break;
+                        }
                         default:
                             throw new Exception("Invalid item type");
                     }
@@ -559,6 +569,13 @@ public class GridSizeMigrationUtil {
                             int total = getFolderItemsCount(entry);
                             if (total == 0) {
                                 throw new Exception("Folder is empty");
+                            }
+                            break;
+                        }
+                        case LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR: {
+                            int total = getFolderItemsCount(entry);
+                            if (total != 2) {
+                                throw new Exception("App pair contains fewer or more than 2 items");
                             }
                             break;
                         }
@@ -679,6 +696,7 @@ public class GridSizeMigrationUtil {
         public String getEntryMigrationId() {
             switch (itemType) {
                 case LauncherSettings.Favorites.ITEM_TYPE_FOLDER:
+                case LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR:
                     return getFolderMigrationId();
                 case LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET:
                     return mProvider;
