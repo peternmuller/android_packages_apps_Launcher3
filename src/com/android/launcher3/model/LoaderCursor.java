@@ -17,6 +17,7 @@
 package com.android.launcher3.model;
 
 import static com.android.launcher3.LauncherSettings.Favorites.TABLE_NAME;
+import static com.android.launcher3.config.FeatureFlags.shouldShowFirstPageWidget;
 
 import android.content.ComponentName;
 import android.content.ContentValues;

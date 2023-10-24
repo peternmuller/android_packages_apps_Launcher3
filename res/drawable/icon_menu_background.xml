@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2023 The Android Open Source Project
+<!--
+     Copyright (C) 2023 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,14 +14,9 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/system_shortcuts_container"
-    android:tag="@string/popup_container_iterate_children"
-    android:layout_width="match_parent"
-    android:layout_height="@dimen/system_shortcut_header_height"
-    android:orientation="horizontal"
-    android:gravity="end|center_vertical"
-    android:background="@drawable/popup_background_material_u"
-    android:elevation="@dimen/deep_shortcuts_elevation"/>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
+    android:shape="rectangle">
+    <solid android:color="?androidprv:attr/materialColorSurfaceContainer" />
+    <corners android:radius="@dimen/dialogCornerRadius" />
+</shape>

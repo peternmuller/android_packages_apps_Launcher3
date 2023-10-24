@@ -26,6 +26,7 @@ import com.android.launcher3.testing.shared.ResourceUtils
 import com.android.launcher3.util.DisplayController
 import com.android.launcher3.util.NavigationMode
 import com.android.launcher3.util.WindowBounds
+import com.android.launcher3.util.rule.TestStabilityRule
 import com.android.launcher3.util.window.CachedDisplayInfo
 import com.android.launcher3.util.window.WindowManagerProxy
 import java.io.BufferedReader
@@ -36,8 +37,10 @@ import kotlin.math.max
 import kotlin.math.min
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.spy
 import org.mockito.Mockito.`when` as whenever
 
 /**
@@ -53,6 +56,8 @@ abstract class AbstractDeviceProfileTest {
     private var windowManagerProxy: WindowManagerProxy = mock(WindowManagerProxy::class.java)
     private lateinit var originalDisplayController: DisplayController
     private lateinit var originalWindowManagerProxy: WindowManagerProxy
+
+    @Rule @JvmField val testStabilityRule = TestStabilityRule()
 
     @Before
     open fun setUp() {
@@ -302,9 +307,9 @@ abstract class AbstractDeviceProfileTest {
             }
         context = runningContext.createConfigurationContext(config)
 
-        val info = DisplayController.Info(context, windowManagerProxy, perDisplayBoundsCache)
+        val info = spy(DisplayController.Info(context, windowManagerProxy, perDisplayBoundsCache))
         whenever(displayController.info).thenReturn(info)
-        whenever(displayController.isTransientTaskbar).thenReturn(isGestureMode)
+        whenever(info.isTransientTaskbar).thenReturn(isGestureMode)
     }
 
     /** Create a new dump of DeviceProfile, saves to a file in the device and returns it */

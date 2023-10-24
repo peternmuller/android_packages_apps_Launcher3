@@ -26,6 +26,7 @@ import static com.android.launcher3.util.SplitConfigurationOptions.StagePosition
 import static com.android.quickstep.TaskAnimationManager.ENABLE_SHELL_TRANSITIONS;
 import static com.android.quickstep.util.RecentsOrientedState.postDisplayRotation;
 import static com.android.quickstep.util.RecentsOrientedState.preDisplayRotation;
+import static com.android.quickstep.util.SplitScreenUtils.convertLauncherSplitBoundsToShell;
 
 import android.animation.TimeInterpolator;
 import android.content.Context;
@@ -146,12 +147,6 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
             return 1;
         }
 
-        if (mIsDesktopTask) {
-            mTaskRect.set(mThumbnailPosition);
-            mPivot.set(mTaskRect.centerX(), mTaskRect.centerY());
-            return 1;
-        }
-
         if (mIsGridTask) {
             mSizeStrategy.calculateGridTaskSize(mContext, mDp, mTaskRect,
                     mOrientationState.getOrientationHandler());
@@ -169,6 +164,20 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
             mOrientationState.getOrientationHandler()
                     .setSplitTaskSwipeRect(mDp, mTaskRect, mSplitBounds, mStagePosition);
             mTaskRect.offset(mTaskRectTranslationX, mTaskRectTranslationY);
+        } else if (mIsDesktopTask) {
+            // For desktop, tasks can take up only part of the screen size.
+            // Full task size represents the whole screen size, but scaled down to fit in recents.
+            // Task rect will represent the scaled down thumbnail position and is placed inside
+            // full task size as it is on the home screen.
+            fullTaskSize = new Rect(mTaskRect);
+            PointF fullscreenTaskDimension = new PointF();
+            BaseActivityInterface.getTaskDimension(mContext, mDp, fullscreenTaskDimension);
+            // Calculate the scale down factor used in recents
+            float scale = fullTaskSize.width() / fullscreenTaskDimension.x;
+            mTaskRect.set(mThumbnailPosition);
+            mTaskRect.scale(scale);
+            // Ensure the task rect is inside the full task rect
+            mTaskRect.offset(fullTaskSize.left, fullTaskSize.top);
         } else {
             fullTaskSize = mTaskRect;
         }
@@ -202,7 +211,8 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
         mStagePosition = mThumbnailPosition.equals(splitInfo.leftTopBounds) ?
                 STAGE_POSITION_TOP_OR_LEFT :
                 STAGE_POSITION_BOTTOM_OR_RIGHT;
-        mPositionHelper.setSplitBounds(convertSplitBounds(mSplitBounds), mStagePosition);
+        mPositionHelper.setSplitBounds(convertLauncherSplitBoundsToShell(mSplitBounds),
+                mStagePosition);
     }
 
     /**
@@ -335,8 +345,7 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
             boolean isRtlEnabled = !mIsRecentsRtl;
             mPositionHelper.updateThumbnailMatrix(
                     mThumbnailPosition, mThumbnailData, mTaskRect.width(), mTaskRect.height(),
-                    mDp.widthPx, mDp.heightPx, mDp.taskbarHeight, mDp.isTablet,
-                    mOrientationState.getRecentsActivityRotation(), isRtlEnabled);
+                    mDp.isTablet, mOrientationState.getRecentsActivityRotation(), isRtlEnabled);
             mPositionHelper.getMatrix().invert(mInversePositionMatrix);
             if (DEBUG) {
                 Log.d(TAG, " taskRect: " + mTaskRect);
@@ -345,7 +354,7 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
 
         float fullScreenProgress = Utilities.boundToRange(this.fullScreenProgress.value, 0, 1);
         mCurrentFullscreenParams.setProgress(fullScreenProgress, recentsViewScale.value,
-                /* taskViewScale= */1f, mTaskRect.width(), mDp, mPositionHelper);
+                /* taskViewScale= */1f);
 
         // Apply thumbnail matrix
         float taskWidth = mTaskRect.width();
@@ -427,17 +436,5 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
 
         // Ideally we should use square-root. This is an optimization as one of the dimension is 0.
         return Math.max(Math.abs(mTempPoint[0]), Math.abs(mTempPoint[1]));
-    }
-
-    /**
-     * TODO(b/254378592): Remove this after consolidation of classes
-     */
-    public static com.android.wm.shell.util.SplitBounds convertSplitBounds(SplitBounds bounds) {
-        return new com.android.wm.shell.util.SplitBounds(
-                bounds.leftTopBounds,
-                bounds.rightBottomBounds,
-                bounds.leftTopTaskId,
-                bounds.rightBottomTaskId
-        );
     }
 }

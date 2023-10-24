@@ -18,7 +18,6 @@ package com.android.launcher3.widget.picker;
 import static android.view.View.MeasureSpec.makeMeasureSpec;
 
 import static com.android.launcher3.LauncherAnimUtils.VIEW_TRANSLATE_Y;
-import static com.android.launcher3.config.FeatureFlags.LARGE_SCREEN_WIDGET_PICKER;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_WIDGETSTRAY_SEARCHED;
 import static com.android.launcher3.testing.shared.TestProtocol.NORMAL_STATE_ORDINAL;
 
@@ -40,6 +39,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.widget.Button;
@@ -60,6 +60,7 @@ import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.PendingAnimation;
 import com.android.launcher3.compat.AccessibilityManagerCompat;
+import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.model.UserManagerState;
 import com.android.launcher3.model.WidgetItem;
 import com.android.launcher3.pm.UserCache;
@@ -678,10 +679,10 @@ public class WidgetsFullSheet extends BaseWidgetSheet
 
     /** Shows the {@link WidgetsFullSheet} on the launcher. */
     public static WidgetsFullSheet show(Launcher launcher, boolean animate) {
-        boolean isTwoPane = LARGE_SCREEN_WIDGET_PICKER.get()
-                && launcher.getDeviceProfile().isTablet
+        boolean isTwoPane = launcher.getDeviceProfile().isTablet
                 && launcher.getDeviceProfile().isLandscape
-                && !launcher.getDeviceProfile().isTwoPanels;
+                && (!launcher.getDeviceProfile().isTwoPanels
+                    || FeatureFlags.UNFOLDED_WIDGET_PICKER.get());
 
         WidgetsFullSheet sheet;
         if (isTwoPane) {
@@ -794,13 +795,14 @@ public class WidgetsFullSheet extends BaseWidgetSheet
         }
 
         // Checks the orientation of the screen
-        if (LARGE_SCREEN_WIDGET_PICKER.get()
-                && mOrientation != newConfig.orientation
-                && mDeviceProfile.isTablet
-                && !mDeviceProfile.isTwoPanels) {
+        if (mOrientation != newConfig.orientation) {
             mOrientation = newConfig.orientation;
-            handleClose(false);
-            show(Launcher.getLauncher(getContext()), false);
+            if (mDeviceProfile.isTablet && !mDeviceProfile.isTwoPanels) {
+                handleClose(false);
+                show(Launcher.getLauncher(getContext()), false);
+            } else {
+                reset();
+            }
         }
     }
 
@@ -817,7 +819,10 @@ public class WidgetsFullSheet extends BaseWidgetSheet
     @Override
     public void onDragStart(boolean start, float startDisplacement) {
         super.onDragStart(start, startDisplacement);
-        getWindowInsetsController().hide(WindowInsets.Type.ime());
+        WindowInsetsController insetsController = getWindowInsetsController();
+        if (insetsController != null) {
+            insetsController.hide(WindowInsets.Type.ime());
+        }
     }
 
     @Nullable private View getViewToShowEducationTip() {

@@ -16,7 +16,9 @@
 
 package com.android.launcher3.model;
 
+import static com.android.launcher3.BuildConfig.WIDGET_ON_FIRST_SCREEN;
 import static com.android.launcher3.LauncherSettings.Favorites.TABLE_NAME;
+import static com.android.launcher3.config.FeatureFlags.SMARTSPACE_AS_A_WIDGET;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_HAS_SHORTCUT_PERMISSION;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_QUIET_MODE_CHANGE_PERMISSION;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_QUIET_MODE_ENABLED;
@@ -57,6 +59,7 @@ import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherModel;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.config.FeatureFlags;
@@ -95,6 +98,7 @@ import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.util.TraceHelper;
 import com.android.launcher3.widget.LauncherAppWidgetProviderInfo;
 import com.android.launcher3.widget.WidgetManagerHelper;
+import com.android.launcher3.widget.custom.CustomWidgetManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -294,6 +298,30 @@ public class LoaderTask implements Runnable {
             mLauncherBinder.bindWidgets();
             logASplit("bindWidgets");
             verifyNotStopped();
+
+            if (SMARTSPACE_AS_A_WIDGET.get() && LauncherPrefs.get(mApp.getContext())
+                    .get(LauncherPrefs.SHOULD_SHOW_SMARTSPACE)) {
+                mLauncherBinder.bindSmartspaceWidget();
+                // Turn off pref.
+                LauncherPrefs.get(mApp.getContext()).putSync(
+                        LauncherPrefs.backedUpItem(
+                                        LauncherPrefs.SHOULD_SHOW_SMARTSPACE_KEY,
+                                        WIDGET_ON_FIRST_SCREEN,
+                                        true)
+                                .to(false));
+                logASplit("bindSmartspaceWidget");
+                verifyNotStopped();
+            } else if (!SMARTSPACE_AS_A_WIDGET.get() && WIDGET_ON_FIRST_SCREEN
+                    && !LauncherPrefs.get(mApp.getContext())
+                    .get(LauncherPrefs.SHOULD_SHOW_SMARTSPACE)) {
+                // Turn on pref.
+                LauncherPrefs.get(mApp.getContext()).putSync(
+                        LauncherPrefs.backedUpItem(
+                                        LauncherPrefs.SHOULD_SHOW_SMARTSPACE_KEY,
+                                        WIDGET_ON_FIRST_SCREEN,
+                                        true)
+                                .to(true));
+            }
 
             if (FeatureFlags.CHANGE_MODEL_DELEGATE_LOADING_ORDER.get()) {
                 mModelDelegate.loadAndBindOtherItems(mLauncherBinder.mCallbacksList);
@@ -740,8 +768,13 @@ public class LoaderTask implements Runnable {
 
                     ComponentKey providerKey = new ComponentKey(component, c.user);
                     if (!mWidgetProvidersMap.containsKey(providerKey)) {
-                        mWidgetProvidersMap.put(providerKey,
-                                widgetHelper.findProvider(component, c.user));
+                        if (customWidget) {
+                            mWidgetProvidersMap.put(providerKey, CustomWidgetManager.INSTANCE
+                                    .get(mApp.getContext()).getWidgetProvider(component));
+                        } else {
+                            mWidgetProvidersMap.put(providerKey,
+                                    widgetHelper.findProvider(component, c.user));
+                        }
                     }
                     final AppWidgetProviderInfo provider = mWidgetProvidersMap.get(providerKey);
 
@@ -814,7 +847,8 @@ public class LoaderTask implements Runnable {
                             return;
                         }
                         LauncherAppWidgetProviderInfo widgetProviderInfo =
-                                widgetHelper.getLauncherAppWidgetInfo(appWidgetId);
+                                widgetHelper.getLauncherAppWidgetInfo(appWidgetId,
+                                        appWidgetInfo.getTargetComponent());
                         if (widgetProviderInfo != null
                                 && (appWidgetInfo.spanX < widgetProviderInfo.minSpanX
                                 || appWidgetInfo.spanY < widgetProviderInfo.minSpanY)) {

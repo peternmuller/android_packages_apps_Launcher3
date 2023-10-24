@@ -44,9 +44,7 @@ public class QuickstepTestInformationHandler extends TestInformationHandler {
             }
 
             case TestProtocol.REQUEST_BACKGROUND_TO_OVERVIEW_SWIPE_HEIGHT: {
-                final float swipeHeight =
-                        LayoutUtils.getShelfTrackingDistance(mContext, mDeviceProfile,
-                                PagedOrientationHandler.PORTRAIT);
+                final float swipeHeight = mDeviceProfile.heightPx / 2f;
                 response.putInt(TestProtocol.TEST_INFO_RESPONSE_FIELD, (int) swipeHeight);
                 return response;
             }
@@ -162,6 +160,10 @@ public class QuickstepTestInformationHandler extends TestInformationHandler {
             case TestProtocol.REQUEST_SHELL_DRAG_READY:
                 response.putBoolean(TestProtocol.TEST_INFO_RESPONSE_FIELD,
                         SystemUiProxy.INSTANCE.get(mContext).isDragAndDropReady());
+                return response;
+
+            case TestProtocol.REQUEST_REFRESH_OVERVIEW_TARGET:
+                runOnTISBinder(TouchInteractionService.TISBinder::refreshOverviewTarget);
                 return response;
         }
 

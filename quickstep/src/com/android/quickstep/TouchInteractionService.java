@@ -28,6 +28,7 @@ import static com.android.launcher3.MotionEventsUtils.isTrackpadMotionEvent;
 import static com.android.launcher3.MotionEventsUtils.isTrackpadMultiFingerSwipe;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_TRACKPAD_GESTURE;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+import static com.android.launcher3.util.window.WindowManagerProxy.MIN_TABLET_WIDTH;
 import static com.android.quickstep.GestureState.DEFAULT_STATE;
 import static com.android.quickstep.GestureState.TrackpadGestureType.getTrackpadGestureType;
 import static com.android.quickstep.InputConsumer.TYPE_CURSOR_HOVER;
@@ -68,6 +69,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.Trace;
 import android.util.Log;
 import android.view.Choreographer;
 import android.view.InputDevice;
@@ -100,6 +102,7 @@ import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.LockedUserState;
 import com.android.launcher3.util.OnboardingPrefs;
 import com.android.launcher3.util.SafeCloseable;
+import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.TraceHelper;
 import com.android.quickstep.inputconsumers.AccessibilityInputConsumer;
 import com.android.quickstep.inputconsumers.AssistantInputConsumer;
@@ -117,7 +120,8 @@ import com.android.quickstep.inputconsumers.TaskbarUnstashInputConsumer;
 import com.android.quickstep.inputconsumers.TrackpadStatusBarInputConsumer;
 import com.android.quickstep.util.ActiveGestureLog;
 import com.android.quickstep.util.ActiveGestureLog.CompoundString;
-import com.android.quickstep.util.AssistUtilsBase;
+import com.android.quickstep.util.AssistStateManager;
+import com.android.quickstep.util.AssistUtils;
 import com.android.systemui.shared.recents.IOverviewProxy;
 import com.android.systemui.shared.recents.ISystemUiProxy;
 import com.android.systemui.shared.system.ActivityManagerWrapper;
@@ -289,7 +293,7 @@ public class TouchInteractionService extends Service {
         @Override
         public void onAssistantOverrideInvoked(int invocationType) {
             executeForTouchInteractionService(tis -> {
-                if (!AssistUtilsBase.newInstance(tis).tryStartAssistOverride(invocationType)) {
+                if (!AssistUtils.newInstance(tis).tryStartAssistOverride(invocationType)) {
                     Log.w(TAG, "Failed to invoke Assist override");
                 }
             });
@@ -405,18 +409,16 @@ public class TouchInteractionService extends Service {
          * Sets a proxy to bypass swipe up behavior
          */
         public void setSwipeUpProxy(Function<GestureState, AnimatedFloat> proxy) {
-            TouchInteractionService tis = mTis.get();
-            if (tis == null) return;
-            tis.mSwipeUpProxyProvider = proxy != null ? proxy : (i -> null);
+            executeForTouchInteractionService(
+                    tis -> tis.mSwipeUpProxyProvider = proxy != null ? proxy : (i -> null));
         }
 
         /**
          * Sets the task id where gestures should be blocked
          */
         public void setGestureBlockedTaskId(int taskId) {
-            TouchInteractionService tis = mTis.get();
-            if (tis == null) return;
-            tis.mDeviceState.setGestureBlockingTaskId(taskId);
+            executeForTouchInteractionService(
+                    tis -> tis.mDeviceState.setGestureBlockingTaskId(taskId));
         }
 
         /** Sets a listener to be run on Overview Target updates. */
@@ -429,6 +431,12 @@ public class TouchInteractionService extends Service {
                 mOnOverviewTargetChangeListener.run();
                 mOnOverviewTargetChangeListener = null;
             }
+        }
+
+        /** Refreshes the current overview target. */
+        public void refreshOverviewTarget() {
+            executeForTouchInteractionService(tis -> tis.onOverviewTargetChange(
+                    tis.mOverviewComponentObserver.isHomeAndOverviewSame()));
         }
     }
 
@@ -448,6 +456,8 @@ public class TouchInteractionService extends Service {
             this::createLauncherSwipeHandler;
     private final AbsSwipeUpHandler.Factory mFallbackSwipeHandlerFactory =
             this::createFallbackSwipeHandler;
+
+    private final ScreenOnTracker.ScreenOnListener mScreenOnListener = this::onScreenOnChanged;
 
     private ActivityManagerWrapper mAM;
     private OverviewCommandHelper mOverviewCommandHelper;
@@ -485,6 +495,8 @@ public class TouchInteractionService extends Service {
         LockedUserState.get(this).runOnUserUnlocked(mTaskbarManager::onUserUnlocked);
         mDeviceState.addNavigationModeChangedCallback(this::onNavigationModeChanged);
         sConnected = true;
+
+        ScreenOnTracker.INSTANCE.get(this).addListener(mScreenOnListener);
     }
 
     private void disposeEventHandlers(String reason) {
@@ -657,6 +669,8 @@ public class TouchInteractionService extends Service {
 
         mTaskbarManager.destroy();
         sConnected = false;
+
+        ScreenOnTracker.INSTANCE.get(this).removeListener(mScreenOnListener);
         super.onDestroy();
     }
 
@@ -664,6 +678,17 @@ public class TouchInteractionService extends Service {
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "Touch service connected: user=" + getUserId());
         return mTISBinder;
+    }
+
+    protected void onScreenOnChanged(boolean isOn) {
+        if (isOn) {
+            return;
+        }
+        long currentTime = SystemClock.uptimeMillis();
+        MotionEvent cancelEvent = MotionEvent.obtain(
+                currentTime, currentTime, ACTION_CANCEL, 0f, 0f, 0);
+        onInputEvent(cancelEvent);
+        cancelEvent.recycle();
     }
 
     private void onInputEvent(InputEvent ev) {
@@ -729,29 +754,42 @@ public class TouchInteractionService extends Service {
         }
 
         if (mUncheckedConsumer != InputConsumer.NO_OP) {
-            switch (event.getActionMasked()) {
+            switch (action) {
                 case ACTION_DOWN:
                     // fall through
                 case ACTION_UP:
                     ActiveGestureLog.INSTANCE.addLog(
-                            /* event= */ "onMotionEvent(" + (int) event.getRawX() + ", "
-                                    + (int) event.getRawY() + "): "
-                                    + MotionEvent.actionToString(event.getActionMasked()) + ", "
-                                    + MotionEvent.classificationToString(event.getClassification()),
-                            /* gestureEvent= */ event.getActionMasked() == ACTION_DOWN
+                            new CompoundString("onMotionEvent(")
+                                    .append((int) event.getRawX())
+                                    .append(", ")
+                                    .append((int) event.getRawY())
+                                    .append("): ")
+                                    .append(MotionEvent.actionToString(action))
+                                    .append(", ")
+                                    .append(MotionEvent.classificationToString(
+                                            event.getClassification())),
+                            /* gestureEvent= */ action == ACTION_DOWN
                                     ? MOTION_DOWN
                                     : MOTION_UP);
                     break;
                 case ACTION_MOVE:
-                    ActiveGestureLog.INSTANCE.addLog("onMotionEvent: "
-                            + MotionEvent.actionToString(event.getActionMasked()) + ","
-                            + MotionEvent.classificationToString(event.getClassification())
-                            + ", pointerCount: " + event.getPointerCount(), MOTION_MOVE);
+                    ActiveGestureLog.INSTANCE.addLog(
+                            new CompoundString("onMotionEvent: ")
+                                    .append(MotionEvent.actionToString(action))
+                                    .append(",")
+                                    .append(MotionEvent.classificationToString(
+                                            event.getClassification()))
+                                    .append(", pointerCount: ")
+                                    .append(event.getPointerCount()),
+                            MOTION_MOVE);
                     break;
                 default: {
-                    ActiveGestureLog.INSTANCE.addLog("onMotionEvent: "
-                            + MotionEvent.actionToString(event.getActionMasked()) + ","
-                            + MotionEvent.classificationToString(event.getClassification()));
+                    ActiveGestureLog.INSTANCE.addLog(
+                            new CompoundString("onMotionEvent: ")
+                                    .append(MotionEvent.actionToString(action))
+                                    .append(",")
+                                    .append(MotionEvent.classificationToString(
+                                            event.getClassification())));
                 }
             }
         }
@@ -889,8 +927,8 @@ public class TouchInteractionService extends Service {
             handleOrientationSetup(base);
         }
         if (mDeviceState.isFullyGesturalNavMode() || newGestureState.isTrackpadGesture()) {
-            String reasonPrefix = "device is in gesture navigation mode or 3-button mode with a"
-                    + "trackpad gesture";
+            String reasonPrefix =
+                    "device is in gesture navigation mode or 3-button mode with a trackpad gesture";
             if (mDeviceState.canTriggerAssistantAction(event)) {
                 reasonString.append(NEWLINE_PREFIX)
                         .append(reasonPrefix)
@@ -911,13 +949,18 @@ public class TouchInteractionService extends Service {
                     reasonString.append(NEWLINE_PREFIX)
                             .append(reasonPrefix)
                             .append(SUBSTRING_PREFIX)
-                            .append("TaskbarActivityContext != null, "
-                                    + "using TaskbarUnstashInputConsumer");
+                            .append("TaskbarActivityContext != null, ")
+                            .append("using TaskbarUnstashInputConsumer");
                     base = new TaskbarUnstashInputConsumer(this, base, mInputMonitorCompat, tac,
                             mOverviewCommandHelper);
                 }
             } else if (canStartSystemGesture && FeatureFlags.ENABLE_LONG_PRESS_NAV_HANDLE.get()
                     && !previousGestureState.isRecentsAnimationRunning()) {
+                reasonString.append(NEWLINE_PREFIX)
+                        .append(reasonPrefix)
+                        .append(SUBSTRING_PREFIX)
+                        .append("Long press nav handle enabled, ")
+                        .append("using NavHandleLongPressInputConsumer");
                 base = new NavHandleLongPressInputConsumer(this, base, mInputMonitorCompat);
             }
 
@@ -1110,8 +1153,8 @@ public class TouchInteractionService extends Service {
         if ((mDeviceState.isFullyGesturalNavMode() || gestureState.isTrackpadGesture())
                 && gestureState.getRunningTask() != null) {
             reasonString.append(SUBSTRING_PREFIX)
-                    .append("device is in gesture nav mode or 3-button mode with a trackpad gesture"
-                            + "and running task != null")
+                    .append("device is in gesture nav mode or 3-button mode with a trackpad")
+                    .append(" gesture and running task != null")
                     .append(", using DeviceLockedInputConsumer");
             return new DeviceLockedInputConsumer(
                     this, mDeviceState, mTaskAnimationManager, gestureState, mInputMonitorCompat);
@@ -1210,7 +1253,9 @@ public class TouchInteractionService extends Service {
     }
 
     private void preloadOverview(boolean fromInit) {
+        Trace.beginSection("preloadOverview(fromInit=" + fromInit + ")");
         preloadOverview(fromInit, false);
+        Trace.endSection();
     }
 
     private void preloadOverview(boolean fromInit, boolean forSUWAllSet) {
@@ -1260,7 +1305,10 @@ public class TouchInteractionService extends Service {
             // We only care about the existing background activity.
             return;
         }
-        if (mOverviewComponentObserver.canHandleConfigChanges(activity.getComponentName(),
+        Configuration oldConfig = activity.getResources().getConfiguration();
+        boolean isFoldUnfold = isTablet(oldConfig) != isTablet(newConfig);
+        if (!isFoldUnfold && mOverviewComponentObserver.canHandleConfigChanges(
+                activity.getComponentName(),
                 activity.getResources().getConfiguration().diff(newConfig))) {
             // Since navBar gestural height are different between portrait and landscape,
             // can handle orientation changes and refresh navigation gestural region through
@@ -1273,6 +1321,10 @@ public class TouchInteractionService extends Service {
         }
 
         preloadOverview(false /* fromInit */);
+    }
+
+    private static boolean isTablet(Configuration config) {
+        return config.smallestScreenWidthDp >= MIN_TABLET_WIDTH;
     }
 
     @Override
@@ -1310,6 +1362,8 @@ public class TouchInteractionService extends Service {
             createdOverviewActivity.getDeviceProfile().dump(this, "", pw);
         }
         mTaskbarManager.dumpLogs("", pw);
+        pw.println("AssistStateManager:");
+        AssistStateManager.INSTANCE.get(this).dump("  ", pw);
     }
 
     private AbsSwipeUpHandler createLauncherSwipeHandler(

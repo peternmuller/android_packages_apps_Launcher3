@@ -51,6 +51,7 @@ import static com.android.quickstep.GestureState.STATE_RECENTS_SCROLLING_FINISHE
 import static com.android.quickstep.MultiStateCallback.DEBUG_STATES;
 import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.CANCEL_RECENTS_ANIMATION;
 import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.EXPECTING_TASK_APPEARED;
+import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.INVALID_VELOCITY_ON_SWIPE_UP;
 import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.LAUNCHER_DESTROYED;
 import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.ON_SETTLED_ON_END_TARGET;
 import static com.android.quickstep.views.RecentsView.UPDATE_SYSUI_FLAGS_THRESHOLD;
@@ -1161,7 +1162,7 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                 mStateCallback.setState(STATE_SCALED_CONTROLLER_HOME | STATE_CAPTURE_SCREENSHOT);
                 // Notify the SysUI to use fade-in animation when entering PiP
                 SystemUiProxy.INSTANCE.get(mContext).setPipAnimationTypeToAlpha();
-                if (DesktopTaskView.DESKTOP_IS_PROTO2_ENABLED) {
+                if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
                     // Notify the SysUI to stash desktop apps if they are visible
                     DesktopVisibilityController desktopVisibilityController =
                             mActivityInterface.getDesktopVisibilityController();
@@ -1189,7 +1190,8 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                 break;
         }
         ActiveGestureLog.INSTANCE.addLog(
-                /* event= */ "onSettledOnEndTarget " + endTarget,
+                new ActiveGestureLog.CompoundString("onSettledOnEndTarget ")
+                        .append(endTarget.name()),
                 /* gestureEvent= */ ON_SETTLED_ON_END_TARGET);
     }
 
@@ -1213,6 +1215,11 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
 
     private GestureEndTarget calculateEndTarget(
             PointF velocityPxPerMs, float endVelocityPxPerMs, boolean isFlingY, boolean isCancel) {
+
+        ActiveGestureErrorDetector.GestureEvent gestureEvent =
+                velocityPxPerMs.x == 0 && velocityPxPerMs.y == 0
+                        ? INVALID_VELOCITY_ON_SWIPE_UP
+                        : null;
         ActiveGestureLog.INSTANCE.addLog(
                 new ActiveGestureLog.CompoundString("calculateEndTarget: velocities=(x=")
                         .append(Float.toString(dpiFromPx(velocityPxPerMs.x)))
@@ -1220,7 +1227,7 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                         .append(Float.toString(dpiFromPx(velocityPxPerMs.y)))
                         .append("dp/ms), angle=")
                         .append(Double.toString(Math.toDegrees(Math.atan2(
-                                -velocityPxPerMs.y, velocityPxPerMs.x)))));
+                                -velocityPxPerMs.y, velocityPxPerMs.x)))), gestureEvent);
 
         if (mGestureState.isHandlingAtomicEvent()) {
             // Button mode, this is only used to go to recents.
@@ -2215,7 +2222,8 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
             TaskView nextTask = mRecentsView == null ? null : mRecentsView.getNextPageTaskView();
             if (nextTask != null) {
                 int[] taskIds = nextTask.getTaskIds();
-                StringBuilder nextTaskLog = new StringBuilder();
+                ActiveGestureLog.CompoundString nextTaskLog = new ActiveGestureLog.CompoundString(
+                        "Launching task: ");
                 for (TaskIdAttributeContainer c : nextTask.getTaskIdAttributeContainers()) {
                     if (c == null) {
                         continue;
@@ -2234,7 +2242,7 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                 if (!hasTaskPreviouslyAppeared) {
                     ActiveGestureLog.INSTANCE.trackEvent(EXPECTING_TASK_APPEARED);
                 }
-                ActiveGestureLog.INSTANCE.addLog("Launching task: " + nextTaskLog);
+                ActiveGestureLog.INSTANCE.addLog(nextTaskLog);
                 nextTask.launchTask(success -> {
                     resultCallback.accept(success);
                     if (success) {
@@ -2310,9 +2318,12 @@ public abstract class AbsSwipeUpHandler<T extends StatefulActivity<S>,
                 // previous quickswitch task launch, then cancel the animation back to the app
                 RemoteAnimationTarget appearedTaskTarget = appearedTaskTargets[0];
                 TaskInfo taskInfo = appearedTaskTarget.taskInfo;
-                ActiveGestureLog.INSTANCE.addLog("Unexpected task appeared"
-                        + " id=" + taskInfo.taskId
-                        + " pkg=" + taskInfo.baseIntent.getComponent().getPackageName());
+                ActiveGestureLog.INSTANCE.addLog(
+                        new ActiveGestureLog.CompoundString("Unexpected task appeared")
+                                .append(" id=")
+                                .append(taskInfo.taskId)
+                                .append(" pkg=")
+                                .append(taskInfo.baseIntent.getComponent().getPackageName()));
                 finishRecentsAnimationOnTasksAppeared(null /* onFinishComplete */);
             } else if (handleTaskAppeared(appearedTaskTargets)) {
                 Optional<RemoteAnimationTarget> taskTargetOptional =

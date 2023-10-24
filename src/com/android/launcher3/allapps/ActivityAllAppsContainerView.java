@@ -15,6 +15,7 @@
  */
 package com.android.launcher3.allapps;
 
+import static com.android.launcher3.Flags.enableExpandingPauseWorkButton;
 import static com.android.launcher3.allapps.ActivityAllAppsContainerView.AdapterHolder.SEARCH;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_WORK_DISABLED_CARD;
 import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_WORK_EDU_CARD;
@@ -130,7 +131,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     protected final List<AdapterHolder> mAH;
     protected final Predicate<ItemInfo> mPersonalMatcher = ItemInfoMatcher.ofUser(
             Process.myUserHandle());
-    protected final WorkProfileManager mWorkManager;
+    protected WorkProfileManager mWorkManager;
     protected final Point mFastScrollerOffset = new Point();
     protected final int mScrimColor;
     protected final float mHeaderThreshold;
@@ -561,7 +562,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mPersonalMatcher);
             mAH.get(AdapterHolder.WORK).setup(workRecyclerView, mWorkManager.getMatcher());
             workRecyclerView.setId(R.id.apps_list_view_work);
-            if (FeatureFlags.ENABLE_EXPANDING_PAUSE_WORK_BUTTON.get()) {
+            if (enableExpandingPauseWorkButton()
+                    || FeatureFlags.ENABLE_EXPANDING_PAUSE_WORK_BUTTON.get()) {
                 mAH.get(AdapterHolder.WORK).mRecyclerView.addOnScrollListener(
                         mWorkManager.newScrollListener());
             }
@@ -964,13 +966,14 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mBottomSheetAlpha = mActivityContext.getDeviceProfile().isTablet ? 1f : alpha;
     }
 
-    private void onAppsUpdated() {
-        mHasWorkApps = Stream.of(mAllAppsStore.getApps()).anyMatch(mWorkManager.getMatcher());
+    @VisibleForTesting
+    public void onAppsUpdated() {
+        mHasWorkApps = mWorkManager.hasWorkApps();
         if (!isSearching()) {
             rebindAdapters();
-            if (mHasWorkApps) {
-                mWorkManager.reset();
-            }
+        }
+        if (mHasWorkApps) {
+            mWorkManager.reset();
         }
 
         mActivityContext.getStatsLogManager().logger()
@@ -1212,6 +1215,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 }
             }
         }
+    }
+
+    @VisibleForTesting
+    public void setWorkManager(WorkProfileManager workManager) {
+        mWorkManager = workManager;
     }
 
     @VisibleForTesting

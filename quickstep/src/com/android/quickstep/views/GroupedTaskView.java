@@ -2,8 +2,9 @@ package com.android.quickstep.views;
 
 import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 
-import static com.android.launcher3.util.SplitConfigurationOptions.DEFAULT_SPLIT_RATIO;
+import static com.android.launcher3.config.FeatureFlags.enableOverviewIconMenu;
 import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_POSITION_BOTTOM_OR_RIGHT;
+import static com.android.quickstep.util.SplitScreenUtils.convertLauncherSplitBoundsToShell;
 
 import android.content.Context;
 import android.graphics.PointF;
@@ -11,6 +12,7 @@ import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewStub;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,17 +27,20 @@ import com.android.launcher3.util.TransformingTouchDelegate;
 import com.android.quickstep.RecentsModel;
 import com.android.quickstep.TaskIconCache;
 import com.android.quickstep.TaskThumbnailCache;
+import com.android.quickstep.TaskUtils;
 import com.android.quickstep.util.CancellableTask;
 import com.android.quickstep.util.RecentsOrientedState;
 import com.android.quickstep.util.SplitSelectStateController;
-import com.android.quickstep.util.TaskViewSimulator;
 import com.android.systemui.shared.recents.model.Task;
 import com.android.systemui.shared.recents.model.ThumbnailData;
 import com.android.systemui.shared.recents.utilities.PreviewPositionHelper;
 import com.android.systemui.shared.system.InteractionJankMonitorWrapper;
+import com.android.wm.shell.common.split.SplitScreenConstants.PersistentSnapPosition;
 
 import java.util.HashMap;
 import java.util.function.Consumer;
+
+import kotlin.Unit;
 
 /**
  * TaskView that contains and shows thumbnails for not one, BUT TWO(!!) tasks
@@ -52,7 +57,7 @@ public class GroupedTaskView extends TaskView {
     @Nullable
     private Task mSecondaryTask;
     private TaskThumbnailView mSnapshotView2;
-    private IconView mIconView2;
+    private TaskViewIcon mIconView2;
     @Nullable
     private CancellableTask<ThumbnailData> mThumbnailLoadRequest2;
     @Nullable
@@ -76,10 +81,10 @@ public class GroupedTaskView extends TaskView {
     }
 
     @Override
-    protected void updateBorderBounds(Rect bounds) {
+    protected Unit updateBorderBounds(@NonNull Rect bounds) {
         if (mSplitBoundsConfig == null) {
             super.updateBorderBounds(bounds);
-            return;
+            return Unit.INSTANCE;
         }
         bounds.set(
                 Math.min(mSnapshotView.getLeft() + Math.round(mSnapshotView.getTranslationX()),
@@ -90,14 +95,21 @@ public class GroupedTaskView extends TaskView {
                         mSnapshotView2.getRight() + Math.round(mSnapshotView2.getTranslationX())),
                 Math.max(mSnapshotView.getBottom() + Math.round(mSnapshotView.getTranslationY()),
                         mSnapshotView2.getBottom() + Math.round(mSnapshotView2.getTranslationY())));
+        return Unit.INSTANCE;
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
         mSnapshotView2 = findViewById(R.id.bottomright_snapshot);
-        mIconView2 = findViewById(R.id.bottomRight_icon);
-        mIcon2TouchDelegate = new TransformingTouchDelegate(mIconView2);
+        ViewStub iconViewStub2 = findViewById(R.id.bottomRight_icon);
+        if (enableOverviewIconMenu()) {
+            iconViewStub2.setLayoutResource(R.layout.icon_app_chip_view);
+        } else {
+            iconViewStub2.setLayoutResource(R.layout.icon_view);
+        }
+        mIconView2 = (TaskViewIcon) iconViewStub2.inflate();
+        mIcon2TouchDelegate = new TransformingTouchDelegate(mIconView2.asView());
     }
 
     public void bind(Task primary, Task secondary, RecentsOrientedState orientedState,
@@ -114,11 +126,11 @@ public class GroupedTaskView extends TaskView {
         if (mSplitBoundsConfig == null) {
             return;
         }
-        mSnapshotView.getPreviewPositionHelper().setSplitBounds(TaskViewSimulator
-                        .convertSplitBounds(splitBoundsConfig),
+        mSnapshotView.getPreviewPositionHelper().setSplitBounds(
+                convertLauncherSplitBoundsToShell(splitBoundsConfig),
                 PreviewPositionHelper.STAGE_POSITION_TOP_OR_LEFT);
-        mSnapshotView2.getPreviewPositionHelper().setSplitBounds(TaskViewSimulator
-                        .convertSplitBounds(splitBoundsConfig),
+        mSnapshotView2.getPreviewPositionHelper().setSplitBounds(
+                convertLauncherSplitBoundsToShell(splitBoundsConfig),
                 PreviewPositionHelper.STAGE_POSITION_BOTTOM_OR_RIGHT);
     }
 
@@ -157,6 +169,7 @@ public class GroupedTaskView extends TaskView {
                 mIconLoadRequest2 = iconCache.updateIconInBackground(mSecondaryTask,
                         (task) -> {
                             setIcon(mIconView2, task.icon);
+                            setText(mIconView2, TaskUtils.getTitle(getContext(), task));
                             mDigitalWellBeingToast2.initialize(mSecondaryTask);
                             mDigitalWellBeingToast2.setSplitConfiguration(mSplitBoundsConfig);
                             mDigitalWellBeingToast.setSplitConfiguration(mSplitBoundsConfig);
@@ -171,6 +184,7 @@ public class GroupedTaskView extends TaskView {
             }
             if (needsUpdate(changes, FLAG_UPDATE_ICON)) {
                 setIcon(mIconView2, null);
+                setText(mIconView2, null);
             }
         }
     }
@@ -180,12 +194,20 @@ public class GroupedTaskView extends TaskView {
         invalidate();
     }
 
-    public float getSplitRatio() {
-        if (mSplitBoundsConfig != null) {
-            return mSplitBoundsConfig.appsStackedVertically
-                    ? mSplitBoundsConfig.topTaskPercent : mSplitBoundsConfig.leftTaskPercent;
+    @Nullable
+    public SplitBounds getSplitBoundsConfig() {
+        return mSplitBoundsConfig;
+    }
+
+    /**
+     * Returns the {@link PersistentSnapPosition} of this pair of tasks.
+     */
+    public @PersistentSnapPosition int getSnapPosition() {
+        if (mSplitBoundsConfig == null) {
+            throw new IllegalStateException("mSplitBoundsConfig is null");
         }
-        return DEFAULT_SPLIT_RATIO;
+
+        return mSplitBoundsConfig.snapPosition;
     }
 
     @Override
@@ -251,7 +273,7 @@ public class GroupedTaskView extends TaskView {
         getRecentsView().getSplitSelectController().launchExistingSplitPair(
                 launchingExistingTaskView ? this : null, mTask.key.id,
                 mSecondaryTask.key.id, SplitConfigurationOptions.STAGE_POSITION_TOP_OR_LEFT,
-                callback, isQuickswitch, getSplitRatio());
+                callback, isQuickswitch, getSnapPosition());
     }
 
     @Override
@@ -294,7 +316,7 @@ public class GroupedTaskView extends TaskView {
         }
 
         // Check which of the two apps was selected
-        if (isCoordInView(mIconView2, mLastTouchDownPosition)
+        if (isCoordInView(mIconView2.asView(), mLastTouchDownPosition)
                 || isCoordInView(mSnapshotView2, mLastTouchDownPosition)) {
             return 1;
         }
@@ -360,10 +382,7 @@ public class GroupedTaskView extends TaskView {
         super.setOrientationState(orientationState);
         DeviceProfile deviceProfile = mActivity.getDeviceProfile();
         boolean isGridTask = deviceProfile.isTablet && !isFocusedTask();
-        int iconDrawableSize = isGridTask ? deviceProfile.overviewTaskIconDrawableSizeGridPx
-                : deviceProfile.overviewTaskIconDrawableSizePx;
-        mIconView2.setDrawableSize(iconDrawableSize, iconDrawableSize);
-        mIconView2.setRotation(getPagedOrientationHandler().getDegreesRotated());
+        mIconView2.setIconOrientation(orientationState, isGridTask);
         updateIconPlacement();
         updateSecondaryDwbPlacement();
     }
@@ -377,7 +396,7 @@ public class GroupedTaskView extends TaskView {
         int taskIconHeight = deviceProfile.overviewTaskIconSizePx;
         boolean isRtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
 
-        getPagedOrientationHandler().setSplitIconParams(mIconView, mIconView2,
+        getPagedOrientationHandler().setSplitIconParams(mIconView.asView(), mIconView2.asView(),
                 taskIconHeight, mSnapshotView.getMeasuredWidth(), mSnapshotView.getMeasuredHeight(),
                 getMeasuredHeight(), getMeasuredWidth(), isRtl, deviceProfile,
                 mSplitBoundsConfig);

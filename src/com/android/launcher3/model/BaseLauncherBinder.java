@@ -172,6 +172,11 @@ public abstract class BaseLauncherBinder {
     public abstract void bindWidgets();
 
     /**
+     * bindWidgets is abstract because it is a no-op for the go launcher.
+     */
+    public abstract void bindSmartspaceWidget();
+
+    /**
      * Sorts the set of items by hotseat, workspace (spatially from top to bottom, left to right)
      */
     protected void sortWorkspaceItemsSpatially(InvariantDeviceProfile profile,
@@ -305,6 +310,10 @@ public abstract class BaseLauncherBinder {
             Executor pendingExecutor = pendingTasks::add;
             bindWorkspaceItems(otherWorkspaceItems, pendingExecutor);
             bindAppWidgets(otherAppWidgets, pendingExecutor);
+
+            StringCache cacheClone = mBgDataModel.stringCache.clone();
+            executeCallbacksTask(c -> c.bindStringCache(cacheClone), pendingExecutor);
+
             executeCallbacksTask(c -> c.finishBindingItems(currentScreenIds), pendingExecutor);
             pendingExecutor.execute(
                     () -> {
@@ -319,9 +328,6 @@ public abstract class BaseLauncherBinder {
                         c.onInitialBindComplete(
                                 currentScreenIds, pendingTasks, workspaceItemCount, isBindSync);
                     }, mUiExecutor);
-
-            StringCache cacheClone = mBgDataModel.stringCache.clone();
-            executeCallbacksTask(c -> c.bindStringCache(cacheClone), pendingExecutor);
         }
 
         private void bindWorkspaceItems(

@@ -43,7 +43,6 @@ import com.android.quickstep.views.TaskView.TaskIdAttributeContainer;
 import com.android.systemui.shared.recents.model.Task;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
 
@@ -156,13 +155,21 @@ public class TaskbarUIController {
         mControllers.taskbarActivityContext.startTranslationSpring();
     }
 
-    /*
+    /**
      * @param ev MotionEvent in screen coordinates.
      * @return Whether any Taskbar item could handle the given MotionEvent if given the chance.
      */
     public boolean isEventOverAnyTaskbarItem(MotionEvent ev) {
         return mControllers.taskbarViewController.isEventOverAnyItem(ev)
                 || mControllers.navbarButtonsViewController.isEventOverAnyItem(ev);
+    }
+
+    /** Checks if the given {@link MotionEvent} is over the bubble bar stash handle. */
+    public boolean isEventOverBubbleBarStashHandle(MotionEvent ev) {
+        return mControllers.bubbleControllers.map(
+                bubbleControllers ->
+                        bubbleControllers.bubbleStashController.isEventOverStashHandle(ev))
+                .orElse(false);
     }
 
     /**
@@ -336,4 +343,7 @@ public class TaskbarUIController {
                 .stream()
                 .map(mControllers.taskbarPopupController::createSplitShortcutFactory);
     }
+
+    /** Adjusts the hotseat for the bubble bar. */
+    public void adjustHotseatForBubbleBar(boolean isBubbleBarVisible) {}
 }

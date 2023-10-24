@@ -29,6 +29,7 @@ import static com.android.launcher3.LauncherState.SPRING_LOADED;
 import static com.android.launcher3.MotionEventsUtils.isTrackpadMultiFingerSwipe;
 import static com.android.launcher3.anim.AnimatorListeners.forSuccessCallback;
 import static com.android.launcher3.config.FeatureFlags.FOLDABLE_SINGLE_PAGE;
+import static com.android.launcher3.config.FeatureFlags.shouldShowFirstPageWidget;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_HOME;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SWIPELEFT;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SWIPERIGHT;
@@ -71,6 +72,7 @@ import com.android.app.animation.Interpolators;
 import com.android.launcher3.accessibility.AccessibleDragListenerAdapter;
 import com.android.launcher3.accessibility.WorkspaceAccessibilityHelper;
 import com.android.launcher3.anim.PendingAnimation;
+import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.celllayout.CellPosMapper;
 import com.android.launcher3.celllayout.CellPosMapper.CellPos;
@@ -594,7 +596,8 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
      * Initializes and binds the first page
      */
     public void bindAndInitFirstWorkspaceScreen() {
-        if (!FeatureFlags.QSB_ON_FIRST_SCREEN) {
+        if (!FeatureFlags.QSB_ON_FIRST_SCREEN
+                || shouldShowFirstPageWidget()) {
             return;
         }
 
@@ -1012,7 +1015,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             int id = mWorkspaceScreens.keyAt(i);
             CellLayout cl = mWorkspaceScreens.valueAt(i);
             // FIRST_SCREEN_ID can never be removed.
-            if ((!FeatureFlags.QSB_ON_FIRST_SCREEN || id > FIRST_SCREEN_ID)
+            if (((!FeatureFlags.QSB_ON_FIRST_SCREEN
+                    || shouldShowFirstPageWidget())
+                    || id > FIRST_SCREEN_ID)
                     && cl.getShortcutsAndWidgets().getChildCount() == 0) {
                 removeScreens.add(id);
             }
@@ -2858,6 +2863,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     view = FolderIcon.inflateFolderAndIcon(R.layout.folder_icon, mLauncher, cellLayout,
                             (FolderInfo) info);
                     break;
+                case LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR:
+                    view = AppPairIcon.inflateIcon(R.layout.app_pair_icon, mLauncher, cellLayout,
+                            (FolderInfo) info);
+                    break;
                 default:
                     throw new IllegalStateException("Unknown item type: " + info.itemType);
             }
@@ -3413,7 +3422,8 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             if (item.hasRestoreFlag(LauncherAppWidgetInfo.FLAG_ID_NOT_VALID)) {
                 widgetInfo = widgetHelper.findProvider(item.providerName, item.user);
             } else {
-                widgetInfo = widgetHelper.getLauncherAppWidgetInfo(item.appWidgetId);
+                widgetInfo = widgetHelper.getLauncherAppWidgetInfo(item.appWidgetId,
+                        item.getTargetComponent());
             }
 
             if (widgetInfo != null) {

@@ -53,12 +53,17 @@ final class FlashDetector extends AnomalyDetector {
                     + "/add_item_bottom_sheet|LinearLayout:id/add_item_bottom_sheet_content"
                     + "|ScrollView:id/widget_preview_scroll_view|WidgetCell:id/widget_cell"
                     + "|WidgetCellPreview:id/widget_preview_container|ImageView:id/widget_badge",
-            RECENTS_DRAG_LAYER + "FallbackRecentsView:id/overview_panel|TaskView|IconView:id/icon",
+            RECENTS_DRAG_LAYER + "FallbackRecentsView:id/overview_panel|TaskView",
             DRAG_LAYER + "SearchContainerView:id/apps_view",
             DRAG_LAYER + "LauncherDragView",
             DRAG_LAYER + "FloatingTaskView|FloatingTaskThumbnailView:id/thumbnail",
             DRAG_LAYER
                     + "WidgetsFullSheet|SpringRelativeLayout:id/container|WidgetsRecyclerView:id"
+                    + "/primary_widgets_list_view|WidgetsListHeader:id/widgets_list_header",
+            DRAG_LAYER
+                    + "WidgetsTwoPaneSheet|SpringRelativeLayout:id/container|LinearLayout:id"
+                    + "/linear_layout_container|FrameLayout:id/recycler_view_container"
+                    + "|FrameLayout:id/widgets_two_pane_sheet_recyclerview|WidgetsRecyclerView:id"
                     + "/primary_widgets_list_view|WidgetsListHeader:id/widgets_list_header"
     ));
 
@@ -105,7 +110,7 @@ final class FlashDetector extends AnomalyDetector {
 
     @Override
     String detectAnomalies(AnalysisNode oldInfo, AnalysisNode newInfo, int frameN,
-            long frameTimeNs) {
+            long frameTimeNs, int windowSizePx) {
         // Should we check when a view was visible for a short period, then its alpha became 0?
         // Then 'lastVisible' time should be the last one still visible?
         // Check only transitions of alpha between 0 and 1?

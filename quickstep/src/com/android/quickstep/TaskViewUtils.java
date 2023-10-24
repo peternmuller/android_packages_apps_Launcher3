@@ -38,8 +38,6 @@ import static com.android.launcher3.QuickstepTransitionManager.RECENTS_LAUNCH_DU
 import static com.android.launcher3.QuickstepTransitionManager.SPLIT_DIVIDER_ANIM_DURATION;
 import static com.android.launcher3.QuickstepTransitionManager.SPLIT_LAUNCH_DURATION;
 import static com.android.launcher3.Utilities.getDescendantCoordRelativeToAncestor;
-import static com.android.launcher3.testing.shared.TestProtocol.LAUNCH_SPLIT_PAIR;
-import static com.android.launcher3.testing.shared.TestProtocol.testLogD;
 import static com.android.launcher3.util.MultiPropertyFactory.MULTI_PROPERTY_VALUE;
 import static com.android.quickstep.views.DesktopTaskView.DESKTOP_MODE_SUPPORTED;
 
@@ -193,7 +191,8 @@ public final class TaskViewUtils {
             if (forDesktop) {
                 remoteTargetHandles = gluer.assignTargetsForDesktop(targets);
             } else if (v.containsMultipleTasks()) {
-                remoteTargetHandles = gluer.assignTargetsForSplitScreen(targets);
+                remoteTargetHandles = gluer.assignTargetsForSplitScreen(targets,
+                        ((GroupedTaskView) v).getSplitBoundsConfig());
             } else {
                 remoteTargetHandles = gluer.assignTargets(targets);
             }
@@ -427,7 +426,6 @@ public final class TaskViewUtils {
             int initialTaskId, int secondTaskId, @NonNull TransitionInfo transitionInfo,
             SurfaceControl.Transaction t, @NonNull Runnable finishCallback) {
         if (launchingTaskView != null) {
-            testLogD(LAUNCH_SPLIT_PAIR, "composeRecentsSplitLaunchAnimator taskView not-null");
             AnimatorSet animatorSet = new AnimatorSet();
             animatorSet.addListener(new AnimatorListenerAdapter() {
                 @Override
@@ -461,7 +459,6 @@ public final class TaskViewUtils {
         for (int i = 0; i < transitionInfo.getChanges().size(); ++i) {
             final TransitionInfo.Change change = transitionInfo.getChanges().get(i);
             if (change.getTaskInfo() == null) {
-                testLogD(LAUNCH_SPLIT_PAIR, "changeTaskInfo null; change: " + change);
                 continue;
             }
             final int taskId = change.getTaskInfo().taskId;
@@ -614,6 +611,42 @@ public final class TaskViewUtils {
             }
         });
         animator.start();
+    }
+
+    /**
+     * Start recents to desktop animation
+     */
+    public static void composeRecentsDesktopLaunchAnimator(
+            @NonNull DesktopTaskView launchingTaskView,
+            @NonNull StateManager stateManager, @Nullable DepthController depthController,
+            @NonNull TransitionInfo transitionInfo,
+            SurfaceControl.Transaction t, @NonNull Runnable finishCallback) {
+
+        AnimatorSet animatorSet = new AnimatorSet();
+        animatorSet.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+                t.apply();
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                finishCallback.run();
+            }
+        });
+
+        final RemoteAnimationTarget[] apps = RemoteAnimationTargetCompat.wrapApps(
+                transitionInfo, t, null /* leashMap */);
+        final RemoteAnimationTarget[] wallpaper = RemoteAnimationTargetCompat.wrapNonApps(
+                transitionInfo, true /* wallpapers */, t, null /* leashMap */);
+        final RemoteAnimationTarget[] nonApps = RemoteAnimationTargetCompat.wrapNonApps(
+                transitionInfo, false /* wallpapers */, t, null /* leashMap */);
+
+        composeRecentsLaunchAnimator(animatorSet, launchingTaskView, apps, wallpaper, nonApps,
+                true /* launcherClosing */, stateManager, launchingTaskView.getRecentsView(),
+                depthController);
+
+        animatorSet.start();
     }
 
     public static void composeRecentsLaunchAnimator(@NonNull AnimatorSet anim, @NonNull View v,

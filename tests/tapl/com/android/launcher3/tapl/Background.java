@@ -18,8 +18,6 @@ package com.android.launcher3.tapl;
 
 import static android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
 
-import static com.android.launcher3.tapl.LauncherInstrumentation.EVENT_TOUCH_DOWN_TIS;
-import static com.android.launcher3.tapl.LauncherInstrumentation.EVENT_TOUCH_UP_TIS;
 import static com.android.launcher3.tapl.OverviewTask.TASK_START_EVENT;
 import static com.android.launcher3.testing.shared.TestProtocol.OVERVIEW_STATE_ORDINAL;
 
@@ -41,12 +39,23 @@ import java.util.regex.Pattern;
  * Indicates the base state with a UI other than Overview running as foreground. It can also
  * indicate Launcher as long as Launcher is not in Overview state.
  */
-public abstract class Background extends LauncherInstrumentation.VisibleContainer {
+public abstract class Background extends LauncherInstrumentation.VisibleContainer
+        implements KeyboardQuickSwitchSource {
     private static final int ZERO_BUTTON_SWIPE_UP_GESTURE_DURATION = 500;
     private static final Pattern SQUARE_BUTTON_EVENT = Pattern.compile("onOverviewToggle");
 
     Background(LauncherInstrumentation launcher) {
         super(launcher);
+    }
+
+    @Override
+    public LauncherInstrumentation getLauncher() {
+        return mLauncher;
+    }
+
+    @Override
+    public LauncherInstrumentation.ContainerType getStartingContainerType() {
+        return getContainerType();
     }
 
     /**
@@ -67,10 +76,6 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
         }
     }
 
-
-    protected boolean zeroButtonToOverviewGestureStartsInLauncher() {
-        return mLauncher.isTablet();
-    }
 
     protected boolean zeroButtonToOverviewGestureStateTransitionWhileHolding() {
         return false;
@@ -133,16 +138,6 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
                 }
             }
         } else {
-            if (mLauncher.isTablet()) {
-                mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN,
-                        LauncherInstrumentation.EVENT_TOUCH_DOWN);
-                mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN,
-                        LauncherInstrumentation.EVENT_TOUCH_UP);
-            }
-            if (mLauncher.isTrackpadGestureEnabled()) {
-                mLauncher.expectEvent(TestProtocol.SEQUENCE_TIS, EVENT_TOUCH_DOWN_TIS);
-                mLauncher.expectEvent(TestProtocol.SEQUENCE_TIS, EVENT_TOUCH_UP_TIS);
-            }
             mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN, SQUARE_BUTTON_EVENT);
             mLauncher.runToState(
                     () -> mLauncher.waitForNavigationUiObject("recent_apps").click(),
@@ -158,12 +153,9 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
         final int centerX = mLauncher.getDevice().getDisplayWidth() / 2;
         final int startY = getSwipeStartY();
         final Point start = new Point(centerX, startY);
-        final LauncherInstrumentation.GestureScope gestureScope =
-                zeroButtonToOverviewGestureStartsInLauncher()
-                        ? LauncherInstrumentation.GestureScope.INSIDE_TO_OUTSIDE
-                        : LauncherInstrumentation.GestureScope.OUTSIDE_WITH_PILFER;
 
-        mLauncher.sendPointer(downTime, downTime, MotionEvent.ACTION_DOWN, start, gestureScope);
+        mLauncher.sendPointer(downTime, downTime, MotionEvent.ACTION_DOWN, start,
+                LauncherInstrumentation.GestureScope.EXPECT_PILFER);
 
         if (!mLauncher.isLauncher3()) {
             mLauncher.expectEvent(TestProtocol.SEQUENCE_PILFER,
@@ -179,10 +171,6 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
         final Point start = new Point(centerX, startY);
         final Point end =
                 new Point(centerX, startY - swipeHeight - mLauncher.getTouchSlop());
-        final LauncherInstrumentation.GestureScope gestureScope =
-                zeroButtonToOverviewGestureStartsInLauncher()
-                        ? LauncherInstrumentation.GestureScope.INSIDE_TO_OUTSIDE
-                        : LauncherInstrumentation.GestureScope.OUTSIDE_WITH_PILFER;
 
         mLauncher.movePointer(
                 downTime,
@@ -190,7 +178,7 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
                 ZERO_BUTTON_SWIPE_UP_GESTURE_DURATION,
                 start,
                 end,
-                gestureScope);
+                LauncherInstrumentation.GestureScope.EXPECT_PILFER);
     }
 
     private void sendUpPointerToEnterOverviewToLauncher(long downTime) {
@@ -201,13 +189,9 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
         final Point end =
                 new Point(centerX, startY - swipeHeight - mLauncher.getTouchSlop());
 
-        final LauncherInstrumentation.GestureScope gestureScope =
-                zeroButtonToOverviewGestureStartsInLauncher()
-                        ? LauncherInstrumentation.GestureScope.INSIDE_TO_OUTSIDE_WITHOUT_PILFER
-                        : LauncherInstrumentation.GestureScope.OUTSIDE_WITHOUT_PILFER;
-
         mLauncher.sendPointer(downTime, SystemClock.uptimeMillis(),
-                MotionEvent.ACTION_UP, end, gestureScope);
+                MotionEvent.ACTION_UP, end,
+                LauncherInstrumentation.GestureScope.DONT_EXPECT_PILFER);
     }
 
     /**
@@ -239,7 +223,6 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
              LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                      "want to quick switch to the previous app")) {
             verifyActiveContainer();
-            final boolean launcherWasVisible = mLauncher.isLauncherVisible();
             if (mLauncher.getNavigationModel() == NavigationModel.ZERO_BUTTON
                     || mLauncher.getTrackpadGestureType() == TrackpadGestureType.FOUR_FINGER) {
                 final int startX;
@@ -261,42 +244,19 @@ public abstract class Background extends LauncherInstrumentation.VisibleContaine
                     endY = startY;
                 }
 
-                LauncherInstrumentation.GestureScope gestureScope =
-                        launcherWasVisible
-                                ? LauncherInstrumentation.GestureScope.INSIDE_TO_OUTSIDE
-                                : LauncherInstrumentation.GestureScope.OUTSIDE_WITH_PILFER;
                 mLauncher.executeAndWaitForEvent(
                         () -> mLauncher.linearGesture(
-                                startX, startY, endX, endY, 20, false, gestureScope),
+                                startX, startY, endX, endY, 20, false,
+                                LauncherInstrumentation.GestureScope.EXPECT_PILFER),
                         event -> event.getEventType() == TYPE_WINDOW_STATE_CHANGED,
                         () -> "Quick switch gesture didn't change window state", "swiping");
             } else {
                 // Double press the recents button.
                 UiObject2 recentsButton = mLauncher.waitForNavigationUiObject("recent_apps");
-                if (mLauncher.isTablet()) {
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN,
-                            LauncherInstrumentation.EVENT_TOUCH_DOWN);
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN,
-                            LauncherInstrumentation.EVENT_TOUCH_UP);
-                }
-                if (mLauncher.isTrackpadGestureEnabled()) {
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_TIS, EVENT_TOUCH_DOWN_TIS);
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_TIS, EVENT_TOUCH_UP_TIS);
-                }
                 mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN, SQUARE_BUTTON_EVENT);
                 mLauncher.runToState(() -> recentsButton.click(), OVERVIEW_STATE_ORDINAL,
                         "clicking Recents button for the first time");
                 mLauncher.getOverview();
-                if (mLauncher.isTablet()) {
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN,
-                            LauncherInstrumentation.EVENT_TOUCH_DOWN);
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN,
-                            LauncherInstrumentation.EVENT_TOUCH_UP);
-                }
-                if (mLauncher.isTrackpadGestureEnabled()) {
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_TIS, EVENT_TOUCH_DOWN_TIS);
-                    mLauncher.expectEvent(TestProtocol.SEQUENCE_TIS, EVENT_TOUCH_UP_TIS);
-                }
                 mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN, SQUARE_BUTTON_EVENT);
                 mLauncher.executeAndWaitForEvent(
                         () -> recentsButton.click(),

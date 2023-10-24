@@ -18,7 +18,6 @@ package com.android.launcher3.ui;
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.launcher3.testing.shared.TestProtocol.ICON_MISSING;
-import static com.android.launcher3.ui.TaplTestsLauncher3.getAppPackageName;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
 import static org.junit.Assert.assertEquals;
@@ -68,6 +67,7 @@ import com.android.launcher3.util.rule.FailureWatcher;
 import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
 import com.android.launcher3.util.rule.ShellCommandRule;
+import com.android.launcher3.util.rule.TestIsolationRule;
 import com.android.launcher3.util.rule.TestStabilityRule;
 import com.android.launcher3.util.rule.ViewCaptureRule;
 
@@ -111,25 +111,39 @@ public abstract class AbstractLauncherUiTest {
     protected String mTargetPackage;
     private int mLauncherPid;
 
+    /** Detects activity leaks and throws an exception if a leak is found. */
     public static void checkDetectedLeaks(LauncherInstrumentation launcher) {
+        checkDetectedLeaks(launcher, false);
+    }
+
+    /** Detects activity leaks and throws an exception if a leak is found. */
+    public static void checkDetectedLeaks(LauncherInstrumentation launcher,
+            boolean requireOneActiveActivity) {
         if (sActivityLeakReported) return;
 
         // Check whether activity leak detector has found leaked activities.
-        Wait.atMost(() -> getActivityLeakErrorMessage(launcher),
+        Wait.atMost(() -> getActivityLeakErrorMessage(launcher, requireOneActiveActivity),
                 () -> {
                     launcher.forceGc();
                     return MAIN_EXECUTOR.submit(
-                            () -> launcher.noLeakedActivities()).get();
+                            () -> launcher.noLeakedActivities(requireOneActiveActivity)).get();
                 }, DEFAULT_UI_TIMEOUT, launcher);
     }
 
-    private static String getActivityLeakErrorMessage(LauncherInstrumentation launcher) {
-        sActivityLeakReported = true;
-        return "Activity leak detector has found leaked activities, "
-                + dumpHprofData(launcher, false) + ".";
+    public static String getAppPackageName() {
+        return getInstrumentation().getContext().getPackageName();
     }
 
-    public static String dumpHprofData(LauncherInstrumentation launcher, boolean intentionalLeak) {
+    private static String getActivityLeakErrorMessage(LauncherInstrumentation launcher,
+            boolean requireOneActiveActivity) {
+        sActivityLeakReported = true;
+        return "Activity leak detector has found leaked activities, requirining 1 activity: "
+                + requireOneActiveActivity + "; "
+                + dumpHprofData(launcher, false, requireOneActiveActivity) + ".";
+    }
+
+    private static String dumpHprofData(LauncherInstrumentation launcher, boolean intentionalLeak,
+            boolean requireOneActiveActivity) {
         if (intentionalLeak) return "intentional leak; not generating dump";
 
         String result;
@@ -148,7 +162,7 @@ public abstract class AbstractLauncherUiTest {
                             "am dumpheap " + device.getLauncherPackageName() + " " + fileName);
                 }
                 Log.d(TAG, "Saved leak dump, the leak is still present: "
-                        + !launcher.noLeakedActivities());
+                        + !launcher.noLeakedActivities(requireOneActiveActivity));
                 sDumpWasGenerated = true;
                 result = "saved memory dump as an artifact";
             } catch (Throwable e) {
@@ -206,7 +220,8 @@ public abstract class AbstractLauncherUiTest {
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
-                .around(viewCaptureRule);
+                .around(viewCaptureRule)
+                .around(new TestIsolationRule(mLauncher, true));
 
         return TestHelpers.isInLauncherProcess()
                 ? RuleChain.outerRule(ShellCommandRule.setDefaultLauncher()).around(inner)

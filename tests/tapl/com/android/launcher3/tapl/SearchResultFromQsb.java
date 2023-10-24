@@ -25,9 +25,7 @@ import java.util.ArrayList;
 /**
  * Operations on search result page opened from qsb.
  */
-public class SearchResultFromQsb {
-    // The input resource id in the search box.
-    private static final String INPUT_RES = "input";
+public class SearchResultFromQsb implements SearchInputSource {
     private static final String BOTTOM_SHEET_RES_ID = "bottom_sheet_background";
 
     // This particular ID change should happen with caution
@@ -37,15 +35,6 @@ public class SearchResultFromQsb {
     SearchResultFromQsb(LauncherInstrumentation launcher) {
         mLauncher = launcher;
         mLauncher.waitForLauncherObject("search_container_all_apps");
-    }
-
-    /** Set the input to the search input edit text and update search results. */
-    public void searchForInput(String input) {
-        try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
-                "want to search for result with an input");
-             LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
-            mLauncher.waitForLauncherObject(INPUT_RES).setText(input);
-        }
     }
 
     /** Find the app from search results with app name. */
@@ -59,21 +48,23 @@ public class SearchResultFromQsb {
     }
 
     /** Find the web suggestion from search suggestion's title text */
-    public void verifyWebSuggestIsPresent(String text) {
-        ArrayList<UiObject2> goldenGateResults =
+    public SearchWebSuggestion findWebSuggestion(String text) {
+        ArrayList<UiObject2> webSuggestions =
                 new ArrayList<>(mLauncher.waitForObjectsInContainer(
                         mLauncher.waitForSystemLauncherObject(SEARCH_CONTAINER_RES_ID),
                         By.clazz(TextView.class)));
-        boolean found = false;
-        for(UiObject2 uiObject: goldenGateResults) {
+        for (UiObject2 uiObject: webSuggestions) {
             String currentString = uiObject.getText();
             if (currentString.equals(text)) {
-                found = true;
+                return createWebSuggestion(uiObject);
             }
         }
-        if (!found) {
-            throw new IllegalStateException("Web suggestion title: " + text + " not found");
-        }
+        mLauncher.fail("Web suggestion title: " + text + " not found");
+        return null;
+    }
+
+    protected SearchWebSuggestion createWebSuggestion(UiObject2 webSuggestion) {
+        return new SearchWebSuggestion(mLauncher, webSuggestion);
     }
 
     /** Find the total amount of views being displayed and return the size */
@@ -89,7 +80,7 @@ public class SearchResultFromQsb {
      * Taps outside bottom sheet to dismiss and return to workspace. Available on tablets only.
      * @param tapRight Tap on the right of bottom sheet if true, or left otherwise.
      */
-    public Workspace dismissByTappingOutsideForTablet(boolean tapRight) {
+    public void dismissByTappingOutsideForTablet(boolean tapRight) {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck();
              LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                      "want to tap outside AllApps bottom sheet on the "
@@ -99,8 +90,22 @@ public class SearchResultFromQsb {
             mLauncher.touchOutsideContainer(allAppsBottomSheet, tapRight);
             try (LauncherInstrumentation.Closable tapped = mLauncher.addContextLayer(
                     "tapped outside AllApps bottom sheet")) {
-                return mLauncher.getWorkspace();
+                verifyVisibleContainerOnDismiss();
             }
         }
+    }
+
+    protected void verifyVisibleContainerOnDismiss() {
+        mLauncher.getWorkspace();
+    }
+
+    @Override
+    public LauncherInstrumentation getLauncher() {
+        return mLauncher;
+    }
+
+    @Override
+    public SearchResultFromQsb getSearchResultForInput() {
+        return this;
     }
 }

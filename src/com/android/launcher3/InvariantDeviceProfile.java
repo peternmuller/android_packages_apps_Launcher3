@@ -18,11 +18,11 @@ package com.android.launcher3;
 
 import static com.android.launcher3.LauncherPrefs.GRID_NAME;
 import static com.android.launcher3.Utilities.dpiFromPx;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_TWO_PANEL_HOME;
 import static com.android.launcher3.testing.shared.ResourceUtils.INVALID_RESOURCE_HANDLE;
 import static com.android.launcher3.util.DisplayController.CHANGE_DENSITY;
 import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
 import static com.android.launcher3.util.DisplayController.CHANGE_SUPPORTED_BOUNDS;
+import static com.android.launcher3.util.DisplayController.CHANGE_TASKBAR_PINNING;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
 import android.annotation.TargetApi;
@@ -225,7 +225,7 @@ public class InvariantDeviceProfile {
         DisplayController.INSTANCE.get(context).setPriorityListener(
                 (displayContext, info, flags) -> {
                     if ((flags & (CHANGE_DENSITY | CHANGE_SUPPORTED_BOUNDS
-                            | CHANGE_NAVIGATION_MODE)) != 0) {
+                            | CHANGE_NAVIGATION_MODE | CHANGE_TASKBAR_PINNING)) != 0) {
                         onConfigChanged(displayContext);
                     }
                 });
@@ -316,7 +316,7 @@ public class InvariantDeviceProfile {
         int type = displayInfo.supportedBounds.stream()
                 .mapToInt(bounds -> displayInfo.isTablet(bounds) ? flagTablet : flagPhone)
                 .reduce(0, (a, b) -> a | b);
-        if ((type == (flagPhone | flagTablet)) && ENABLE_TWO_PANEL_HOME.get()) {
+        if (type == (flagPhone | flagTablet)) {
             // device has profiles supporting both phone and table modes
             return TYPE_MULTI_DISPLAY;
         } else if (type == flagTablet) {
@@ -889,7 +889,7 @@ public class InvariantDeviceProfile {
             deviceCategory = a.getInt(R.styleable.GridDisplayOption_deviceCategory,
                     DEVICE_CATEGORY_ALL);
 
-            if (FeatureFlags.ENABLE_RESPONSIVE_WORKSPACE.get()) {
+            if (FeatureFlags.enableResponsiveWorkspace()) {
                 mWorkspaceSpecsId = a.getResourceId(
                         R.styleable.GridDisplayOption_workspaceSpecsId, INVALID_RESOURCE_HANDLE);
                 mWorkspaceSpecsTwoPanelId = a.getResourceId(

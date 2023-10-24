@@ -16,8 +16,6 @@
 
 package com.android.launcher3.appprediction;
 
-import static com.android.launcher3.BubbleTextView.DISPLAY_PREDICTION_ROW;
-
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -38,6 +36,7 @@ import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.FloatingHeaderRow;
 import com.android.launcher3.allapps.FloatingHeaderView;
 import com.android.launcher3.anim.AlphaUpdateListener;
+import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.keyboard.FocusIndicatorHelper;
 import com.android.launcher3.keyboard.FocusIndicatorHelper.SimpleFocusIndicatorHelper;
 import com.android.launcher3.model.data.ItemInfo;
@@ -128,6 +127,10 @@ public class PredictionRowView<T extends Context & ActivityContext>
         int verticalPadding = getResources().getDimensionPixelSize(
                 R.dimen.all_apps_predicted_icon_vertical_padding);
         int totalHeight = iconHeight + iconPadding + textHeight + verticalPadding * 2;
+        if (FeatureFlags.enableTwolineAllapps()) {
+            // Add extra textHeight to the existing total height.
+            totalHeight += textHeight;
+        }
         return getVisibility() == GONE ? 0 : totalHeight + getPaddingTop() + getPaddingBottom();
     }
 
@@ -189,7 +192,7 @@ public class PredictionRowView<T extends Context & ActivityContext>
             LayoutInflater inflater = mActivityContext.getAppsView().getLayoutInflater();
             while (getChildCount() < mNumPredictedAppsPerRow) {
                 BubbleTextView icon = (BubbleTextView) inflater.inflate(
-                        R.layout.all_apps_icon, this, false);
+                        R.layout.all_apps_prediction_row_icon, this, false);
                 icon.setOnClickListener(mActivityContext.getItemOnClickListener());
                 icon.setOnLongClickListener(mActivityContext.getAllAppsItemLongClickListener());
                 icon.setLongPressTimeoutFactor(1f);
@@ -211,7 +214,6 @@ public class PredictionRowView<T extends Context & ActivityContext>
             icon.reset();
             if (predictionCount > i) {
                 icon.setVisibility(View.VISIBLE);
-                icon.setDisplay(DISPLAY_PREDICTION_ROW);
                 icon.applyFromWorkspaceItem(mPredictedApps.get(i));
             } else {
                 icon.setVisibility(predictionCount == 0 ? GONE : INVISIBLE);
