@@ -17,7 +17,6 @@
 package com.android.quickstep.util;
 
 import static com.android.launcher3.Utilities.postAsyncCallback;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_SPLIT_FROM_DESKTOP_TO_WORKSPACE;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_DESKTOP_MODE_SPLIT_LEFT_TOP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_DESKTOP_MODE_SPLIT_RIGHT_BOTTOM;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
@@ -37,6 +36,7 @@ import static com.android.wm.shell.common.split.SplitScreenConstants.SNAP_TO_50_
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.NonNull;
+import android.annotation.UiThread;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.ActivityThread;
@@ -91,6 +91,7 @@ import com.android.quickstep.SplitSelectionListener;
 import com.android.quickstep.SystemUiProxy;
 import com.android.quickstep.TaskAnimationManager;
 import com.android.quickstep.TaskViewUtils;
+import com.android.quickstep.views.DesktopTaskView;
 import com.android.quickstep.views.FloatingTaskView;
 import com.android.quickstep.views.GroupedTaskView;
 import com.android.quickstep.views.RecentsView;
@@ -118,7 +119,7 @@ public class SplitSelectStateController {
     private final Handler mHandler;
     private final RecentsModel mRecentTasksModel;
     @Nullable
-    private final Runnable mActivityBackCallback;
+    private Runnable mActivityBackCallback;
     private final SplitAnimationController mSplitAnimationController;
     private final AppPairsController mAppPairsController;
     private final SplitSelectDataHolder mSplitSelectDataHolder;
@@ -139,6 +140,9 @@ public class SplitSelectStateController {
     /** If not null, this is the TaskView we want to launch from */
     @Nullable
     private GroupedTaskView mLaunchingTaskView;
+
+    /** True when the first selected split app is being launched in fullscreen. */
+    private boolean mLaunchingFirstAppFullscreen;
 
     private FloatingTaskView mFirstFloatingTaskView;
     private SplitInstructionsView mSplitInstructionsView;
@@ -182,6 +186,9 @@ public class SplitSelectStateController {
 
     public void onDestroy() {
         mContext = null;
+        mActivityBackCallback = null;
+        mAppPairsController.onDestroy();
+        mSplitSelectDataHolder.onDestroy();
     }
 
     /**
@@ -599,13 +606,13 @@ public class SplitSelectStateController {
 
         private final int mInitialTaskId;
         private final int mSecondTaskId;
-        private final Consumer<Boolean> mSuccessCallback;
+        private Consumer<Boolean> mFinishCallback;
 
         RemoteSplitLaunchTransitionRunner(int initialTaskId, int secondTaskId,
                 @Nullable Consumer<Boolean> callback) {
             mInitialTaskId = initialTaskId;
             mSecondTaskId = secondTaskId;
-            mSuccessCallback = callback;
+            mFinishCallback = callback;
         }
 
         @Override
@@ -624,10 +631,7 @@ public class SplitSelectStateController {
                 TaskViewUtils.composeRecentsSplitLaunchAnimator(mLaunchingTaskView, mStateManager,
                         mDepthController, mInitialTaskId, mSecondTaskId, info, t, () -> {
                             finishAdapter.run();
-                            if (mSuccessCallback != null) {
-                                mSuccessCallback.accept(true);
-                            }
-                            resetState();
+                            cleanup(true /*success*/);
                         });
             });
         }
@@ -636,6 +640,27 @@ public class SplitSelectStateController {
         public void mergeAnimation(IBinder transition, TransitionInfo info,
                 SurfaceControl.Transaction t, IBinder mergeTarget,
                 IRemoteTransitionFinishedCallback finishedCallback) { }
+
+        @Override
+        public void onTransitionConsumed(IBinder transition, boolean aborted)
+                throws RemoteException {
+            MAIN_EXECUTOR.execute(() -> {
+                cleanup(false /*success*/);
+            });
+        }
+
+        /**
+         * Must be called on UI thread.
+         * @param success if launching the split apps occurred successfully or not
+         */
+        @UiThread
+        private void cleanup(boolean success) {
+            if (mFinishCallback != null) {
+                mFinishCallback.accept(success);
+                mFinishCallback = null;
+            }
+            resetState();
+        }
     }
 
     /**
@@ -699,6 +724,7 @@ public class SplitSelectStateController {
         mDismissingFromSplitPair = false;
         mFirstFloatingTaskView = null;
         mSplitInstructionsView = null;
+        mLaunchingFirstAppFullscreen = false;
     }
 
     /**
@@ -717,6 +743,10 @@ public class SplitSelectStateController {
         return mSplitSelectDataHolder.isBothSplitAppsConfirmed();
     }
 
+    public boolean isLaunchingFirstAppFullscreen() {
+        return mLaunchingFirstAppFullscreen;
+    }
+
     public int getInitialTaskId() {
         return mSplitSelectDataHolder.getInitialTaskId();
     }
@@ -725,6 +755,9 @@ public class SplitSelectStateController {
         return mSplitSelectDataHolder.getSecondTaskId();
     }
 
+    public void setLaunchingFirstAppFullscreen() {
+        mLaunchingFirstAppFullscreen = true;
+    }
     public void setFirstFloatingTaskView(FloatingTaskView floatingTaskView) {
         mFirstFloatingTaskView = floatingTaskView;
     }
@@ -782,7 +815,7 @@ public class SplitSelectStateController {
                 @Override
                 public boolean onRequestSplitSelect(ActivityManager.RunningTaskInfo taskInfo,
                         int splitPosition, Rect taskBounds) {
-                    if (!ENABLE_SPLIT_FROM_DESKTOP_TO_WORKSPACE.get()) return false;
+                    if (!DesktopTaskView.DESKTOP_MODE_SUPPORTED) return false;
                     MAIN_EXECUTOR.execute(() -> enterSplitSelect(taskInfo, splitPosition,
                             taskBounds));
                     return true;

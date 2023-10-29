@@ -15,6 +15,7 @@
  */
 package com.android.launcher3.ui;
 
+import static com.android.launcher3.LauncherPrefs.WORK_EDU_STEP;
 import static com.android.launcher3.LauncherState.ALL_APPS;
 import static com.android.launcher3.LauncherState.NORMAL;
 import static com.android.launcher3.allapps.AllAppsStore.DEFER_UPDATES_TEST;
@@ -29,6 +30,7 @@ import android.view.View;
 
 import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.ActivityAllAppsContainerView;
 import com.android.launcher3.allapps.AllAppsPagedView;
@@ -89,8 +91,8 @@ public class WorkProfileTest extends AbstractLauncherUiTest {
 
     @After
     public void removeWorkProfile() throws Exception {
-        executeOnLauncher(launcher -> {
-            if (launcher == null || launcher.getAppsView() == null) {
+        executeOnLauncherInTearDown(launcher -> {
+            if (launcher.getAppsView() == null) {
                 return;
             }
             launcher.getAppsView().getAppsStore().disableDeferUpdates(DEFER_UPDATES_TEST);
@@ -174,7 +176,7 @@ public class WorkProfileTest extends AbstractLauncherUiTest {
         assumeTrue(mWorkProfileSetupSuccessful);
         waitForWorkTabSetup();
         executeOnLauncher(l -> {
-            l.getSharedPrefs().edit().putInt(WorkProfileManager.KEY_WORK_EDU_STEP, 0).commit();
+            LauncherPrefs.get(l).putSync(WORK_EDU_STEP.to(0));
             ((AllAppsPagedView) l.getAppsView().getContentView()).setCurrentPage(WORK_PAGE);
             l.getAppsView().getWorkManager().reset();
         });

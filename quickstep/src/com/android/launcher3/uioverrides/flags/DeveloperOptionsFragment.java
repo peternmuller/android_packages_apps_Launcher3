@@ -24,9 +24,17 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 
 import static com.android.launcher3.LauncherPrefs.ALL_APPS_OVERVIEW_THRESHOLD;
+import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_SLOP_PERCENTAGE;
+import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_TIMEOUT_MS;
 import static com.android.launcher3.settings.SettingsActivity.EXTRA_FRAGMENT_ARG_KEY;
 import static com.android.launcher3.uioverrides.plugins.PluginManagerWrapper.PLUGIN_CHANGED;
 import static com.android.launcher3.uioverrides.plugins.PluginManagerWrapper.pluginEnabledKey;
+import static com.android.launcher3.util.OnboardingPrefs.ALL_APPS_VISITED_COUNT;
+import static com.android.launcher3.util.OnboardingPrefs.HOME_BOUNCE_COUNT;
+import static com.android.launcher3.util.OnboardingPrefs.HOME_BOUNCE_SEEN;
+import static com.android.launcher3.util.OnboardingPrefs.HOTSEAT_DISCOVERY_TIP_COUNT;
+import static com.android.launcher3.util.OnboardingPrefs.HOTSEAT_LONGPRESS_TIP_SEEN;
+import static com.android.launcher3.util.OnboardingPrefs.TASKBAR_EDU_TOOLTIP_STEP;
 
 import android.annotation.TargetApi;
 import android.content.ComponentName;
@@ -63,17 +71,16 @@ import androidx.preference.PreferenceViewHolder;
 import androidx.preference.SeekBarPreference;
 import androidx.preference.SwitchPreference;
 
+import com.android.launcher3.ConstantItem;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.secondarydisplay.SecondaryDisplayLauncher;
 import com.android.launcher3.uioverrides.plugins.PluginManagerWrapper;
-import com.android.launcher3.util.OnboardingPrefs;
 import com.android.launcher3.util.SimpleBroadcastReceiver;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -110,6 +117,9 @@ public class DeveloperOptionsFragment extends PreferenceFragmentCompat {
         addOnboardingPrefsCatergory();
         if (FeatureFlags.ENABLE_ALL_APPS_FROM_OVERVIEW.get()) {
             addAllAppsFromOverviewCatergory();
+        }
+        if (FeatureFlags.CUSTOM_LPNH_THRESHOLDS.get()) {
+            addCustomLpnhCatergory();
         }
 
         if (getActivity() != null) {
@@ -378,51 +388,83 @@ public class DeveloperOptionsFragment extends PreferenceFragmentCompat {
     private void addOnboardingPrefsCatergory() {
         PreferenceCategory onboardingCategory = newCategory("Onboarding Flows");
         onboardingCategory.setSummary("Reset these if you want to see the education again.");
-        for (Map.Entry<String, String[]> titleAndKeys : OnboardingPrefs.ALL_PREF_KEYS.entrySet()) {
-            String title = titleAndKeys.getKey();
-            String[] keys = titleAndKeys.getValue();
-            Preference onboardingPref = new Preference(getContext());
-            onboardingPref.setTitle(title);
-            onboardingPref.setSummary("Tap to reset");
-            onboardingPref.setOnPreferenceClickListener(preference -> {
-                SharedPreferences.Editor sharedPrefsEdit = LauncherPrefs.getPrefs(getContext())
-                        .edit();
-                for (String key : keys) {
-                    sharedPrefsEdit.remove(key);
-                }
-                sharedPrefsEdit.apply();
-                Toast.makeText(getContext(), "Reset " + title, Toast.LENGTH_SHORT).show();
-                return true;
-            });
-            onboardingCategory.addPreference(onboardingPref);
-        }
+
+        onboardingCategory.addPreference(createOnboardPref("All Apps Bounce",
+                HOME_BOUNCE_SEEN.getSharedPrefKey(), HOME_BOUNCE_COUNT.getSharedPrefKey()));
+        onboardingCategory.addPreference(createOnboardPref("Hybrid Hotseat Education",
+                HOTSEAT_DISCOVERY_TIP_COUNT.getSharedPrefKey(),
+                HOTSEAT_LONGPRESS_TIP_SEEN.getSharedPrefKey()));
+        onboardingCategory.addPreference(createOnboardPref("Taskbar Education",
+                TASKBAR_EDU_TOOLTIP_STEP.getSharedPrefKey()));
+        onboardingCategory.addPreference(createOnboardPref("All Apps Visited Count",
+                ALL_APPS_VISITED_COUNT.getSharedPrefKey()));
+    }
+
+    private Preference createOnboardPref(String title, String... keys) {
+        Preference onboardingPref = new Preference(getContext());
+        onboardingPref.setTitle(title);
+        onboardingPref.setSummary("Tap to reset");
+        onboardingPref.setOnPreferenceClickListener(preference -> {
+            SharedPreferences.Editor sharedPrefsEdit = LauncherPrefs.getPrefs(getContext())
+                    .edit();
+            for (String key : keys) {
+                sharedPrefsEdit.remove(key);
+            }
+            sharedPrefsEdit.apply();
+            Toast.makeText(getContext(), "Reset " + title, Toast.LENGTH_SHORT).show();
+            return true;
+        });
+        return onboardingPref;
     }
 
     private void addAllAppsFromOverviewCatergory() {
         PreferenceCategory category = newCategory("All Apps from Overview Config");
+        category.addPreference(createSeekBarPreference("Threshold to open All Apps from Overview",
+                105, 500, 100, ALL_APPS_OVERVIEW_THRESHOLD));
+    }
 
-        SeekBarPreference thresholdPref = new SeekBarPreference(getContext());
-        thresholdPref.setTitle("Threshold to open All Apps from Overview");
-        thresholdPref.setSingleLineTitle(false);
+    private void addCustomLpnhCatergory() {
+        PreferenceCategory category = newCategory("Long Press Nav Handle Config");
+        category.addPreference(createSeekBarPreference("Slop multiplier (applied to edge slop, "
+                        + "which is generally already 50% higher than touch slop)",
+                25, 200, 100, LONG_PRESS_NAV_HANDLE_SLOP_PERCENTAGE));
+        category.addPreference(createSeekBarPreference("Trigger milliseconds",
+                100, 500, 1, LONG_PRESS_NAV_HANDLE_TIMEOUT_MS));
+    }
 
-        // These values are 100x swipe up shift value (100 = where overview sits).
-        thresholdPref.setMax(500);
-        thresholdPref.setMin(105);
-        thresholdPref.setUpdatesContinuously(true);
-        thresholdPref.setIconSpaceReserved(false);
+    /**
+     * Create a preference with text and a seek bar. Should be added to a PreferenceCategory.
+     *
+     * @param title text to show for this seek bar
+     * @param min min value for the seek bar
+     * @param max max value for the seek bar
+     * @param scale how much to divide the value to convert int to float
+     * @param launcherPref used to store the current value
+     */
+    private SeekBarPreference createSeekBarPreference(String title, int min, int max, int scale,
+            ConstantItem<Integer> launcherPref) {
+        SeekBarPreference seekBarPref = new SeekBarPreference(getContext());
+        seekBarPref.setTitle(title);
+        seekBarPref.setSingleLineTitle(false);
+
+        seekBarPref.setMax(max);
+        seekBarPref.setMin(min);
+        seekBarPref.setUpdatesContinuously(true);
+        seekBarPref.setIconSpaceReserved(false);
         // Don't directly save to shared prefs, use LauncherPrefs instead.
-        thresholdPref.setPersistent(false);
-        thresholdPref.setOnPreferenceChangeListener((preference, newValue) -> {
-            LauncherPrefs.get(getContext()).put(ALL_APPS_OVERVIEW_THRESHOLD, newValue);
-            preference.setSummary(String.valueOf((int) newValue / 100f));
+        seekBarPref.setPersistent(false);
+        seekBarPref.setOnPreferenceChangeListener((preference, newValue) -> {
+            LauncherPrefs.get(getContext()).put(launcherPref, newValue);
+            preference.setSummary(String.valueOf(scale == 1 ? newValue
+                    : (int) newValue / (float) scale));
             return true;
         });
-        int value = LauncherPrefs.get(getContext()).get(ALL_APPS_OVERVIEW_THRESHOLD);
-        thresholdPref.setValue(value);
+        int value = LauncherPrefs.get(getContext()).get(launcherPref);
+        seekBarPref.setValue(value);
         // For some reason the initial value is not triggering the summary update, so call manually.
-        thresholdPref.getOnPreferenceChangeListener().onPreferenceChange(thresholdPref, value);
+        seekBarPref.getOnPreferenceChangeListener().onPreferenceChange(seekBarPref, value);
 
-        category.addPreference(thresholdPref);
+        return seekBarPref;
     }
 
     private String toName(String action) {

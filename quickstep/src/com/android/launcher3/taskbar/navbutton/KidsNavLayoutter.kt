@@ -35,7 +35,7 @@ class KidsNavLayoutter(
         startContextualContainer: ViewGroup,
         imeSwitcher: ImageView?,
         rotationButton: RotationButton?,
-        a11yButton: ImageView
+        a11yButton: ImageView?
 ) :
     AbstractNavButtonLayoutter(
             resources,
@@ -47,7 +47,7 @@ class KidsNavLayoutter(
             a11yButton
     ) {
 
-    override fun layoutButtons(dp: DeviceProfile, isContextualButtonShowing: Boolean) {
+    override fun layoutButtons(dp: DeviceProfile, isA11yButtonPersistent: Boolean) {
         val iconSize: Int = resources.getDimensionPixelSize(DIMEN_TASKBAR_ICON_SIZE_KIDS)
         val buttonWidth: Int = resources.getDimensionPixelSize(DIMEN_TASKBAR_NAV_BUTTONS_WIDTH_KIDS)
         val buttonHeight: Int =
@@ -114,7 +114,9 @@ class KidsNavLayoutter(
             startContextualContainer.addView(imeSwitcher)
             imeSwitcher.layoutParams = getParamsToCenterView()
         }
-        endContextualContainer.addView(a11yButton)
+        if (a11yButton != null) {
+            endContextualContainer.addView(a11yButton)
+        }
         if (rotationButton != null) {
             endContextualContainer.addView(rotationButton.currentView)
             rotationButton.currentView.layoutParams = getParamsToCenterView()
