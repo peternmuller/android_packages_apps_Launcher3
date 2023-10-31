@@ -31,7 +31,7 @@ class PhoneGestureLayoutter(
         startContextualContainer: ViewGroup,
         imeSwitcher: ImageView?,
         rotationButton: RotationButton?,
-        a11yButton: ImageView
+        a11yButton: ImageView?
 ) :
         AbstractNavButtonLayoutter(
                 resources,
@@ -43,7 +43,7 @@ class PhoneGestureLayoutter(
                 a11yButton
         ) {
 
-    override fun layoutButtons(dp: DeviceProfile, isContextualButtonShowing: Boolean) {
+    override fun layoutButtons(dp: DeviceProfile, isA11yButtonPersistent: Boolean) {
         endContextualContainer.removeAllViews()
         startContextualContainer.removeAllViews()
     }

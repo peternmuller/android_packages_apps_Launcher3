@@ -61,7 +61,6 @@ import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -186,6 +185,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -217,8 +217,6 @@ public class QuickstepLauncher extends Launcher {
     private SplitSelectStateController mSplitSelectStateController;
     private SplitWithKeyboardShortcutController mSplitWithKeyboardShortcutController;
     private SplitToWorkspaceController mSplitToWorkspaceController;
-
-    private AsyncClockEventDelegate mAsyncClockEventDelegate;
 
     /**
      * If Launcher restarted while in the middle of an Overview split select, it needs this data to
@@ -342,11 +340,6 @@ public class QuickstepLauncher extends Launcher {
      */
     protected QuickstepTransitionManager buildAppTransitionManager() {
         return new QuickstepTransitionManager(this);
-    }
-
-    @Override
-    protected QuickstepOnboardingPrefs createOnboardingPrefs(SharedPreferences sharedPrefs) {
-        return new QuickstepOnboardingPrefs(this, sharedPrefs);
     }
 
     @Override
@@ -497,10 +490,6 @@ public class QuickstepLauncher extends Launcher {
             mSplitSelectStateController.onDestroy();
         }
 
-        if (mAsyncClockEventDelegate != null) {
-            mAsyncClockEventDelegate.onDestroy();
-        }
-
         super.onDestroy();
         mHotseatPredictionController.destroy();
         mSplitWithKeyboardShortcutController.onDestroy();
@@ -624,6 +613,7 @@ public class QuickstepLauncher extends Launcher {
             mViewCapture = SettingsAwareViewCapture.getInstance(this).startCapture(getWindow());
         }
         getWindow().addPrivateFlags(PRIVATE_FLAG_OPTIMIZE_MEASURE);
+        QuickstepOnboardingPrefs.setup(this);
         View.setTraceLayoutSteps(TRACE_LAYOUTS);
         View.setTracedRequestLayoutClassClass(TRACE_RELAYOUT_CLASS);
     }
@@ -675,6 +665,9 @@ public class QuickstepLauncher extends Launcher {
         floatingTaskView.setAlpha(1);
         floatingTaskView.addStagingAnimation(anim, startingTaskRect, tempRect,
                 false /* fadeWithThumbnail */, true /* isStagedTask */);
+        floatingTaskView.setOnClickListener(view ->
+                mSplitSelectStateController.getSplitAnimationController().
+                        playAnimPlaceholderToFullscreen(this, view, Optional.empty()));
         mSplitSelectStateController.setFirstFloatingTaskView(floatingTaskView);
         anim.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -691,7 +684,7 @@ public class QuickstepLauncher extends Launcher {
     }
 
     @Override
-    protected boolean isSplitSelectionEnabled() {
+    public boolean isSplitSelectionEnabled() {
         return mSplitSelectStateController.isSplitSelectActive();
     }
 
@@ -714,7 +707,8 @@ public class QuickstepLauncher extends Launcher {
 
         if (ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
             // If Launcher pauses before both split apps are selected, exit split screen.
-            if (!mSplitSelectStateController.isBothSplitAppsConfirmed()) {
+            if (!mSplitSelectStateController.isBothSplitAppsConfirmed() &&
+                    !mSplitSelectStateController.isLaunchingFirstAppFullscreen()) {
                 mSplitSelectStateController.getSplitAnimationController()
                         .playPlaceholderDismissAnim(this);
             }
@@ -984,6 +978,13 @@ public class QuickstepLauncher extends Launcher {
     @Override
     protected void handleSplitAnimationGoingToHome() {
         super.handleSplitAnimationGoingToHome();
+        mSplitSelectStateController.getSplitAnimationController()
+                .playPlaceholderDismissAnim(this);
+    }
+
+    @Override
+    public void dismissSplitSelection() {
+        super.dismissSplitSelection();
         mSplitSelectStateController.getSplitAnimationController()
                 .playPlaceholderDismissAnim(this);
     }
@@ -1346,18 +1347,12 @@ public class QuickstepLauncher extends Launcher {
         switch (name) {
             case "TextClock", "android.widget.TextClock" -> {
                 TextClock tc = new TextClock(context, attrs);
-                if (mAsyncClockEventDelegate == null) {
-                    mAsyncClockEventDelegate = new AsyncClockEventDelegate(this);
-                }
-                tc.setClockEventDelegate(mAsyncClockEventDelegate);
+                tc.setClockEventDelegate(AsyncClockEventDelegate.INSTANCE.get(this));
                 return tc;
             }
             case "AnalogClock", "android.widget.AnalogClock" -> {
                 AnalogClock ac = new AnalogClock(context, attrs);
-                if (mAsyncClockEventDelegate == null) {
-                    mAsyncClockEventDelegate = new AsyncClockEventDelegate(this);
-                }
-                ac.setClockEventDelegate(mAsyncClockEventDelegate);
+                ac.setClockEventDelegate(AsyncClockEventDelegate.INSTANCE.get(this));
                 return ac;
             }
         }

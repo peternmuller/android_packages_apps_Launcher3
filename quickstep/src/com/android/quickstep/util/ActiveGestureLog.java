@@ -31,9 +31,11 @@ import java.util.Objects;
  */
 public class ActiveGestureLog {
 
-    private static final int MAX_GESTURES_TRACKED = 10;
+    private static final int MAX_GESTURES_TRACKED = 15;
 
     public static final ActiveGestureLog INSTANCE = new ActiveGestureLog();
+
+    private boolean mIsFullyGesturalNavMode;
 
     /**
      * NOTE: This value should be kept same as
@@ -127,7 +129,7 @@ public class ActiveGestureLog {
             @Nullable ActiveGestureErrorDetector.GestureEvent gestureEvent) {
         EventLog lastEventLog = logs[(nextIndex + logs.length - 1) % logs.length];
         if (lastEventLog == null || mCurrentLogId != lastEventLog.logId) {
-            EventLog eventLog = new EventLog(mCurrentLogId);
+            EventLog eventLog = new EventLog(mCurrentLogId, mIsFullyGesturalNavMode);
             EventEntry eventEntry = new EventEntry();
 
             eventEntry.update(type, event, extras, compoundString, gestureEvent);
@@ -214,6 +216,10 @@ public class ActiveGestureLog {
         return mCurrentLogId++;
     }
 
+    public void setIsFullyGesturalNavMode(boolean isFullyGesturalNavMode) {
+        mIsFullyGesturalNavMode = isFullyGesturalNavMode;
+    }
+
     /** Returns the current log ID. This should be used when a log trace is being reused. */
     public int getLogId() {
         return mCurrentLogId;
@@ -277,9 +283,11 @@ public class ActiveGestureLog {
 
         protected final List<EventEntry> eventEntries = new ArrayList<>();
         protected final int logId;
+        protected final boolean mIsFullyGesturalNavMode;
 
-        private EventLog(int logId) {
+        private EventLog(int logId, boolean isFullyGesturalNavMode) {
             this.logId = logId;
+            mIsFullyGesturalNavMode = isFullyGesturalNavMode;
         }
     }
 

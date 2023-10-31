@@ -64,7 +64,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TaplTestsQuickstep extends AbstractQuickStepTest {
 
-    private static final String APP_NAME = "LauncherTestApp";
     private static final String CALCULATOR_APP_PACKAGE =
             resolveSystemApp(Intent.CATEGORY_APP_CALCULATOR);
     private static final String READ_DEVICE_CONFIG_PERMISSION =
@@ -82,8 +81,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
 
     @After
     public void tearDown() {
-        executeOnLauncher(launcher -> {
-            if (launcher == null) return;
+        executeOnLauncherInTearDown(launcher -> {
             RecentsView recentsView = launcher.getOverviewPanel();
             recentsView.getPagedViewOrientedState().forceAllowRotationForTesting(false);
         });
@@ -213,6 +211,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
 
 
     @Test
+    @ScreenRecord // b/303329286
     public void testOverviewActionsMenu_iconAppChipMenu() throws Exception {
         try (AutoCloseable c = TestUtil.overrideFlag(ENABLE_OVERVIEW_ICON_MENU, true)) {
             startTestAppsWithCheck();

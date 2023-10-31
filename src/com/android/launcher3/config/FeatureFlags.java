@@ -119,6 +119,10 @@ public final class FeatureFlags {
             getDebugFlag(275132633, "ENABLE_ALL_APPS_FROM_OVERVIEW", DISABLED,
                     "Allow entering All Apps from Overview (e.g. long swipe up from app)");
 
+    public static final BooleanFlag CUSTOM_LPNH_THRESHOLDS =
+            getDebugFlag(301680992, "CUSTOM_LPNH_THRESHOLDS", DISABLED,
+                    "Add dev options to customize the LPNH trigger slop and milliseconds");
+
     public static final BooleanFlag ENABLE_SHOW_KEYBOARD_OPTION_IN_ALL_APPS = getReleaseFlag(
             270394468, "ENABLE_SHOW_KEYBOARD_OPTION_IN_ALL_APPS", ENABLED,
             "Enable option to show keyboard when going to all-apps");
@@ -166,6 +170,10 @@ public final class FeatureFlags {
     public static boolean shouldShowFirstPageWidget() {
         return SMARTSPACE_AS_A_WIDGET.get() && WIDGET_ON_FIRST_SCREEN;
     }
+
+    public static final BooleanFlag ENABLE_SMARTSPACE_REMOVAL = getDebugFlag(290799975,
+            "ENABLE_SMARTSPACE_REMOVAL", DISABLED, "Enable SmartSpace removal for "
+            + "home screen");
 
     // TODO(Block 10): Clean up flags
     public static final BooleanFlag ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION = getDebugFlag(270614790,
@@ -260,16 +268,20 @@ public final class FeatureFlags {
             "Enables taskbar pinning to allow user to switch between transient and persistent "
                     + "taskbar flavors");
 
-    public static final BooleanFlag ENABLE_BOOT_AWARE_STARTUP_DATA = getDebugFlag(251502424,
-            "ENABLE_BOOT_AWARE_STARTUP_DATA", DISABLED, "Marks LauncherPref data as (and allows it "
-                    + "to) available while the device is locked. Enabling this causes a 1-time "
-                    + "migration of certain SharedPreferences data. Improves startup latency.");
+    public static final BooleanFlag MOVE_STARTUP_DATA_TO_DEVICE_PROTECTED_STORAGE = getDebugFlag(
+            251502424, "ENABLE_BOOT_AWARE_STARTUP_DATA", DISABLED,
+            "Marks LauncherPref data as (and allows it to) available while the device is"
+                    + " locked. Enabling this causes a 1-time movement of certain SharedPreferences"
+                    + " data. Improves startup latency.");
 
-    // TODO(Block 18): Clean up flags
+    // Aconfig migration complete for ENABLE_APP_PAIRS.
     public static final BooleanFlag ENABLE_APP_PAIRS = getDebugFlag(274189428,
             "ENABLE_APP_PAIRS", DISABLED,
             "Enables the ability to create and save app pairs on the Home screen for easy"
                     + " split screen launching.");
+    public static boolean enableAppPairs() {
+        return ENABLE_APP_PAIRS.get() || com.android.wm.shell.Flags.enableAppPairs();
+    }
 
     // TODO(Block 19): Clean up flags
     public static final BooleanFlag SCROLL_TOP_TO_RESET = getReleaseFlag(270395177,
@@ -306,16 +318,6 @@ public final class FeatureFlags {
             "Enables starting the unfold animation preemptively when unfolding, without"
                     + "waiting for SystemUI and then merging the SystemUI progress whenever we "
                     + "start receiving the events");
-
-    // TODO(Block 23): Clean up flags
-    // Aconfig migration complete for ENABLE_GRID_ONLY_OVERVIEW.
-    @VisibleForTesting
-    public static final BooleanFlag ENABLE_GRID_ONLY_OVERVIEW = getDebugFlag(270397206,
-            "ENABLE_GRID_ONLY_OVERVIEW", TEAMFOOD,
-            "Enable a grid-only overview without a focused task.");
-    public static boolean enableGridOnlyOverview() {
-        return ENABLE_GRID_ONLY_OVERVIEW.get() || Flags.enableGridOnlyOverview();
-    }
 
     // Aconfig migration complete for ENABLE_OVERVIEW_ICON_MENU.
     @VisibleForTesting
@@ -394,10 +396,6 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE = getDebugFlag(
             270393453, "ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE", DISABLED,
             "Enable initiating split screen from workspace to workspace.");
-
-    public static final BooleanFlag ENABLE_SPLIT_FROM_DESKTOP_TO_WORKSPACE = getDebugFlag(
-            279586624, "ENABLE_SPLIT_FROM_DESKTOP_TO_WORKSPACE", DISABLED,
-            "Enable initiating split screen from desktop mode to workspace.");
 
     public static final BooleanFlag ENABLE_TRACKPAD_GESTURE = getDebugFlag(271010401,
             "ENABLE_TRACKPAD_GESTURE", ENABLED, "Enables trackpad gesture.");

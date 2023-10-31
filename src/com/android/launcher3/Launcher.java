@@ -26,9 +26,9 @@ import static com.android.launcher3.AbstractFloatingView.TYPE_ALL;
 import static com.android.launcher3.AbstractFloatingView.TYPE_FOLDER;
 import static com.android.launcher3.AbstractFloatingView.TYPE_ICON_SURFACE;
 import static com.android.launcher3.AbstractFloatingView.TYPE_REBIND_SAFE;
-import static com.android.launcher3.AbstractFloatingView.TYPE_SNACKBAR;
 import static com.android.launcher3.AbstractFloatingView.getTopOpenViewWithType;
 import static com.android.launcher3.BuildConfig.APPLICATION_ID;
+import static com.android.launcher3.BuildConfig.QSB_ON_FIRST_SCREEN;
 import static com.android.launcher3.LauncherAnimUtils.HOTSEAT_SCALE_PROPERTY_FACTORY;
 import static com.android.launcher3.LauncherAnimUtils.SCALE_INDEX_WIDGET_TRANSITION;
 import static com.android.launcher3.LauncherAnimUtils.SPRING_LOADED_EXIT_DELAY;
@@ -45,7 +45,7 @@ import static com.android.launcher3.LauncherState.NO_SCALE;
 import static com.android.launcher3.LauncherState.SPRING_LOADED;
 import static com.android.launcher3.Utilities.postAsyncCallback;
 import static com.android.launcher3.WorkspaceLayoutManager.FIRST_SCREEN_ID;
-import static com.android.launcher3.accessibility.LauncherAccessibilityDelegate.getSupportedActions;
+import static com.android.launcher3.config.FeatureFlags.ENABLE_SMARTSPACE_REMOVAL;
 import static com.android.launcher3.config.FeatureFlags.FOLDABLE_SINGLE_PAGE;
 import static com.android.launcher3.config.FeatureFlags.MULTI_SELECT_EDIT_MODE;
 import static com.android.launcher3.config.FeatureFlags.shouldShowFirstPageWidget;
@@ -185,7 +185,6 @@ import com.android.launcher3.notification.NotificationListener;
 import com.android.launcher3.pageindicators.WorkspacePageIndicator;
 import com.android.launcher3.pm.PinRequestHelper;
 import com.android.launcher3.popup.ArrowPopup;
-import com.android.launcher3.popup.PopupContainerWithArrow;
 import com.android.launcher3.popup.PopupDataProvider;
 import com.android.launcher3.popup.SystemShortcut;
 import com.android.launcher3.qsb.QsbContainerView;
@@ -207,10 +206,8 @@ import com.android.launcher3.util.IntArray;
 import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.KeyboardShortcutsDelegate;
 import com.android.launcher3.util.LockedUserState;
-import com.android.launcher3.util.OnboardingPrefs;
 import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.util.PendingRequestArgs;
-import com.android.launcher3.util.Preconditions;
 import com.android.launcher3.util.RunnableList;
 import com.android.launcher3.util.ScreenOnTracker;
 import com.android.launcher3.util.ScreenOnTracker.ScreenOnListener;
@@ -239,7 +236,6 @@ import com.android.launcher3.widget.model.WidgetsListBaseEntry;
 import com.android.launcher3.widget.picker.WidgetsFullSheet;
 import com.android.systemui.plugins.LauncherOverlayPlugin;
 import com.android.systemui.plugins.PluginListener;
-import com.android.systemui.plugins.shared.LauncherExterns;
 import com.android.systemui.plugins.shared.LauncherOverlayManager;
 import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlay;
 
@@ -261,7 +257,7 @@ import java.util.stream.Stream;
  * Default launcher application.
  */
 public class Launcher extends StatefulActivity<LauncherState>
-        implements LauncherExterns, Callbacks, InvariantDeviceProfile.OnIDPChangeListener,
+        implements Callbacks, InvariantDeviceProfile.OnIDPChangeListener,
         PluginListener<LauncherOverlayPlugin> {
     public static final String TAG = "Launcher";
 
@@ -324,9 +320,11 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Thunk @VisibleForTesting public static final int NEW_APPS_ANIMATION_DELAY = 500;
 
     private static final String DISPLAY_WORKSPACE_TRACE_METHOD_NAME = "DisplayWorkspaceFirstFrame";
-    private static final String DISPLAY_ALL_APPS_TRACE_METHOD_NAME = "DisplayAllApps";
+    public static final String DISPLAY_ALL_APPS_TRACE_METHOD_NAME = "DisplayAllApps";
     public static final int DISPLAY_WORKSPACE_TRACE_COOKIE = 0;
     public static final int DISPLAY_ALL_APPS_TRACE_COOKIE = 1;
+    private static final String COLD_STARTUP_TRACE_METHOD_NAME = "LauncherColdStartup";
+    public static final int COLD_STARTUP_TRACE_COOKIE = 2;
 
     private static final FloatProperty<Workspace<?>> WORKSPACE_WIDGET_SCALE =
             WORKSPACE_SCALE_PROPERTY_FACTORY.get(SCALE_INDEX_WIDGET_TRANSITION);
@@ -336,7 +334,11 @@ public class Launcher extends StatefulActivity<LauncherState>
     private static final boolean DESKTOP_MODE_SUPPORTED =
             "1".equals(Utilities.getSystemProperty("persist.wm.debug.desktop_mode_2", "0"));
 
-    KeyboardShortcutsDelegate mKeyboardShortcutsDelegate = new KeyboardShortcutsDelegate(this);
+    private final ModelCallbacks mModelCallbacks = createModelCallbacks();
+
+    private final KeyboardShortcutsDelegate mKeyboardShortcutsDelegate =
+            new KeyboardShortcutsDelegate(this);
+
     @Thunk
     Workspace<?> mWorkspace;
     @Thunk
@@ -381,13 +383,9 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     private PopupDataProvider mPopupDataProvider;
 
-    private IntSet mSynchronouslyBoundPages = new IntSet();
-    @NonNull private IntSet mPagesToBindSynchronously = new IntSet();
-
     // We only want to get the SharedPreferences once since it does an FS stat each time we get
     // it from the context.
     private SharedPreferences mSharedPrefs;
-    private OnboardingPrefs<? extends Launcher> mOnboardingPrefs;
 
     // Activity result which needs to be processed after workspace has loaded.
     private ActivityResultInfo mPendingActivityResult;
@@ -423,11 +421,14 @@ public class Launcher extends StatefulActivity<LauncherState>
     private BaseSearchConfig mBaseSearchConfig;
     private StartupLatencyLogger mStartupLatencyLogger;
     private CellPosMapper mCellPosMapper = CellPosMapper.DEFAULT;
+    private boolean mIsFirstPagePinnedItemEnabled = QSB_ON_FIRST_SCREEN
+            && !ENABLE_SMARTSPACE_REMOVAL.get();
 
     private final CannedAnimationCoordinator mAnimationCoordinator =
             new CannedAnimationCoordinator(this);
 
     private final List<BackPressHandler> mBackPressedHandlers = new ArrayList<>();
+    private boolean mIsColdStartupAfterReboot;
 
     public static Launcher getLauncher(Context context) {
         return fromContext(context);
@@ -442,6 +443,14 @@ public class Launcher extends StatefulActivity<LauncherState>
                             ? COLD
                             : COLD_DEVICE_REBOOTING
                         : WARM);
+
+        mIsColdStartupAfterReboot = sIsNewProcess
+            && !LockedUserState.get(this).isUserUnlockedAtLauncherStartup();
+        if (mIsColdStartupAfterReboot) {
+            Trace.beginAsyncSection(
+                    COLD_STARTUP_TRACE_METHOD_NAME, COLD_STARTUP_TRACE_COOKIE);
+        }
+
         sIsNewProcess = false;
         mStartupLatencyLogger
                 .logStart(LAUNCHER_LATENCY_STARTUP_TOTAL_DURATION)
@@ -523,8 +532,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         mAllAppsController = new AllAppsTransitionController(this);
         mStateManager = new StateManager<>(this, NORMAL);
 
-        mOnboardingPrefs = createOnboardingPrefs(mSharedPrefs);
-
         // TODO: move the SearchConfig to SearchState when new LauncherState is created.
         mBaseSearchConfig = new BaseSearchConfig();
 
@@ -550,7 +557,7 @@ public class Launcher extends StatefulActivity<LauncherState>
         if (savedInstanceState != null) {
             int[] pageIds = savedInstanceState.getIntArray(RUNTIME_STATE_CURRENT_SCREEN_IDS);
             if (pageIds != null) {
-                mPagesToBindSynchronously = IntSet.wrap(pageIds);
+                mModelCallbacks.setPagesToBindSynchronously(IntSet.wrap(pageIds));
             }
         }
 
@@ -579,9 +586,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         getSystemUiController().updateUiState(SystemUiController.UI_STATE_BASE_WINDOW,
                 Themes.getAttrBoolean(this, R.attr.isWorkspaceDarkText));
 
-        if (mLauncherCallbacks != null) {
-            mLauncherCallbacks.onCreate(savedInstanceState);
-        }
         mOverlayManager = getDefaultOverlay();
         PluginManagerWrapper.INSTANCE.get(this).addPluginListener(this,
                 LauncherOverlayPlugin.class, false /* allowedMultiple */);
@@ -594,6 +598,10 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
         setTitle(R.string.home_screen);
         mStartupLatencyLogger.logEnd(LAUNCHER_LATENCY_STARTUP_ACTIVITY_ON_CREATE);
+    }
+
+    protected ModelCallbacks createModelCallbacks() {
+        return new ModelCallbacks(this);
     }
 
     /**
@@ -673,14 +681,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         return new LauncherOverlayManager() { };
     }
 
-    protected OnboardingPrefs<? extends Launcher> createOnboardingPrefs(
-            SharedPreferences sharedPrefs) {
-        return new OnboardingPrefs<>(this, sharedPrefs);
-    }
-
     @Override
     public void onPluginConnected(LauncherOverlayPlugin overlayManager, Context context) {
-        switchOverlay(() -> overlayManager.createOverlayManager(this, this));
+        switchOverlay(() -> overlayManager.createOverlayManager(this));
     }
 
     @Override
@@ -790,8 +793,6 @@ public class Launcher extends StatefulActivity<LauncherState>
                 mCellPosMapper, this);
         return true;
     }
-
-    private LauncherCallbacks mLauncherCallbacks;
 
     @Override
     public void invalidateParent(ItemInfo info) {
@@ -1307,7 +1308,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         // Until the workspace is bound, ensure that we keep the wallpaper offset locked to the
         // default state, otherwise we will update to the wrong offsets in RTL
         mWorkspace.lockWallpaperToDefaultPage();
-        mWorkspace.bindAndInitFirstWorkspaceScreen();
+        if (!ENABLE_SMARTSPACE_REMOVAL.get()) {
+            mWorkspace.bindAndInitFirstWorkspaceScreen();
+        }
         mDragController.addDragListener(mWorkspace);
 
         // Get the search/delete/uninstall bar
@@ -1580,9 +1583,6 @@ public class Launcher extends StatefulActivity<LauncherState>
                 }
             }
 
-            if (mLauncherCallbacks != null) {
-                mLauncherCallbacks.onHomeIntent(internalStateHandled);
-            }
             if (FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
                 handleSplitAnimationGoingToHome();
             }
@@ -1645,8 +1645,9 @@ public class Launcher extends StatefulActivity<LauncherState>
     @Override
     public void onRestoreInstanceState(Bundle state) {
         super.onRestoreInstanceState(state);
-        if (mSynchronouslyBoundPages != null) {
-            mSynchronouslyBoundPages.forEach(screenId -> {
+        IntSet synchronouslyBoundPages = mModelCallbacks.getSynchronouslyBoundPages();
+        if (synchronouslyBoundPages != null) {
+            synchronouslyBoundPages.forEach(screenId -> {
                 int pageIndex = mWorkspace.getPageIndexForScreenId(screenId);
                 if (pageIndex != PagedView.INVALID_PAGE) {
                     mWorkspace.restoreInstanceStateForChild(pageIndex);
@@ -1749,28 +1750,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         } catch (IntentSender.SendIntentException e) {
             throw new ActivityNotFoundException();
         }
-    }
-
-    /**
-     * Indicates that we want global search for this activity by setting the globalSearch
-     * argument for {@link #startSearch} to true.
-     */
-    @Override
-    public void startSearch(String initialQuery, boolean selectInitialQuery,
-            Bundle appSearchData, boolean globalSearch) {
-        if (appSearchData == null) {
-            appSearchData = new Bundle();
-            appSearchData.putString("source", "launcher-search");
-        }
-
-        if (mLauncherCallbacks == null ||
-                !mLauncherCallbacks.startSearch(initialQuery, selectInitialQuery, appSearchData)) {
-            // Starting search from the callbacks failed. Start the default global search.
-            super.startSearch(initialQuery, selectInitialQuery, appSearchData, true);
-        }
-
-        // We need to show the workspace after starting the search
-        mStateManager.goToState(NORMAL);
     }
 
     void addAppWidgetFromDropImpl(int appWidgetId, ItemInfo info, AppWidgetHostView boundWidget,
@@ -2091,41 +2070,7 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     public IntSet getPagesToBindSynchronously(IntArray orderedScreenIds) {
-        IntSet visibleIds;
-        if (!mPagesToBindSynchronously.isEmpty()) {
-            visibleIds = mPagesToBindSynchronously;
-        } else if (!mWorkspaceLoading) {
-            visibleIds = mWorkspace.getCurrentPageScreenIds();
-        } else {
-            // If workspace binding is still in progress, getCurrentPageScreenIds won't be accurate,
-            // and we should use mSynchronouslyBoundPages that's set during initial binding.
-            visibleIds = mSynchronouslyBoundPages;
-        }
-        IntArray actualIds = new IntArray();
-
-        IntSet result = new IntSet();
-        if (visibleIds.isEmpty()) {
-            return result;
-        }
-        for (int id : orderedScreenIds.toArray()) {
-            actualIds.add(id);
-        }
-        int firstId = visibleIds.getArray().get(0);
-        int pairId = mWorkspace.getScreenPair(firstId);
-        // Double check that actual screenIds contains the visibleId, as empty screens are hidden
-        // in single panel.
-        if (actualIds.contains(firstId)) {
-            result.add(firstId);
-            if (mDeviceProfile.isTwoPanels && actualIds.contains(pairId)) {
-                result.add(pairId);
-            }
-        } else if (LauncherAppState.getIDP(this).supportedProfiles.stream().anyMatch(
-                deviceProfile -> deviceProfile.isTwoPanels) && actualIds.contains(pairId)) {
-            // Add the right panel if left panel is hidden when switching display, due to empty
-            // pages being hidden in single panel.
-            result.add(pairId);
-        }
-        return result;
+        return mModelCallbacks.getPagesToBindSynchronously(orderedScreenIds);
     }
 
     /**
@@ -2173,15 +2118,22 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     @Override
+    public void setIsFirstPagePinnedItemEnabled(boolean isFirstPagePinnedItemEnabled) {
+        mIsFirstPagePinnedItemEnabled = isFirstPagePinnedItemEnabled;
+        mWorkspace.bindAndInitFirstWorkspaceScreen();
+    }
+
+    @Override
     public void bindScreens(IntArray orderedScreenIds) {
         mWorkspace.mPageIndicator.setAreScreensBinding(true);
         int firstScreenPosition = 0;
         if ((FeatureFlags.QSB_ON_FIRST_SCREEN
+                && mIsFirstPagePinnedItemEnabled
                 && !shouldShowFirstPageWidget())
                 && orderedScreenIds.indexOf(FIRST_SCREEN_ID) != firstScreenPosition) {
             orderedScreenIds.removeValue(FIRST_SCREEN_ID);
             orderedScreenIds.add(firstScreenPosition, FIRST_SCREEN_ID);
-        } else if ((!FeatureFlags.QSB_ON_FIRST_SCREEN
+        } else if (((!FeatureFlags.QSB_ON_FIRST_SCREEN && !mIsFirstPagePinnedItemEnabled)
                 || shouldShowFirstPageWidget())
                 && orderedScreenIds.isEmpty()) {
             // If there are no screens, we need to have an empty screen
@@ -2232,6 +2184,7 @@ public class Launcher extends StatefulActivity<LauncherState>
         for (int i = 0; i < count; i++) {
             int screenId = orderedScreenIds.get(i);
             if (FeatureFlags.QSB_ON_FIRST_SCREEN
+                    && mIsFirstPagePinnedItemEnabled
                     && !shouldShowFirstPageWidget()
                     && screenId == FIRST_SCREEN_ID) {
                 // No need to bind the first screen, as its always bound.
@@ -2243,13 +2196,7 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     public void preAddApps() {
-        // If there's an undo snackbar, force it to complete to ensure empty screens are removed
-        // before trying to add new items.
-        mModelWriter.commitDelete();
-        AbstractFloatingView snackbar = AbstractFloatingView.getOpenView(this, TYPE_SNACKBAR);
-        if (snackbar != null) {
-            snackbar.post(() -> snackbar.close(true));
-        }
+        mModelCallbacks.preAddApps();
     }
 
     @Override
@@ -2625,8 +2572,8 @@ public class Launcher extends StatefulActivity<LauncherState>
     @TargetApi(Build.VERSION_CODES.S)
     public void onInitialBindComplete(IntSet boundPages, RunnableList pendingTasks,
             int workspaceItemCount, boolean isBindSync) {
-        mSynchronouslyBoundPages = boundPages;
-        mPagesToBindSynchronously = new IntSet();
+        mModelCallbacks.setSynchronouslyBoundPages(boundPages);
+        mModelCallbacks.setPagesToBindSynchronously(new IntSet());
 
         clearPendingBinds();
         ViewOnDrawExecutor executor = new ViewOnDrawExecutor(pendingTasks);
@@ -2663,6 +2610,11 @@ public class Launcher extends StatefulActivity<LauncherState>
                                 .logEnd(LAUNCHER_LATENCY_STARTUP_TOTAL_DURATION)
                                 .log()
                                 .reset();
+                        if (mIsColdStartupAfterReboot) {
+                            Trace.endAsyncSection(COLD_STARTUP_TRACE_METHOD_NAME,
+                                    COLD_STARTUP_TRACE_COOKIE);
+                        }
+
                         MAIN_EXECUTOR.getHandler().postAtFrontOfQueue(
                                 () -> getRootView().getViewTreeObserver()
                                         .removeOnDrawListener(this));
@@ -2694,7 +2646,7 @@ public class Launcher extends StatefulActivity<LauncherState>
         // Since we are just resetting the current page without user interaction,
         // override the previous page so we don't log the page switch.
         mWorkspace.setCurrentPage(currentPage, currentPage /* overridePrevPage */);
-        mPagesToBindSynchronously = new IntSet();
+        mModelCallbacks.setPagesToBindSynchronously(new IntSet());
 
         // Cache one page worth of icons
         getViewCache().setCacheSize(R.layout.folder_application,
@@ -2847,90 +2799,70 @@ public class Launcher extends StatefulActivity<LauncherState>
     public void onPageEndTransition() {}
 
     /**
-     * Add the icons for all apps.
-     *
-     * Implementation of the method from LauncherModel.Callbacks.
+     * See {@code LauncherBindingDelegate}
      */
     @Override
     @TargetApi(Build.VERSION_CODES.S)
     @UiThread
     public void bindAllApplications(AppInfo[] apps, int flags,
             Map<PackageUserKey, Integer> packageUserKeytoUidMap) {
-        Preconditions.assertUIThread();
-        boolean hadWorkApps = mAppsView.shouldShowTabs();
-        AllAppsStore<Launcher> appsStore = mAppsView.getAppsStore();
-        appsStore.setApps(apps, flags, packageUserKeytoUidMap);
-        PopupContainerWithArrow.dismissInvalidPopup(this);
-        if (hadWorkApps != mAppsView.shouldShowTabs()) {
-            getStateManager().goToState(NORMAL);
-        }
-
+        mModelCallbacks.bindAllApplications(apps, flags, packageUserKeytoUidMap);
         if (Utilities.ATLEAST_S) {
-            Trace.endAsyncSection(DISPLAY_ALL_APPS_TRACE_METHOD_NAME,
-                    DISPLAY_ALL_APPS_TRACE_COOKIE);
+            Trace.endAsyncSection(
+                    Launcher.DISPLAY_ALL_APPS_TRACE_METHOD_NAME,
+                    Launcher.DISPLAY_ALL_APPS_TRACE_COOKIE
+            );
         }
     }
 
     /**
-     * Copies LauncherModel's map of activities to shortcut counts to Launcher's. This is necessary
-     * because LauncherModel's map is updated in the background, while Launcher runs on the UI.
+     * See {@code LauncherBindingDelegate}
      */
     @Override
     public void bindDeepShortcutMap(HashMap<ComponentKey, Integer> deepShortcutMapCopy) {
-        mPopupDataProvider.setDeepShortcutMap(deepShortcutMapCopy);
+        mModelCallbacks.bindDeepShortcutMap(deepShortcutMapCopy);
     }
 
     @Override
     public void bindIncrementalDownloadProgressUpdated(AppInfo app) {
-        mAppsView.getAppsStore().updateProgressBar(app);
+        mModelCallbacks.bindIncrementalDownloadProgressUpdated(app);
     }
 
     @Override
     public void bindWidgetsRestored(ArrayList<LauncherAppWidgetInfo> widgets) {
-        mWorkspace.widgetsRestored(widgets);
+        mModelCallbacks.bindWidgetsRestored(widgets);
     }
 
     /**
-     * Some shortcuts were updated in the background.
-     * Implementation of the method from LauncherModel.Callbacks.
-     *
-     * @param updated list of shortcuts which have changed.
+     * See {@code LauncherBindingDelegate}
      */
     @Override
     public void bindWorkspaceItemsChanged(List<WorkspaceItemInfo> updated) {
-        if (!updated.isEmpty()) {
-            mWorkspace.updateWorkspaceItems(updated, this);
-            PopupContainerWithArrow.dismissInvalidPopup(this);
-        }
+        mModelCallbacks.bindWorkspaceItemsChanged(updated);
     }
 
     /**
-     * Update the state of a package, typically related to install state.
-     *
-     * Implementation of the method from LauncherModel.Callbacks.
+     * See {@code LauncherBindingDelegate}
      */
     @Override
     public void bindRestoreItemsChange(HashSet<ItemInfo> updates) {
-        mWorkspace.updateRestoreItems(updates, this);
+        mModelCallbacks.bindRestoreItemsChange(updates);
     }
 
     /**
-     * A package was uninstalled/updated.  We take both the super set of packageNames
-     * in addition to specific applications to remove, the reason being that
-     * this can be called when a package is updated as well.  In that scenario,
-     * we only remove specific components from the workspace and hotseat, where as
-     * package-removal should clear all items by package name.
+     * See {@code LauncherBindingDelegate}
      */
     @Override
     public void bindWorkspaceComponentsRemoved(Predicate<ItemInfo> matcher) {
-        mWorkspace.removeItemsByMatcher(matcher);
-        mDragController.onAppsRemoved(matcher);
-        PopupContainerWithArrow.dismissInvalidPopup(this);
+        mModelCallbacks.bindWorkspaceComponentsRemoved(matcher);
     }
 
+    /**
+     * See {@code LauncherBindingDelegate}
+     */
     @Override
     public void bindAllWidgets(final List<WidgetsListBaseEntry> allWidgets) {
-        mPopupDataProvider.setAllWidgets(allWidgets);
+        mModelCallbacks.bindAllWidgets(allWidgets);
     }
 
     @Override
@@ -2993,7 +2925,7 @@ public class Launcher extends StatefulActivity<LauncherState>
                 for (int j = 0; j < layout.getChildCount(); j++) {
                     Object tag = layout.getChildAt(j).getTag();
                     if (tag != null) {
-                        writer.println(prefix + "    " + tag.toString());
+                        writer.println(prefix + "    " + tag);
                     }
                 }
             }
@@ -3003,7 +2935,7 @@ public class Launcher extends StatefulActivity<LauncherState>
             for (int j = 0; j < layout.getChildCount(); j++) {
                 Object tag = layout.getChildAt(j).getTag();
                 if (tag != null) {
-                    writer.println(prefix + "    " + tag.toString());
+                    writer.println(prefix + "    " + tag);
                 }
             }
         }
@@ -3031,10 +2963,6 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         mModel.dumpState(prefix, fd, writer, args);
-
-        if (mLauncherCallbacks != null) {
-            mLauncherCallbacks.dump(prefix, fd, writer, args);
-        }
         mOverlayManager.dump(prefix, writer);
     }
 
@@ -3137,9 +3065,14 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     /** To be overridden by subclasses */
-    protected boolean isSplitSelectionEnabled() {
+    public boolean isSplitSelectionEnabled() {
         // Overridden
         return false;
+    }
+
+    /** Call to dismiss the intermediary split selection state. */
+    public void dismissSplitSelection() {
+        // Overridden; move this into ActivityContext if necessary for Taskbar
     }
 
     @Override
@@ -3273,14 +3206,8 @@ public class Launcher extends StatefulActivity<LauncherState>
     /**
      * Call this after onCreate to set or clear overlay.
      */
-    @Override
     public void setLauncherOverlay(LauncherOverlay overlay) {
         mWorkspace.setLauncherOverlay(overlay);
-    }
-
-    public boolean setLauncherCallbacks(LauncherCallbacks callbacks) {
-        mLauncherCallbacks = callbacks;
-        return true;
     }
 
     /**
@@ -3296,11 +3223,7 @@ public class Launcher extends StatefulActivity<LauncherState>
      * @param pages should not be null.
      */
     public void setPagesToBindSynchronously(@NonNull IntSet pages) {
-        mPagesToBindSynchronously = pages;
-    }
-
-    public OnboardingPrefs<? extends Launcher> getOnboardingPrefs() {
-        return mOnboardingPrefs;
+        mModelCallbacks.setPagesToBindSynchronously(pages);
     }
 
     @Override
@@ -3386,14 +3309,8 @@ public class Launcher extends StatefulActivity<LauncherState>
         return mModelWriter;
     }
 
-    @Override
     public SharedPreferences getSharedPrefs() {
         return mSharedPrefs;
-    }
-
-    @Override
-    public SharedPreferences getDevicePrefs() {
-        return LauncherPrefs.getDevicePrefs(this);
     }
 
     public int getOrientation() {
@@ -3448,6 +3365,10 @@ public class Launcher extends StatefulActivity<LauncherState>
      */
     public void launchAppPair(WorkspaceItemInfo app1, WorkspaceItemInfo app2) {
         // Overridden
+    }
+
+    public boolean getIsFirstPagePinnedItemEnabled() {
+        return mIsFirstPagePinnedItemEnabled;
     }
 
     /**

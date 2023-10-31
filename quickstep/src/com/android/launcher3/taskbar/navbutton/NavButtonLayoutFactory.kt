@@ -58,7 +58,7 @@ class NavButtonLayoutFactory {
                 navButtonsView: FrameLayout,
                 imeSwitcher: ImageView?,
                 rotationButton: RotationButton?,
-                a11yButton: ImageView,
+                a11yButton: ImageView?,
                 resources: Resources,
                 isKidsMode: Boolean,
                 isInSetup: Boolean,
@@ -162,6 +162,6 @@ class NavButtonLayoutFactory {
 
     /** Lays out and provides access to the home, recents, and back buttons for various mischief */
     interface NavButtonLayoutter {
-        fun layoutButtons(dp: DeviceProfile, isContextualButtonShowing: Boolean)
+        fun layoutButtons(dp: DeviceProfile, isA11yButtonPersistent: Boolean)
     }
 }

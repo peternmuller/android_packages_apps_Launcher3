@@ -32,7 +32,7 @@ class SetupNavLayoutter(
         startContextualContainer: ViewGroup,
         imeSwitcher: ImageView?,
         rotationButton: RotationButton?,
-        a11yButton: ImageView
+        a11yButton: ImageView?
 ) :
     AbstractNavButtonLayoutter(
             resources,
@@ -44,7 +44,7 @@ class SetupNavLayoutter(
             a11yButton
     ) {
 
-    override fun layoutButtons(dp: DeviceProfile, isContextualButtonShowing: Boolean) {
+    override fun layoutButtons(dp: DeviceProfile, isA11yButtonPersistent: Boolean) {
         // Since setup wizard only has back button enabled, it looks strange to be
         // end-aligned, so start-align instead.
         val navButtonsLayoutParams = navButtonContainer.layoutParams as FrameLayout.LayoutParams
@@ -72,7 +72,9 @@ class SetupNavLayoutter(
             startContextualContainer.addView(imeSwitcher)
             imeSwitcher.layoutParams = getParamsToCenterView()
         }
-        endContextualContainer.addView(a11yButton)
+        if (a11yButton != null) {
+            endContextualContainer.addView(a11yButton)
+        }
         if (rotationButton != null) {
             endContextualContainer.addView(rotationButton.currentView)
             rotationButton.currentView.layoutParams = getParamsToCenterView()

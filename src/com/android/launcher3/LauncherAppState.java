@@ -21,6 +21,8 @@ import static android.content.Context.RECEIVER_EXPORTED;
 
 import static com.android.launcher3.LauncherPrefs.ICON_STATE;
 import static com.android.launcher3.LauncherPrefs.THEMED_ICONS;
+import static com.android.launcher3.config.FeatureFlags.ENABLE_SMARTSPACE_REMOVAL;
+import static com.android.launcher3.model.LoaderTask.SMARTSPACE_ON_HOME_SCREEN;
 import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
 import static com.android.launcher3.util.SettingsCache.NOTIFICATION_BADGING_URI;
 
@@ -64,6 +66,10 @@ public class LauncherAppState implements SafeCloseable {
     public static final String ACTION_FORCE_ROLOAD = "force-reload-launcher";
     public static final String KEY_ICON_STATE = "pref_icon_shape_path";
     public static final String KEY_ALL_APPS_OVERVIEW_THRESHOLD = "pref_all_apps_overview_threshold";
+    public static final String KEY_LONG_PRESS_NAV_HANDLE_SLOP_PERCENTAGE =
+            "pref_long_press_nav_handle_slop_multiplier";
+    public static final String KEY_LONG_PRESS_NAV_HANDLE_TIMEOUT_MS =
+            "pref_long_press_nav_handle_timeout_ms";
 
     // We do not need any synchronization for this variable as its only written on UI thread.
     public static final MainThreadInitializedObject<LauncherAppState> INSTANCE =
@@ -122,6 +128,23 @@ public class LauncherAppState implements SafeCloseable {
         SafeCloseable userChangeListener = UserCache.INSTANCE.get(mContext)
                 .addUserEventListener(mModel::onUserEvent);
         mOnTerminateCallback.add(userChangeListener::close);
+
+        if (ENABLE_SMARTSPACE_REMOVAL.get()) {
+            OnSharedPreferenceChangeListener firstPagePinnedItemListener =
+                    new OnSharedPreferenceChangeListener() {
+                        @Override
+                        public void onSharedPreferenceChanged(
+                                SharedPreferences sharedPreferences, String key) {
+                            if (SMARTSPACE_ON_HOME_SCREEN.equals(key)) {
+                                mModel.forceReload();
+                            }
+                        }
+                    };
+            LauncherPrefs.getPrefs(mContext).registerOnSharedPreferenceChangeListener(
+                    firstPagePinnedItemListener);
+            mOnTerminateCallback.add(() -> LauncherPrefs.getPrefs(mContext)
+                    .unregisterOnSharedPreferenceChangeListener(firstPagePinnedItemListener));
+        }
 
         LockedUserState.get(context).runOnUserUnlocked(() -> {
             CustomWidgetManager cwm = CustomWidgetManager.INSTANCE.get(mContext);

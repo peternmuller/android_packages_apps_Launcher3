@@ -35,7 +35,7 @@ class PhonePortraitNavLayoutter(
         startContextualContainer: ViewGroup,
         imeSwitcher: ImageView?,
         rotationButton: RotationButton?,
-        a11yButton: ImageView,
+        a11yButton: ImageView?,
 ) :
     AbstractNavButtonLayoutter(
             resources,
@@ -47,7 +47,7 @@ class PhonePortraitNavLayoutter(
             a11yButton
     ) {
 
-    override fun layoutButtons(dp: DeviceProfile, isContextualButtonShowing: Boolean) {
+    override fun layoutButtons(dp: DeviceProfile, isA11yButtonPersistent: Boolean) {
         // TODO(b/230395757): Polish pending, this is just to make it usable
         val taskbarDimensions =
             DimensionUtils.getTaskbarPhoneDimensions(dp, resources,
@@ -111,7 +111,9 @@ class PhonePortraitNavLayoutter(
             endContextualContainer.addView(imeSwitcher)
             imeSwitcher.layoutParams = getParamsToCenterView()
         }
-        endContextualContainer.addView(a11yButton)
+        if (a11yButton != null) {
+            endContextualContainer.addView(a11yButton)
+        }
         if (rotationButton != null) {
             endContextualContainer.addView(rotationButton.currentView)
             rotationButton.currentView.layoutParams = getParamsToCenterView()
