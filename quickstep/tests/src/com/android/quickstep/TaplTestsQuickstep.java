@@ -16,8 +16,6 @@
 
 package com.android.quickstep;
 
-import static com.android.launcher3.config.FeatureFlags.ENABLE_CURSOR_HOVER_STATES;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_OVERVIEW_ICON_MENU;
 import static com.android.quickstep.TaskbarModeSwitchRule.Mode.PERSISTENT;
 import static com.android.quickstep.TaskbarModeSwitchRule.Mode.TRANSIENT;
 
@@ -44,10 +42,8 @@ import com.android.launcher3.tapl.LauncherInstrumentation.NavigationModel;
 import com.android.launcher3.tapl.Overview;
 import com.android.launcher3.tapl.OverviewActions;
 import com.android.launcher3.tapl.OverviewTask;
-import com.android.launcher3.tapl.OverviewTaskMenu;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 import com.android.launcher3.ui.TaplTestsLauncher3;
-import com.android.launcher3.util.TestUtil;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
 import com.android.quickstep.NavigationModeSwitchRule.NavigationModeSwitch;
@@ -195,38 +191,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         actionsView.clickAndDismissScreenshot();
     }
 
-
-    @PlatinumTest(focusArea = "launcher")
-    @Test
-    public void testOverviewActionsMenu() throws Exception {
-        startTestAppsWithCheck();
-
-        OverviewTaskMenu menu = mLauncher.goHome().switchToOverview().getCurrentTask().tapMenu();
-
-        assertNotNull("Tapping App info menu item returned null", menu.tapAppInfoMenuItem());
-        executeOnLauncher(launcher -> assertTrue(
-                "Launcher activity is the top activity; expecting another activity to be the top",
-                isInLaunchedApp(launcher)));
-    }
-
-
-    @Test
-    @ScreenRecord // b/303329286
-    public void testOverviewActionsMenu_iconAppChipMenu() throws Exception {
-        try (AutoCloseable c = TestUtil.overrideFlag(ENABLE_OVERVIEW_ICON_MENU, true)) {
-            startTestAppsWithCheck();
-
-            OverviewTaskMenu menu =
-                    mLauncher.goHome().switchToOverview().getCurrentTask().tapMenu();
-
-            assertNotNull("Tapping App info menu item returned null", menu.tapAppInfoMenuItem());
-            executeOnLauncher(launcher -> assertTrue(
-                    "Launcher activity is the top activity; expecting another activity to be the "
-                            + "top",
-                    isInLaunchedApp(launcher)));
-        }
-    }
-
     private int getCurrentOverviewPage(Launcher launcher) {
         return launcher.<RecentsView>getOverviewPanel().getCurrentPage();
     }
@@ -260,7 +224,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @Test
     @TaskbarModeSwitch(mode = TRANSIENT)
     public void testSwitchToOverviewWithStashedTaskbar() throws Exception {
-        try (AutoCloseable flag = TestUtil.overrideFlag(ENABLE_CURSOR_HOVER_STATES, true)) {
+        try {
             startTestAppsWithCheck();
             // Set ignoreTaskbarVisibility, as transient taskbar will be stashed after app launch.
             mLauncher.setIgnoreTaskbarVisibility(true);
@@ -390,6 +354,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @PortraitLandscape
     @TaskbarModeSwitch(mode = PERSISTENT)
     @PlatinumTest(focusArea = "launcher")
+    @ScreenRecord
     public void testOverviewForTablet() throws Exception {
         assumeTrue(mLauncher.isTablet());
 
