@@ -2,7 +2,7 @@ package com.android.quickstep.views;
 
 import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 
-import static com.android.launcher3.config.FeatureFlags.enableOverviewIconMenu;
+import static com.android.launcher3.Flags.enableOverviewIconMenu;
 import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_POSITION_BOTTOM_OR_RIGHT;
 import static com.android.quickstep.util.SplitScreenUtils.convertLauncherSplitBoundsToShell;
 
@@ -169,7 +169,9 @@ public class GroupedTaskView extends TaskView {
                 mIconLoadRequest2 = iconCache.updateIconInBackground(mSecondaryTask,
                         (task) -> {
                             setIcon(mIconView2, task.icon);
-                            setText(mIconView2, TaskUtils.getTitle(getContext(), task));
+                            if (enableOverviewIconMenu()) {
+                                setText(mIconView2, TaskUtils.getTitle(getContext(), task));
+                            }
                             mDigitalWellBeingToast2.initialize(mSecondaryTask);
                             mDigitalWellBeingToast2.setSplitConfiguration(mSplitBoundsConfig);
                             mDigitalWellBeingToast.setSplitConfiguration(mSplitBoundsConfig);
@@ -184,7 +186,9 @@ public class GroupedTaskView extends TaskView {
             }
             if (needsUpdate(changes, FLAG_UPDATE_ICON)) {
                 setIcon(mIconView2, null);
-                setText(mIconView2, null);
+                if (enableOverviewIconMenu()) {
+                    setText(mIconView2, null);
+                }
             }
         }
     }

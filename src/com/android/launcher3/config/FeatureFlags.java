@@ -238,7 +238,7 @@ public final class FeatureFlags {
 
     // Aconfig migration complete for ENABLE_TWOLINE_ALLAPPS.
     public static final BooleanFlag ENABLE_TWOLINE_ALLAPPS = getDebugFlag(270390937,
-            "ENABLE_TWOLINE_ALLAPPS", DISABLED, "Enables two line label inside all apps.");
+            "ENABLE_TWOLINE_ALLAPPS", ENABLED, "Enables two line label inside all apps.");
     public static boolean enableTwolineAllapps() {
         return ENABLE_TWOLINE_ALLAPPS.get() || Flags.enableTwolineAllapps();
     }
@@ -261,6 +261,10 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_LONG_PRESS_NAV_HANDLE =
             getReleaseFlag(282993230, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
                     "Enables long pressing on the bottom bar nav handle to trigger events.");
+
+    public static final BooleanFlag ENABLE_SEARCH_HAPTIC_HINT =
+            getReleaseFlag(303023676, "ENABLE_SEARCH_HAPTIC_HINT", TEAMFOOD,
+                    "Enables haptic hint when long pressing on the bottom bar nav handle.");
 
     // TODO(Block 17): Clean up flags
     public static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(270396583,
@@ -304,6 +308,10 @@ public final class FeatureFlags {
             "ENABLE_DYNAMIC_TASKBAR_THRESHOLDS", ENABLED,
             "Enables taskbar thresholds that scale based on screen size.");
 
+    public static final BooleanFlag ENABLE_HOME_TRANSITION_LISTENER = getDebugFlag(306053414,
+            "ENABLE_HOME_TRANSITION_LISTENER", DISABLED,
+            "Enables launcher to listen to all transitions that include home activity.");
+
     // TODO(Block 21): Clean up flags
     public static final BooleanFlag ENABLE_APP_ICON_FOR_INLINE_SHORTCUTS = getDebugFlag(270395087,
             "ENABLE_APP_ICON_IN_INLINE_SHORTCUTS", DISABLED, "Show app icon for inline shortcut");
@@ -318,24 +326,6 @@ public final class FeatureFlags {
             "Enables starting the unfold animation preemptively when unfolding, without"
                     + "waiting for SystemUI and then merging the SystemUI progress whenever we "
                     + "start receiving the events");
-
-    // Aconfig migration complete for ENABLE_OVERVIEW_ICON_MENU.
-    @VisibleForTesting
-    public static final BooleanFlag ENABLE_OVERVIEW_ICON_MENU = getDebugFlag(257950105,
-            "ENABLE_OVERVIEW_ICON_MENU", TEAMFOOD,
-            "Enable updated overview icon and menu within task.");
-    public static boolean enableOverviewIconMenu() {
-        return ENABLE_OVERVIEW_ICON_MENU.get() || Flags.enableOverviewIconMenu();
-    }
-
-    // Aconfig migration complete for ENABLE_CURSOR_HOVER_STATES.
-    @VisibleForTesting
-    public static final BooleanFlag ENABLE_CURSOR_HOVER_STATES = getDebugFlag(243191650,
-            "ENABLE_CURSOR_HOVER_STATES", TEAMFOOD,
-            "Enables cursor hover states for certain elements.");
-    public static boolean enableCursorHoverStates() {
-        return ENABLE_CURSOR_HOVER_STATES.get() || Flags.enableCursorHoverStates();
-    }
 
     // TODO(Block 24): Clean up flags
     public static final BooleanFlag ENABLE_NEW_MIGRATION_LOGIC = getDebugFlag(270393455,
