@@ -20,6 +20,7 @@ import static android.os.Trace.TRACE_TAG_APP;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR;
 import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR_PANEL;
 import static android.window.SplashScreen.SPLASH_SCREEN_STYLE_UNDEFINED;
 
@@ -29,8 +30,8 @@ import static com.android.launcher3.AbstractFloatingView.TYPE_TASKBAR_OVERLAY_PR
 import static com.android.launcher3.Flags.enableCursorHoverStates;
 import static com.android.launcher3.Utilities.calculateTextHeight;
 import static com.android.launcher3.Utilities.isRunningInTestHarness;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NO_RECREATION;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_PINNING;
+import static com.android.launcher3.config.FeatureFlags.enableTaskbarNoRecreate;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_FOLDER_OPEN;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_DRAGGING;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_FULLSCREEN;
@@ -128,6 +129,7 @@ import com.android.systemui.unfold.util.ScopedUnfoldTransitionProgressProvider;
 import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * The {@link ActivityContext} with which we inflate Taskbar-related Views. This allows UI elements
@@ -173,13 +175,16 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
     private final TaskbarShortcutMenuAccessibilityDelegate mAccessibilityDelegate;
 
+    private DeviceProfile mTransientTaskbarDeviceProfile;
+
+    private DeviceProfile mPersistentTaskbarDeviceProfile;
+
     public TaskbarActivityContext(Context windowContext, DeviceProfile launcherDp,
             TaskbarNavButtonController buttonController, ScopedUnfoldTransitionProgressProvider
             unfoldTransitionProgressProvider) {
         super(windowContext);
 
         applyDeviceProfile(launcherDp);
-
         final Resources resources = getResources();
 
         mImeDrawsImeNavBar = getBoolByName(IME_DRAWS_IME_NAV_BAR_RES_NAME, resources, false);
@@ -254,9 +259,9 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 new TaskbarViewController(this, taskbarView),
                 new TaskbarScrimViewController(this, taskbarScrimView),
                 new TaskbarUnfoldAnimationController(this, unfoldTransitionProgressProvider,
-                    mWindowManager,
-                    new RotationChangeProvider(c.getSystemService(DisplayManager.class), this,
-                        getMainThreadHandler())),
+                        mWindowManager,
+                        new RotationChangeProvider(c.getSystemService(DisplayManager.class), this,
+                                getMainThreadHandler())),
                 new TaskbarKeyguardController(this),
                 new StashedHandleViewController(this, stashedHandleView),
                 new TaskbarStashController(this),
@@ -274,7 +279,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                         : TaskbarRecentAppsController.DEFAULT,
                 new TaskbarEduTooltipController(this),
                 new KeyboardQuickSwitchController(),
-                new TaskbarDividerPopupController(this),
+                new TaskbarPinningController(this),
                 bubbleControllersOptional);
     }
 
@@ -295,17 +300,34 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
      * the icon size
      */
     private void applyDeviceProfile(DeviceProfile originDeviceProfile) {
-        mDeviceProfile = originDeviceProfile.toBuilder(this)
-                .withDimensionsOverride(deviceProfile -> {
-                    // Taskbar should match the number of icons of hotseat
-                    deviceProfile.numShownHotseatIcons = originDeviceProfile.numShownHotseatIcons;
-                    // Same QSB width to have a smooth animation
-                    deviceProfile.hotseatQsbWidth = originDeviceProfile.hotseatQsbWidth;
+        Consumer<DeviceProfile> overrideProvider = deviceProfile -> {
+            // Taskbar should match the number of icons of hotseat
+            deviceProfile.numShownHotseatIcons = originDeviceProfile.numShownHotseatIcons;
+            // Same QSB width to have a smooth animation
+            deviceProfile.hotseatQsbWidth = originDeviceProfile.hotseatQsbWidth;
 
-                    // Update icon size
-                    deviceProfile.iconSizePx = deviceProfile.taskbarIconSize;
-                    deviceProfile.updateIconSize(1f, getResources());
-                }).build();
+            // Update icon size
+            deviceProfile.iconSizePx = deviceProfile.taskbarIconSize;
+            deviceProfile.updateIconSize(1f, getResources());
+        };
+        mDeviceProfile = originDeviceProfile.toBuilder(this)
+                .withDimensionsOverride(overrideProvider).build();
+
+        if (DisplayController.isTransientTaskbar(this)) {
+            mTransientTaskbarDeviceProfile = mDeviceProfile;
+            mPersistentTaskbarDeviceProfile = mDeviceProfile
+                    .toBuilder(this)
+                    .withDimensionsOverride(overrideProvider)
+                    .setIsTransientTaskbar(false)
+                    .build();
+        } else {
+            mPersistentTaskbarDeviceProfile = mDeviceProfile;
+            mTransientTaskbarDeviceProfile = mDeviceProfile
+                    .toBuilder(this)
+                    .withDimensionsOverride(overrideProvider)
+                    .setIsTransientTaskbar(true)
+                    .build();
+        }
         mNavMode = DisplayController.getNavigationMode(this);
     }
 
@@ -339,7 +361,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
             mIsDestroyed = false;
         }
 
-        if (!ENABLE_TASKBAR_NO_RECREATION.get() && !mAddedWindow) {
+        if (!enableTaskbarNoRecreate() && !mAddedWindow) {
             mWindowManager.addView(mDragLayer, mWindowLayoutParams);
             mAddedWindow = true;
         } else {
@@ -391,7 +413,8 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
     /**
      * Creates LayoutParams for adding a view directly to WindowManager as a new window.
-     * @param type The window type to pass to the created WindowManager.LayoutParams.
+     *
+     * @param type  The window type to pass to the created WindowManager.LayoutParams.
      * @param title The window title to pass to the created WindowManager.LayoutParams.
      */
     public WindowManager.LayoutParams createDefaultWindowLayoutParams(int type, String title) {
@@ -430,9 +453,10 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
      * for taskbar showing as navigation bar
      */
     private WindowManager.LayoutParams createAllWindowParams() {
+        final int windowType =
+                FLAG_HIDE_NAVBAR_WINDOW ? TYPE_NAVIGATION_BAR : TYPE_NAVIGATION_BAR_PANEL;
         WindowManager.LayoutParams windowLayoutParams =
-                createDefaultWindowLayoutParams(TYPE_NAVIGATION_BAR_PANEL,
-                        TaskbarActivityContext.WINDOW_TITLE);
+                createDefaultWindowLayoutParams(windowType, TaskbarActivityContext.WINDOW_TITLE);
         boolean isPhoneNavMode = TaskbarManager.isPhoneButtonNavMode(this);
         if (!isPhoneNavMode) {
             return windowLayoutParams;
@@ -445,7 +469,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         windowLayoutParams.paramsForRotation = new WindowManager.LayoutParams[4];
         for (int rot = Surface.ROTATION_0; rot <= Surface.ROTATION_270; rot++) {
             WindowManager.LayoutParams lp =
-                    createDefaultWindowLayoutParams(TYPE_NAVIGATION_BAR_PANEL,
+                    createDefaultWindowLayoutParams(windowType,
                             TaskbarActivityContext.WINDOW_TITLE);
             switch (rot) {
                 case Surface.ROTATION_0, Surface.ROTATION_180 -> {
@@ -695,7 +719,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         mIsDestroyed = true;
         setUIController(TaskbarUIController.DEFAULT);
         mControllers.onDestroy();
-        if (!ENABLE_TASKBAR_NO_RECREATION.get() && !FLAG_HIDE_NAVBAR_WINDOW) {
+        if (!enableTaskbarNoRecreate() && !FLAG_HIDE_NAVBAR_WINDOW) {
             mWindowManager.removeViewImmediate(mDragLayer);
             mAddedWindow = false;
         }
@@ -794,7 +818,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         // Overlay AFVs are in a separate window and do not require Taskbar to be fullscreen.
         if (!isDragInProgress
                 && !AbstractFloatingView.hasOpenView(
-                        this, TYPE_ALL & ~TYPE_TASKBAR_OVERLAY_PROXY)) {
+                this, TYPE_ALL & ~TYPE_TASKBAR_OVERLAY_PROXY)) {
             // Reverts Taskbar window to its original size
             setTaskbarWindowFullscreen(false);
         }
@@ -853,7 +877,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 ? resources.getDimensionPixelSize(R.dimen.arrow_toast_arrow_height)
                 + (resources.getDimensionPixelSize(R.dimen.taskbar_tooltip_vertical_padding) * 2)
                 + calculateTextHeight(
-                        resources.getDimensionPixelSize(R.dimen.arrow_toast_text_size))
+                resources.getDimensionPixelSize(R.dimen.arrow_toast_text_size))
                 : 0;
 
         // Return transient taskbar window height when pinning feature is enabled, so taskbar view
@@ -865,7 +889,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
             return transientTaskbarDp.taskbarHeight
                     + (2 * transientTaskbarDp.taskbarBottomMargin)
                     + Math.max(extraHeightForTaskbarTooltips, resources.getDimensionPixelSize(
-                            R.dimen.transient_taskbar_shadow_blur));
+                    R.dimen.transient_taskbar_shadow_blur));
         }
 
 
@@ -876,6 +900,14 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
     public int getSetupWindowHeight() {
         return getResources().getDimensionPixelSize(R.dimen.taskbar_suw_frame);
+    }
+
+    public DeviceProfile getTransientTaskbarDeviceProfile() {
+        return mTransientTaskbarDeviceProfile;
+    }
+
+    public DeviceProfile getPersistentTaskbarDeviceProfile() {
+        return mPersistentTaskbarDeviceProfile;
     }
 
     /**
@@ -1290,7 +1322,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
     void notifyUpdateLayoutParams() {
         if (mDragLayer.isAttachedToWindow()) {
-            if (ENABLE_TASKBAR_NO_RECREATION.get()) {
+            if (enableTaskbarNoRecreate()) {
                 mWindowManager.updateViewLayout(mDragLayer.getRootView(), mWindowLayoutParams);
             } else {
                 mWindowManager.updateViewLayout(mDragLayer, mWindowLayoutParams);

@@ -206,12 +206,14 @@ public class TaskbarLauncherStateController {
                     updateStateForFlag(FLAG_LAUNCHER_IN_STATE_TRANSITION, false);
                     // TODO(b/279514548) Cleans up bad state that can occur when user interacts with
                     // taskbar on top of transparent activity.
-                    if (finalState == LauncherState.NORMAL && mLauncher.hasBeenResumed()) {
+                    if (!FeatureFlags.enableHomeTransitionListener()
+                            && finalState == LauncherState.NORMAL
+                            && mLauncher.hasBeenResumed()) {
                         updateStateForFlag(FLAG_VISIBLE, true);
                     }
                     applyState();
                     boolean disallowLongClick =
-                            FeatureFlags.ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()
+                            FeatureFlags.enableSplitContextually()
                                     ? mLauncher.isSplitSelectionEnabled()
                                     : finalState == LauncherState.OVERVIEW_SPLIT_SELECT;
                     com.android.launcher3.taskbar.Utilities.setOverviewDragState(
