@@ -21,15 +21,15 @@ import static com.android.launcher3.config.FeatureFlags.FlagState.DISABLED;
 import static com.android.launcher3.config.FeatureFlags.FlagState.ENABLED;
 import static com.android.launcher3.config.FeatureFlags.FlagState.TEAMFOOD;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getDebugFlag;
+import static com.android.launcher3.uioverrides.flags.FlagsFactory.getIntFlag;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getReleaseFlag;
 
-import android.content.Context;
+import android.view.ViewConfiguration;
 
 import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.BuildConfig;
 import com.android.launcher3.Flags;
-import com.android.launcher3.Utilities;
 
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
@@ -47,10 +47,6 @@ public final class FeatureFlags {
     public static ToIntFunction<IntFlag> sIntReader = f -> f.mCurrentValue;
 
     private FeatureFlags() { }
-
-    public static boolean showFlagTogglerUi(Context context) {
-        return BuildConfig.IS_DEBUG_DEVICE && Utilities.isDevelopersOptionsEnabled(context);
-    }
 
     /**
      * True when the build has come from Android Studio and is being used for local debugging.
@@ -120,8 +116,16 @@ public final class FeatureFlags {
                     "Allow entering All Apps from Overview (e.g. long swipe up from app)");
 
     public static final BooleanFlag CUSTOM_LPNH_THRESHOLDS =
-            getDebugFlag(301680992, "CUSTOM_LPNH_THRESHOLDS", DISABLED,
+            getReleaseFlag(301680992, "CUSTOM_LPNH_THRESHOLDS", DISABLED,
                     "Add dev options to customize the LPNH trigger slop and milliseconds");
+
+    public static final IntFlag LPNH_SLOP_PERCENTAGE =
+            getIntFlag(301680992, "LPNH_SLOP_PERCENTAGE", 100,
+                    "Controls touch slop percentage for lpnh");
+
+    public static final IntFlag LPNH_TIMEOUT_MS =
+            getIntFlag(301680992, "LPNH_TIMEOUT_MS", ViewConfiguration.getLongPressTimeout(),
+                    "Controls lpnh timeout in milliseconds");
 
     public static final BooleanFlag ENABLE_SHOW_KEYBOARD_OPTION_IN_ALL_APPS = getReleaseFlag(
             270394468, "ENABLE_SHOW_KEYBOARD_OPTION_IN_ALL_APPS", ENABLED,
@@ -209,9 +213,13 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_TRANSIENT_TASKBAR = getDebugFlag(270395798,
             "ENABLE_TRANSIENT_TASKBAR", ENABLED, "Enables transient taskbar.");
 
+    // Aconfig migration complete for ENABLE_TASKBAR_NO_RECREATION.
     public static final BooleanFlag ENABLE_TASKBAR_NO_RECREATION = getDebugFlag(299193589,
             "ENABLE_TASKBAR_NO_RECREATION", DISABLED,
             "Enables taskbar with no recreation from lifecycle changes of TaskbarActivityContext.");
+    public static boolean enableTaskbarNoRecreate() {
+        return ENABLE_TASKBAR_NO_RECREATION.get() || Flags.enableTaskbarNoRecreate();
+    }
 
     // TODO(Block 16): Clean up flags
     // When enabled the promise icon is visible in all apps while installation an app.
@@ -308,9 +316,14 @@ public final class FeatureFlags {
             "ENABLE_DYNAMIC_TASKBAR_THRESHOLDS", ENABLED,
             "Enables taskbar thresholds that scale based on screen size.");
 
+    // Aconfig migration complete for ENABLE_HOME_TRANSITION_LISTENER.
     public static final BooleanFlag ENABLE_HOME_TRANSITION_LISTENER = getDebugFlag(306053414,
-            "ENABLE_HOME_TRANSITION_LISTENER", DISABLED,
+            "ENABLE_HOME_TRANSITION_LISTENER", TEAMFOOD,
             "Enables launcher to listen to all transitions that include home activity.");
+
+    public static boolean enableHomeTransitionListener() {
+        return ENABLE_HOME_TRANSITION_LISTENER.get() || Flags.enableHomeTransitionListener();
+    }
 
     // TODO(Block 21): Clean up flags
     public static final BooleanFlag ENABLE_APP_ICON_FOR_INLINE_SHORTCUTS = getDebugFlag(270395087,
@@ -386,6 +399,10 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE = getDebugFlag(
             270393453, "ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE", DISABLED,
             "Enable initiating split screen from workspace to workspace.");
+    public static boolean enableSplitContextually() {
+        return ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get() ||
+                com.android.wm.shell.Flags.enableSplitContextual();
+    }
 
     public static final BooleanFlag ENABLE_TRACKPAD_GESTURE = getDebugFlag(271010401,
             "ENABLE_TRACKPAD_GESTURE", ENABLED, "Enables trackpad gesture.");

@@ -265,7 +265,7 @@ public class QuickstepLauncher extends Launcher {
         mAppTransitionManager.registerRemoteAnimations();
         mAppTransitionManager.registerRemoteTransitions();
 
-        if (ENABLE_HOME_TRANSITION_LISTENER.get()) {
+        if (FeatureFlags.enableHomeTransitionListener()) {
             mHomeTransitionController = new HomeTransitionController(this);
             mHomeTransitionController.registerHomeTransitionListener();
         }
@@ -377,7 +377,7 @@ public class QuickstepLauncher extends Launcher {
         }
 
         if ((changeBits & ACTIVITY_STATE_RESUMED) != 0) {
-            if (!ENABLE_HOME_TRANSITION_LISTENER.get() && mTaskbarUIController != null) {
+            if (!FeatureFlags.enableHomeTransitionListener() && mTaskbarUIController != null) {
                 mTaskbarUIController.onLauncherVisibilityChanged(hasBeenResumed());
             }
         }
@@ -644,7 +644,7 @@ public class QuickstepLauncher extends Launcher {
                     splitSelectSource.alreadyRunningTaskId = taskWasFound
                             ? foundTask.key.id
                             : INVALID_TASK_ID;
-                    if (ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
+                    if (FeatureFlags.enableSplitContextually()) {
                         startSplitToHome(splitSelectSource);
                     } else {
                         recentsView.initiateSplitSelect(splitSelectSource);
@@ -718,7 +718,7 @@ public class QuickstepLauncher extends Launcher {
 
         super.onPause();
 
-        if (ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.get()) {
+        if (FeatureFlags.enableSplitContextually()) {
             // If Launcher pauses before both split apps are selected, exit split screen.
             if (!mSplitSelectStateController.isBothSplitAppsConfirmed() &&
                     !mSplitSelectStateController.isLaunchingFirstAppFullscreen()) {
