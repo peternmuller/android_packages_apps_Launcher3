@@ -36,6 +36,7 @@ import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_POSITIO
 import static com.android.launcher3.util.SplitConfigurationOptions.getLogEventForPosition;
 import static com.android.quickstep.TaskOverlayFactory.getEnabledShortcuts;
 import static com.android.quickstep.util.BorderAnimator.DEFAULT_BORDER_COLOR;
+import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -384,6 +385,7 @@ public class TaskView extends FrameLayout implements Reusable {
     // switch.
     private float mNonGridTranslationX;
     private float mNonGridTranslationY;
+    private float mNonGridPivotTranslationX;
     // Used when in SplitScreenSelectState
     private float mSplitSelectTranslationY;
     private float mSplitSelectTranslationX;
@@ -445,7 +447,7 @@ public class TaskView extends FrameLayout implements Reusable {
         mDigitalWellBeingToast = new DigitalWellBeingToast(mActivity, this);
 
         boolean keyboardFocusHighlightEnabled = FeatureFlags.ENABLE_KEYBOARD_QUICK_SWITCH.get()
-                || DesktopTaskView.DESKTOP_MODE_SUPPORTED;
+                || isDesktopModeSupported();
         boolean cursorHoverStatesEnabled = enableCursorHoverStates();
 
         setWillNotDraw(!keyboardFocusHighlightEnabled && !cursorHoverStatesEnabled);
@@ -1284,8 +1286,8 @@ public class TaskView extends FrameLayout implements Reusable {
     }
 
     protected void resetPersistentViewTransforms() {
-        mNonGridTranslationX = mNonGridTranslationY =
-                mGridTranslationX = mGridTranslationY = mBoxTranslationY = 0f;
+        mNonGridTranslationX = mNonGridTranslationY = mGridTranslationX =
+                mGridTranslationY = mBoxTranslationY = mNonGridPivotTranslationX = 0f;
         resetViewTransforms();
     }
 
@@ -1487,6 +1489,14 @@ public class TaskView extends FrameLayout implements Reusable {
         applyTranslationX();
     }
 
+    /**
+     * Set translation X for non-grid pivot
+     */
+    public void setNonGridPivotTranslationX(float nonGridPivotTranslationX) {
+        mNonGridPivotTranslationX = nonGridPivotTranslationX;
+        applyTranslationX();
+    }
+
     public float getScrollAdjustment(boolean gridEnabled) {
         float scrollAdjustment = 0;
         if (gridEnabled) {
@@ -1529,7 +1539,8 @@ public class TaskView extends FrameLayout implements Reusable {
      * change according to a temporary state (e.g. task offset).
      */
     public float getPersistentTranslationX() {
-        return getNonGridTrans(mNonGridTranslationX) + getGridTrans(mGridTranslationX);
+        return getNonGridTrans(mNonGridTranslationX) + getGridTrans(mGridTranslationX)
+                + getNonGridTrans(mNonGridPivotTranslationX);
     }
 
     /**
