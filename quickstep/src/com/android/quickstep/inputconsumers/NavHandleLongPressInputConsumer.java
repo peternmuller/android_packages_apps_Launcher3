@@ -38,7 +38,6 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
     private final NavHandleLongPressHandler mNavHandleLongPressHandler;
     private final float mNavHandleWidth;
     private final float mScreenWidth;
-    private final ViewConfiguration mViewConfiguration;
 
     private final Runnable mTriggerLongPress = this::triggerLongPress;
     private final float mTouchSlopSquared;
@@ -49,7 +48,6 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
     public NavHandleLongPressInputConsumer(Context context, InputConsumer delegate,
             InputMonitorCompat inputMonitor, RecentsAnimationDeviceState deviceState) {
         super(delegate, inputMonitor);
-        mViewConfiguration = ViewConfiguration.get(context);
         mNavHandleWidth = context.getResources().getDimensionPixelSize(
                 R.dimen.navigation_home_handle_width);
         mScreenWidth = DisplayController.INSTANCE.get(context).getInfo().currentSize.x;
@@ -69,6 +67,18 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
 
     @Override
     public void onMotionEvent(MotionEvent ev) {
+        if (mDelegate.allowInterceptByParent()) {
+            handleMotionEvent(ev);
+        } else if (MAIN_EXECUTOR.getHandler().hasCallbacks(mTriggerLongPress)) {
+            cancelLongPress();
+        }
+
+        if (mState != STATE_ACTIVE) {
+            mDelegate.onMotionEvent(ev);
+        }
+    }
+
+    private void handleMotionEvent(MotionEvent ev) {
         switch (ev.getAction()) {
             case MotionEvent.ACTION_DOWN -> {
                 if (mCurrentDownEvent != null) {
@@ -103,10 +113,6 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
             MAIN_EXECUTOR.getHandler().removeCallbacks(mTriggerLongPress);
             MAIN_EXECUTOR.getHandler().post(mTriggerLongPress);
         }
-
-        if (mState != STATE_ACTIVE) {
-            mDelegate.onMotionEvent(ev);
-        }
     }
 
     private void triggerLongPress() {
@@ -114,7 +120,7 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
         if (longPressRunnable != null) {
             OtherActivityInputConsumer oaic = getInputConsumerOfClass(
                     OtherActivityInputConsumer.class);
-            if (oaic != null) {
+            if (oaic != null && oaic.hasStartedTouchTracking()) {
                 oaic.setForceFinishRecentsTransitionCallback(longPressRunnable);
                 setActive(mCurrentDownEvent);
             } else {

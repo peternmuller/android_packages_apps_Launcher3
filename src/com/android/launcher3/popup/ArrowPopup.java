@@ -127,6 +127,7 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
 
     protected final float mElevation;
 
+    // Tag for Views that have children that will need to be iterated to add styling.
     private final String mIterateChildrenTag;
 
     protected final int[] mColorIds;
@@ -244,7 +245,7 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
         for (int i = 0; i < count; i++) {
             View view = viewGroup.getChildAt(i);
             if (view.getVisibility() == VISIBLE) {
-                if (lastView != null) {
+                if (lastView != null && (isShortcutContainer(lastView))) {
                     MarginLayoutParams mlp = (MarginLayoutParams) lastView.getLayoutParams();
                     mlp.bottomMargin = mChildContainerMargin;
                 }
@@ -415,8 +416,7 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
     private void orientAboutObject(boolean allowAlignLeft, boolean allowAlignRight) {
         measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
 
-        int extraVerticalSpace = mArrowHeight + mArrowOffsetVertical
-                + getResources().getDimensionPixelSize(R.dimen.popup_vertical_padding);
+        int extraVerticalSpace = mArrowHeight + mArrowOffsetVertical + getExtraVerticalOffset();
         // The margins are added after we call this method, so we need to account for them here.
         int numVisibleChildren = 0;
         for (int i = getChildCount() - 1; i >= 0; --i) {
@@ -630,6 +630,10 @@ public abstract class ArrowPopup<T extends Context & ActivityContext>
             }
         });
         mOpenCloseAnimator.start();
+    }
+
+    public int getExtraVerticalOffset() {
+        return getResources().getDimensionPixelSize(R.dimen.popup_vertical_padding);
     }
 
     protected AnimatorSet getOpenCloseAnimator(boolean isOpening, int scaleDuration,
