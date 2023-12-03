@@ -13,13 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.launcher3.celllayout;
+package com.android.launcher3.celllayout.board;
 
 import android.graphics.Point;
 import android.graphics.Rect;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,171 +34,12 @@ import java.util.stream.Collectors;
 
 public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
 
-    private boolean intersects(Rect r1, Rect r2) {
-        // If one rectangle is on left side of other
-        if (r1.left > r2.right || r2.left > r1.right) {
-            return false;
-        }
-
-        // If one rectangle is above other
-        if (r1.bottom > r2.top || r2.bottom > r1.top) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private boolean overlapsWithIgnored(Set<Rect> ignoredRectangles, Rect rect) {
-        for (Rect ignoredRect : ignoredRectangles) {
-            // Using the built in intersects doesn't work because it doesn't account for area 0
-            if (intersects(ignoredRect, rect)) {
-                return true;
-            }
-        }
-        return false;
-    }
+    public static final Comparator<CellLayoutBoard> COMPARATOR = new IdenticalBoardComparator();
 
     @Override
-    public int compareTo(CellLayoutBoard cellLayoutBoard) {
-        // to be equal they need to have the same number of widgets and the same dimensions
-        // their order can be different
-        Set<Rect> widgetsSet = new HashSet<>();
-        Set<Rect> ignoredRectangles = new HashSet<>();
-        for (WidgetRect rect : mWidgetsRects) {
-            if (rect.shouldIgnore()) {
-                ignoredRectangles.add(rect.mBounds);
-            } else {
-                widgetsSet.add(rect.mBounds);
-            }
-        }
-        for (WidgetRect rect : cellLayoutBoard.mWidgetsRects) {
-            // ignore rectangles overlapping with the area marked by x
-            if (overlapsWithIgnored(ignoredRectangles, rect.mBounds)) {
-                continue;
-            }
-            if (!widgetsSet.contains(rect.mBounds)) {
-                return -1;
-            }
-            widgetsSet.remove(rect.mBounds);
-        }
-        if (!widgetsSet.isEmpty()) {
-            return 1;
-        }
-
-        // to be equal they need to have the same number of icons their order can be different
-        Set<Point> iconsSet = new HashSet<>();
-        mIconPoints.forEach(icon -> iconsSet.add(icon.getCoord()));
-        for (IconPoint icon : cellLayoutBoard.mIconPoints) {
-            if (!iconsSet.contains(icon.getCoord())) {
-                return -1;
-            }
-            iconsSet.remove(icon.getCoord());
-        }
-        if (!iconsSet.isEmpty()) {
-            return 1;
-        }
-        return 0;
+    public int compareTo(@NonNull CellLayoutBoard cellLayoutBoard) {
+        return COMPARATOR.compare(this, cellLayoutBoard);
     }
-
-    public static class CellType {
-        // The cells marked by this will be filled by 1x1 widgets and will be ignored when
-        // validating
-        public static final char IGNORE = 'x';
-        // The cells marked by this will be filled by app icons
-        public static final char ICON = 'i';
-        // The cells marked by FOLDER will be filled by folders with 27 app icons inside
-        public static final char FOLDER = 'Z';
-        // Empty space
-        public static final char EMPTY = '-';
-        // Widget that will be saved as "main widget" for easier retrieval
-        public static final char MAIN_WIDGET = 'm';
-        // Everything else will be consider a widget
-    }
-
-    public static class WidgetRect {
-        public char mType;
-        public Rect mBounds;
-
-        WidgetRect(char type, Rect bounds) {
-            this.mType = type;
-            this.mBounds = bounds;
-        }
-
-        int getSpanX() {
-            return mBounds.right - mBounds.left + 1;
-        }
-
-        int getSpanY() {
-            return mBounds.top - mBounds.bottom + 1;
-        }
-
-        int getCellX() {
-            return mBounds.left;
-        }
-
-        int getCellY() {
-            return mBounds.bottom;
-        }
-
-        boolean shouldIgnore() {
-            return this.mType == CellType.IGNORE;
-        }
-
-        boolean contains(int x, int y) {
-            return mBounds.contains(x, y);
-        }
-
-        @Override
-        public String toString() {
-            return "WidgetRect type = " + mType + " x = " + getCellX() + " | y " + getCellY()
-                    + " xs = " + getSpanX() + " ys = " + getSpanY();
-        }
-    }
-
-    public static class IconPoint {
-        public Point coord;
-        public char mType;
-
-        public IconPoint(Point coord, char type) {
-            this.coord = coord;
-            mType = type;
-        }
-
-        public char getType() {
-            return mType;
-        }
-
-        public void setType(char type) {
-            mType = type;
-        }
-
-        public Point getCoord() {
-            return coord;
-        }
-
-        public void setCoord(Point coord) {
-            this.coord = coord;
-        }
-    }
-
-    public static class FolderPoint {
-        public Point coord;
-        public char mType;
-
-        public FolderPoint(Point coord, char type) {
-            this.coord = coord;
-            mType = type;
-        }
-
-        /**
-         * [A-Z]: Represents a folder and number of icons in the folder is represented by
-         * the order of letter in the alphabet, A=2, B=3, C=4 ... etc.
-         */
-        public int getNumberIconsInside() {
-            return (mType - 'A') + 2;
-        }
-    }
-
 
     private HashSet<Character> mUsedWidgetTypes = new HashSet<>();
 
@@ -213,7 +57,7 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
 
     int mWidth, mHeight;
 
-    CellLayoutBoard() {
+    public CellLayoutBoard() {
         for (int x = 0; x < mWidget.length; x++) {
             for (int y = 0; y < mWidget[0].length; y++) {
                 mWidget[x][y] = CellType.EMPTY;
@@ -221,8 +65,8 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
         }
     }
 
-    CellLayoutBoard(int width, int height) {
-        mWidget = new char[width][height];
+    public CellLayoutBoard(int width, int height) {
+        mWidget = new char[width + 1][height + 1];
         this.mWidth = width;
         this.mHeight = height;
         for (int x = 0; x < mWidget.length; x++) {
@@ -236,6 +80,15 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
         Boolean isXInRect = x >= rect.getCellX() && x < rect.getCellX() + rect.getSpanX();
         Boolean isYInRect = y >= rect.getCellY() && y < rect.getCellY() + rect.getSpanY();
         return isXInRect && isYInRect;
+    }
+
+    public WidgetRect getWidgetAt(Point p) {
+        return getWidgetAt(p.x, p.y);
+    }
+
+    public WidgetRect getWidgetOfType(char type) {
+        return mWidgetsRects.stream()
+                .filter(widgetRect -> widgetRect.mType == type).findFirst().orElse(null);
     }
 
     public WidgetRect getWidgetAt(int x, int y) {
@@ -264,8 +117,8 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
     }
 
     private void removeWidgetFromBoard(WidgetRect widget) {
-        for (int xi = widget.mBounds.left; xi < widget.mBounds.right; xi++) {
-            for (int yi = widget.mBounds.top; yi < widget.mBounds.bottom; yi++) {
+        for (int xi = widget.mBounds.left; xi <= widget.mBounds.right; xi++) {
+            for (int yi = widget.mBounds.bottom; yi <= widget.mBounds.top; yi++) {
                 mWidget[xi][yi] = '-';
             }
         }
@@ -306,7 +159,7 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
     private void removeOverlappingItems(Point p) {
         // Remove overlapping widgets and remove them from the board
         mWidgetsRects = mWidgetsRects.stream().filter(widget -> {
-            if (widget.mBounds.contains(p.x, p.y)) {
+            if (IdenticalBoardComparator.Companion.touchesPoint(widget.mBounds, p)) {
                 removeWidgetFromBoard(widget);
                 return false;
             }
@@ -336,8 +189,9 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
     }
 
     private char getNextWidgetType() {
-        for (char type = 'a'; type <= 'z'; type++) {
-            if (type == 'i') continue;
+        for (char type = 'a'; type < 'z'; type++) {
+            if (type == CellType.ICON) continue;
+            if (type == CellType.IGNORE) continue;
             if (mUsedWidgetTypes.contains(type)) continue;
             mUsedWidgetTypes.add(type);
             return type;
@@ -355,6 +209,17 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
                 mWidget[xi][yi] = type;
             }
         }
+    }
+
+    public void removeItem(char type) {
+        mWidgetsRects.stream()
+                .filter(widgetRect -> widgetRect.mType == type)
+                .forEach(widgetRect -> removeOverlappingItems(
+                        new Point(widgetRect.getCellX(), widgetRect.getCellY())));
+    }
+
+    public void removeItem(Point p) {
+        removeOverlappingItems(p);
     }
 
     public void addWidget(int x, int y, int spanX, int spanY) {
@@ -506,8 +371,8 @@ public class CellLayoutBoard implements Comparable<CellLayoutBoard> {
         s.append("\n");
         maxX = Math.min(maxX, mWidget.length);
         maxY = Math.min(maxY, mWidget[0].length);
-        for (int y = 0; y < maxY; y++) {
-            for (int x = 0; x < maxX; x++) {
+        for (int y = 0; y <= maxY; y++) {
+            for (int x = 0; x <= maxX; x++) {
                 s.append(mWidget[x][y]);
             }
             s.append('\n');

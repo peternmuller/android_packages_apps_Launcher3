@@ -28,6 +28,7 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.platform.test.annotations.PlatinumTest;
 
 import androidx.test.filters.LargeTest;
@@ -44,8 +45,8 @@ import com.android.launcher3.tapl.LauncherInstrumentation.NavigationModel;
 import com.android.launcher3.tapl.Overview;
 import com.android.launcher3.tapl.OverviewActions;
 import com.android.launcher3.tapl.OverviewTask;
+import com.android.launcher3.ui.AbstractLauncherUiTest;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
-import com.android.launcher3.ui.TaplTestsLauncher3;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
 import com.android.launcher3.util.rule.TestStabilityRule;
@@ -71,7 +72,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        TaplTestsLauncher3.initialize(this);
+        AbstractLauncherUiTest.initialize(this);
         executeOnLauncher(launcher -> {
             RecentsView recentsView = launcher.getOverviewPanel();
             recentsView.getPagedViewOrientedState().forceAllowRotationForTesting(true);
@@ -305,7 +306,11 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
 
         // Expect task bar invisible when the launched app was the IME activity.
         LaunchedAppState launchedAppState = getAndAssertLaunchedApp();
-        launchedAppState.assertTaskbarHidden();
+        if (isHardwareKeyboard()) {
+            launchedAppState.assertTaskbarVisible();
+        } else {
+            launchedAppState.assertTaskbarHidden();
+        }
 
         // Quick-switch to the test app with swiping to right.
         quickSwitchToPreviousAppAndAssert(true /* toRight */);
@@ -315,6 +320,11 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
         // Expect task bar visible when the launched app was the test activity.
         launchedAppState = getAndAssertLaunchedApp();
         launchedAppState.assertTaskbarVisible();
+    }
+
+    private boolean isHardwareKeyboard() {
+        return Configuration.KEYBOARD_QWERTY
+                == mTargetContext.getResources().getConfiguration().keyboard;
     }
 
     @Test
