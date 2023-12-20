@@ -43,6 +43,7 @@ import android.view.SurfaceControl;
 import android.view.View;
 import android.view.ViewRootImpl;
 import android.view.animation.AnimationUtils;
+import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.window.BackEvent;
 import android.window.BackMotionEvent;
@@ -54,6 +55,7 @@ import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.QuickstepTransitionManager;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.taskbar.LauncherTaskbarUIController;
 import com.android.launcher3.uioverrides.QuickstepLauncher;
 import com.android.quickstep.util.RectFSpringAnim;
 import com.android.systemui.shared.system.QuickStepContract;
@@ -99,6 +101,7 @@ public class LauncherBackAnimationController {
     private final float mWindowScaleEndCornerRadius;
     private final float mWindowScaleStartCornerRadius;
     private final Interpolator mCancelInterpolator;
+    private final Interpolator mProgressInterpolator = new DecelerateInterpolator();
     private final PointF mInitialTouchPos = new PointF();
 
     private RemoteAnimationTarget mBackTarget;
@@ -139,7 +142,8 @@ public class LauncherBackAnimationController {
      * @param handler Handler to the thread to run the animations on.
      */
     public void registerBackCallbacks(Handler handler) {
-        mBackCallback = new OnBackInvokedCallbackStub(handler, mProgressAnimator, this);
+        mBackCallback = new OnBackInvokedCallbackStub(handler, mProgressAnimator,
+                mProgressInterpolator, this);
         SystemUiProxy.INSTANCE.get(mLauncher).setBackToLauncherCallback(mBackCallback,
                 new RemoteAnimationRunnerStub(this));
     }
@@ -147,6 +151,7 @@ public class LauncherBackAnimationController {
     private static class OnBackInvokedCallbackStub extends IOnBackInvokedCallback.Stub {
         private Handler mHandler;
         private BackProgressAnimator mProgressAnimator;
+        private final Interpolator mProgressInterpolator;
         // LauncherBackAnimationController has strong reference to Launcher activity, the binder
         // callback should not hold strong reference to it to avoid memory leak.
         private WeakReference<LauncherBackAnimationController> mControllerRef;
@@ -154,9 +159,11 @@ public class LauncherBackAnimationController {
         private OnBackInvokedCallbackStub(
                 Handler handler,
                 BackProgressAnimator progressAnimator,
+                Interpolator progressInterpolator,
                 LauncherBackAnimationController controller) {
             mHandler = handler;
             mProgressAnimator = progressAnimator;
+            mProgressInterpolator = progressInterpolator;
             mControllerRef = new WeakReference<>(controller);
         }
 
@@ -204,10 +211,8 @@ public class LauncherBackAnimationController {
                     controller.startBack(backEvent);
                     mProgressAnimator.onBackStarted(backEvent, event -> {
                         float backProgress = event.getProgress();
-                        // TODO: Update once the interpolation curve spec is finalized.
                         controller.mBackProgress =
-                                1 - (1 - backProgress) * (1 - backProgress) * (1
-                                        - backProgress);
+                                mProgressInterpolator.getInterpolation(backProgress);
                         controller.updateBackProgress(controller.mBackProgress, event);
                     });
                 }
@@ -345,9 +350,16 @@ public class LauncherBackAnimationController {
         float screenHeight = mStartRect.height();
         float width = Utilities.mapRange(progress, 1, MIN_WINDOW_SCALE) * screenWidth;
         float height = screenHeight / screenWidth * width;
-        float deltaYRatio = (event.getTouchY() - mInitialTouchPos.y) / screenHeight;
+
         // Base the window movement in the Y axis on the touch movement in the Y axis.
-        float deltaY = (float) Math.sin(deltaYRatio * Math.PI * 0.5f) * mWindowMaxDeltaY * progress;
+        float rawYDelta = event.getTouchY() - mInitialTouchPos.y;
+        float yDirection = rawYDelta < 0 ? -1 : 1;
+        // limit yDelta interpretation to 1/2 of screen height in either direction
+        float deltaYRatio = Math.min(screenHeight / 2f, Math.abs(rawYDelta)) / (screenHeight / 2f);
+        float interpolatedYRatio = mProgressInterpolator.getInterpolation(deltaYRatio);
+        // limit y-shift so surface never passes 8dp screen margin
+        float deltaY = yDirection * interpolatedYRatio * Math.max(0f, (screenHeight - height)
+                / 2f - mWindowScaleMarginX);
         // Move the window along the Y axis.
         float top = (screenHeight - height) * 0.5f + deltaY;
         // Move the window along the X axis.
@@ -404,6 +416,10 @@ public class LauncherBackAnimationController {
         }
         if (mLauncher.isDestroyed()) {
             return;
+        }
+        LauncherTaskbarUIController taskbarUIController = mLauncher.getTaskbarUIController();
+        if (taskbarUIController != null) {
+            taskbarUIController.onLauncherVisibilityChanged(true);
         }
         // TODO: Catch the moment when launcher becomes visible after the top app un-occludes
         //  launcher and start animating afterwards. Currently we occasionally get a flicker from

@@ -26,7 +26,6 @@ import android.animation.AnimatorSet;
 import android.os.RemoteException;
 import android.util.Log;
 import android.view.TaskTransitionSpec;
-import android.view.View;
 import android.view.WindowManagerGlobal;
 
 import androidx.annotation.NonNull;
@@ -38,7 +37,6 @@ import com.android.launcher3.QuickstepTransitionManager;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.AnimatedFloat;
-import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.logging.InstanceId;
 import com.android.launcher3.logging.InstanceIdSequence;
 import com.android.launcher3.model.data.ItemInfo;
@@ -101,9 +99,7 @@ public class LauncherTaskbarUIController extends TaskbarUIController {
 
         mLauncher.setTaskbarUIController(this);
 
-        if (!FeatureFlags.enableHomeTransitionListener()) {
-            onLauncherVisibilityChanged(mLauncher.hasBeenResumed(), true /* fromInit */);
-        }
+        onLauncherVisibilityChanged(mLauncher.hasBeenResumed(), true /* fromInit */);
 
         onStashedInAppChanged(mLauncher.getDeviceProfile());
         mLauncher.addOnDeviceProfileChangeListener(mOnDeviceProfileChangeListener);
@@ -389,8 +385,8 @@ public class LauncherTaskbarUIController extends TaskbarUIController {
     }
 
     @Override
-    public void launchSplitTasks(@NonNull View taskView, @NonNull GroupTask groupTask) {
-        mLauncher.launchSplitTasks(taskView, groupTask);
+    public void launchSplitTasks(@NonNull GroupTask groupTask) {
+        mLauncher.launchSplitTasks(groupTask);
     }
 
     @Override
