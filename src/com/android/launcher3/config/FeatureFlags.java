@@ -124,6 +124,10 @@ public final class FeatureFlags {
             getReleaseFlag(308693847, "ANIMATE_LPNH", TEAMFOOD,
                     "Animates navbar when long pressing");
 
+    public static final BooleanFlag SHRINK_NAV_HANDLE_ON_PRESS =
+            getReleaseFlag(314158312, "SHRINK_NAV_HANDLE_ON_PRESS", DISABLED,
+                    "Shrinks navbar when long pressing if ANIMATE_LPNH is enabled");
+
     public static final IntFlag LPNH_SLOP_PERCENTAGE =
             getIntFlag(301680992, "LPNH_SLOP_PERCENTAGE", 100,
                     "Controls touch slop percentage for lpnh");
@@ -266,10 +270,6 @@ public final class FeatureFlags {
     public static final BooleanFlag IME_STICKY_SNACKBAR_EDU = getDebugFlag(270391693,
             "IME_STICKY_SNACKBAR_EDU", ENABLED, "Show sticky IME edu in AllApps");
 
-    public static final BooleanFlag ENABLE_PEOPLE_TILE_PREVIEW = getDebugFlag(270391653,
-            "ENABLE_PEOPLE_TILE_PREVIEW", DISABLED,
-            "Experimental: Shows conversation shortcuts on home screen as search results");
-
     public static final BooleanFlag FOLDER_NAME_MAJORITY_RANKING = getDebugFlag(270391638,
             "FOLDER_NAME_MAJORITY_RANKING", ENABLED,
             "Suggests folder names based on majority based ranking.");
@@ -279,12 +279,16 @@ public final class FeatureFlags {
             "Inject fallback app corpus result when AiAi fails to return it.");
 
     public static final BooleanFlag ENABLE_LONG_PRESS_NAV_HANDLE =
-            getReleaseFlag(282993230, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
+            getReleaseFlag(299682306, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
                     "Enables long pressing on the bottom bar nav handle to trigger events.");
 
     public static final BooleanFlag ENABLE_SEARCH_HAPTIC_HINT =
-            getReleaseFlag(303023676, "ENABLE_SEARCH_HAPTIC_HINT", ENABLED,
-                    "Enables haptic hint when long pressing on the bottom bar nav handle.");
+            getReleaseFlag(314005131, "ENABLE_SEARCH_HAPTIC_HINT", ENABLED,
+                    "Enables haptic hint while long pressing on the bottom bar nav handle.");
+
+    public static final BooleanFlag ENABLE_SEARCH_HAPTIC_COMMIT =
+            getReleaseFlag(314005577, "ENABLE_SEARCH_HAPTIC_COMMIT", ENABLED,
+                    "Enables haptic hint at end of long pressing on the bottom bar nav handle.");
 
     public static final IntFlag LPNH_HAPTIC_HINT_START_SCALE_PERCENT =
             getIntFlag(309972570, "LPNH_HAPTIC_HINT_START_SCALE_PERCENT", 0,
@@ -319,6 +323,14 @@ public final class FeatureFlags {
 
     public static boolean enableTaskbarPinning() {
         return ENABLE_TASKBAR_PINNING.get() || Flags.enableTaskbarPinning();
+    }
+
+    /**
+     * Use a static boolean to gate the taskbar pinning education step
+     */
+    public static boolean enableTaskbarPinningEdu() {
+        boolean enableTaskbarPinningEdu = false;
+        return enableTaskbarPinning() && enableTaskbarPinningEdu;
     }
 
     public static final BooleanFlag MOVE_STARTUP_DATA_TO_DEVICE_PROTECTED_STORAGE = getDebugFlag(
@@ -431,15 +443,6 @@ public final class FeatureFlags {
     public static final BooleanFlag USE_LOCAL_ICON_OVERRIDES = getDebugFlag(270394973,
             "USE_LOCAL_ICON_OVERRIDES", ENABLED,
             "Use inbuilt monochrome icons if app doesn't provide one");
-
-    // Aconfig migration complete for ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS.
-    public static final BooleanFlag ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS =
-            getDebugFlag(270394122, "ENABLE_SPLIT_FROM_FULLSCREEN_SHORTCUT", DISABLED,
-                    "Enable splitting from fullscreen app with keyboard shortcuts");
-    public static boolean enableSplitFromFullscreenWithKeyboardShortcuts() {
-        return ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS.get()
-                || Flags.enableSplitFromFullscreenWithKeyboardShortcuts();
-    }
 
     // Aconfig migration complete for ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE = getDebugFlag(
