@@ -16,6 +16,7 @@
 package com.android.launcher3.widget;
 
 import static com.android.app.animation.Interpolators.EMPHASIZED;
+import static com.android.launcher3.Flags.enableUnfoldedTwoPanePicker;
 import static com.android.launcher3.LauncherPrefs.WIDGETS_EDUCATION_TIP_SEEN;
 
 import android.content.Context;
@@ -66,6 +67,8 @@ public abstract class BaseWidgetSheet extends AbstractSlideInView<BaseActivity>
 
     protected int mNavBarScrimHeight;
     private final Paint mNavBarScrimPaint;
+
+    private boolean mDisableNavBarScrim = false;
 
     public BaseWidgetSheet(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
@@ -147,8 +150,15 @@ public abstract class BaseWidgetSheet extends AbstractSlideInView<BaseActivity>
         }
     }
 
+    /** Enables or disables the sheet's nav bar scrim. */
+    public void disableNavBarScrim(boolean disable) {
+        mDisableNavBarScrim = disable;
+    }
+
     private int getNavBarScrimHeight(WindowInsets insets) {
-        if (Utilities.ATLEAST_Q) {
+        if (mDisableNavBarScrim) {
+            return 0;
+        } else if (Utilities.ATLEAST_Q) {
             return insets.getTappableElementInsets().bottom;
         } else {
             return insets.getStableInsetBottom();
@@ -182,12 +192,8 @@ public abstract class BaseWidgetSheet extends AbstractSlideInView<BaseActivity>
         DeviceProfile deviceProfile = mActivityContext.getDeviceProfile();
         int widthUsed;
         if (deviceProfile.isTablet) {
-            int margin = deviceProfile.allAppsLeftRightMargin;
-            if (deviceProfile.isLandscape && !deviceProfile.isTwoPanels) {
-                margin = getResources().getDimensionPixelSize(
-                        R.dimen.widget_picker_landscape_tablet_left_right_margin);
-            }
-            widthUsed = Math.max(2 * margin, 2 * (mInsets.left + mInsets.right));
+            widthUsed = Math.max(2 * getTabletMargin(deviceProfile),
+                    2 * (mInsets.left + mInsets.right));
         } else if (mInsets.bottom > 0) {
             widthUsed = mInsets.left + mInsets.right;
         } else {
@@ -200,6 +206,18 @@ public abstract class BaseWidgetSheet extends AbstractSlideInView<BaseActivity>
                 widthUsed, heightMeasureSpec, deviceProfile.bottomSheetTopPadding);
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec),
                 MeasureSpec.getSize(heightMeasureSpec));
+    }
+
+    private int getTabletMargin(DeviceProfile deviceProfile) {
+        if (deviceProfile.isLandscape && !deviceProfile.isTwoPanels) {
+            return getResources().getDimensionPixelSize(
+                    R.dimen.widget_picker_landscape_tablet_left_right_margin);
+        }
+        if (deviceProfile.isTwoPanels && enableUnfoldedTwoPanePicker()) {
+            return getResources().getDimensionPixelSize(
+                    R.dimen.widget_picker_two_panels_left_right_margin);
+        }
+        return deviceProfile.allAppsLeftRightMargin;
     }
 
     @Override

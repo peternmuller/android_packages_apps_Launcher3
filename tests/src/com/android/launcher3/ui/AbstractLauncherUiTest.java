@@ -131,6 +131,8 @@ public abstract class AbstractLauncherUiTest {
     /** Detects activity leaks and throws an exception if a leak is found. */
     public static void checkDetectedLeaks(LauncherInstrumentation launcher,
             boolean requireOneActiveActivityUnused) {
+        if (TestStabilityRule.isPresubmit()) return; // b/313501215
+
         final boolean requireOneActiveActivity =
                 false; // workaround for leaks when there is an unexpected Recents activity
 
@@ -255,7 +257,7 @@ public abstract class AbstractLauncherUiTest {
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
-                .around(viewCaptureRule)
+                // .around(viewCaptureRule) // b/315482167
                 .around(new TestIsolationRule(mLauncher, true));
 
         return TestHelpers.isInLauncherProcess()

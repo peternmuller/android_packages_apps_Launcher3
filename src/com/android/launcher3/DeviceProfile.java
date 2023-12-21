@@ -182,6 +182,8 @@ public class DeviceProfile {
     public int cellYPaddingPx = -1;
 
     // Folder
+    public final int numFolderRows;
+    public final int numFolderColumns;
     public final float folderLabelTextScale;
     public int folderLabelTextSizePx;
     public int folderFooterHeightPx;
@@ -354,7 +356,7 @@ public class DeviceProfile {
         final Resources res = context.getResources();
         mMetrics = res.getDisplayMetrics();
 
-        mIconSizeSteps = mIsResponsiveGrid ? new IconSizeSteps(res) : null;
+        mIconSizeSteps = new IconSizeSteps(res);
 
         // Determine sizes.
         widthPx = windowBounds.bounds.width();
@@ -439,6 +441,8 @@ public class DeviceProfile {
         }
 
         folderLabelTextScale = res.getFloat(R.dimen.folder_label_text_scale);
+        numFolderRows = inv.numFolderRows[mTypeIndex];
+        numFolderColumns = inv.numFolderColumns[mTypeIndex];
 
         if (mIsScalableGrid && inv.folderStyle != INVALID_RESOURCE_HANDLE) {
             TypedArray folderStyle = context.obtainStyledAttributes(inv.folderStyle,
@@ -645,11 +649,11 @@ public class DeviceProfile {
                             isTwoPanels ? inv.folderSpecsTwoPanelId : inv.folderSpecsId),
                     ResponsiveSpecType.Folder);
             mResponsiveFolderWidthSpec = folderSpecs.getCalculatedSpec(responsiveAspectRatio,
-                    DimensionType.WIDTH, inv.numFolderColumns,
+                    DimensionType.WIDTH, numFolderColumns,
                     mResponsiveWorkspaceWidthSpec.getAvailableSpace(),
                     mResponsiveWorkspaceWidthSpec);
             mResponsiveFolderHeightSpec = folderSpecs.getCalculatedSpec(responsiveAspectRatio,
-                    DimensionType.HEIGHT, inv.numFolderRows,
+                    DimensionType.HEIGHT, numFolderRows,
                     mResponsiveWorkspaceHeightSpec.getAvailableSpace(),
                     mResponsiveWorkspaceHeightSpec);
 
@@ -1406,16 +1410,16 @@ public class DeviceProfile {
         Point totalWorkspacePadding = getTotalWorkspacePadding();
 
         // Check if the folder fit within the available height.
-        float contentUsedHeight = folderCellHeightPx * inv.numFolderRows
-                + ((inv.numFolderRows - 1) * folderCellLayoutBorderSpacePx.y)
+        float contentUsedHeight = folderCellHeightPx * numFolderRows
+                + ((numFolderRows - 1) * folderCellLayoutBorderSpacePx.y)
                 + folderFooterHeightPx
                 + folderContentPaddingTop;
         int contentMaxHeight = availableHeightPx - totalWorkspacePadding.y;
         float scaleY = contentMaxHeight / contentUsedHeight;
 
         // Check if the folder fit within the available width.
-        float contentUsedWidth = folderCellWidthPx * inv.numFolderColumns
-                + ((inv.numFolderColumns - 1) * folderCellLayoutBorderSpacePx.x)
+        float contentUsedWidth = folderCellWidthPx * numFolderColumns
+                + ((numFolderColumns - 1) * folderCellLayoutBorderSpacePx.x)
                 + folderContentPaddingLeftRight * 2;
         int contentMaxWidth = availableWidthPx - totalWorkspacePadding.x;
         float scaleX = contentMaxWidth / contentUsedWidth;
@@ -1451,7 +1455,7 @@ public class DeviceProfile {
             }
 
             // Recalculating padding and cell height
-            folderChildDrawablePaddingPx = getNormalizedFolderChildDrawablePaddingPx(textHeight);
+            folderChildDrawablePaddingPx = mResponsiveWorkspaceCellSpec.getIconDrawablePadding();
 
             CellContentDimensions cellContentDimensions = new CellContentDimensions(
                     folderChildIconSizePx,
@@ -1482,6 +1486,17 @@ public class DeviceProfile {
                 folderCellWidthPx = roundPxValueFromFloat(folderCellWidthPx * scale);
                 folderCellHeightPx = roundPxValueFromFloat(folderCellHeightPx * scale);
             }
+            // Recalculating padding and cell height
+            folderChildDrawablePaddingPx = getNormalizedFolderChildDrawablePaddingPx(textHeight);
+
+            CellContentDimensions cellContentDimensions = new CellContentDimensions(
+                    folderChildIconSizePx,
+                    folderChildDrawablePaddingPx,
+                    folderChildTextSizePx);
+            cellContentDimensions.resizeToFitCellHeight(folderCellHeightPx, mIconSizeSteps);
+            folderChildIconSizePx = cellContentDimensions.getIconSizePx();
+            folderChildDrawablePaddingPx = cellContentDimensions.getIconDrawablePaddingPx();
+            folderChildTextSizePx = cellContentDimensions.getIconTextSizePx();
 
             folderContentPaddingTop = roundPxValueFromFloat(folderContentPaddingTop * scale);
             folderCellLayoutBorderSpacePx = new Point(
@@ -1489,10 +1504,7 @@ public class DeviceProfile {
                     roundPxValueFromFloat(folderCellLayoutBorderSpacePx.y * scale)
             );
             folderFooterHeightPx = roundPxValueFromFloat(folderFooterHeightPx * scale);
-
             folderContentPaddingLeftRight = folderCellLayoutBorderSpacePx.x;
-
-            folderChildDrawablePaddingPx = getNormalizedFolderChildDrawablePaddingPx(textHeight);
         } else {
             int cellPaddingX = (int) (res.getDimensionPixelSize(R.dimen.folder_cell_x_padding)
                     * scale);
@@ -2045,8 +2057,8 @@ public class DeviceProfile {
         writer.println(prefix + pxToDpStr("iconTextSizePx", iconTextSizePx));
         writer.println(prefix + pxToDpStr("iconDrawablePaddingPx", iconDrawablePaddingPx));
 
-        writer.println(prefix + "\tinv.numFolderRows: " + inv.numFolderRows);
-        writer.println(prefix + "\tinv.numFolderColumns: " + inv.numFolderColumns);
+        writer.println(prefix + "\tnumFolderRows: " + numFolderRows);
+        writer.println(prefix + "\tnumFolderColumns: " + numFolderColumns);
         writer.println(prefix + pxToDpStr("folderCellWidthPx", folderCellWidthPx));
         writer.println(prefix + pxToDpStr("folderCellHeightPx", folderCellHeightPx));
         writer.println(prefix + pxToDpStr("folderChildIconSizePx", folderChildIconSizePx));
