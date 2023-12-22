@@ -20,6 +20,7 @@ import static android.app.ActivityTaskManager.INVALID_TASK_ID;
 import static android.view.Surface.ROTATION_0;
 import static android.view.View.MeasureSpec.EXACTLY;
 import static android.view.View.MeasureSpec.makeMeasureSpec;
+
 import static com.android.app.animation.Interpolators.ACCELERATE;
 import static com.android.app.animation.Interpolators.ACCELERATE_0_75;
 import static com.android.app.animation.Interpolators.ACCELERATE_DECELERATE;
@@ -61,6 +62,8 @@ import static com.android.quickstep.util.TaskGridNavHelper.DIRECTION_TAB;
 import static com.android.quickstep.util.TaskGridNavHelper.DIRECTION_UP;
 import static com.android.quickstep.views.ClearAllButton.DISMISS_ALPHA;
 import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
+import static com.android.quickstep.views.OverviewActionsView.FLAG_IS_NOT_TABLET;
+import static com.android.quickstep.views.OverviewActionsView.FLAG_SINGLE_TASK;
 import static com.android.quickstep.views.OverviewActionsView.HIDDEN_ACTIONS_IN_MENU;
 import static com.android.quickstep.views.OverviewActionsView.HIDDEN_DESKTOP;
 import static com.android.quickstep.views.OverviewActionsView.HIDDEN_NON_ZERO_ROTATION;
@@ -2121,8 +2124,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         for (int i = 0; i < taskCount; i++) {
             TaskView taskView = requireTaskViewAt(i);
             taskView.updateTaskSize();
-            taskView.getPrimaryNonGridTranslationProperty().set(taskView, accumulatedTranslationX);
-            taskView.getSecondaryNonGridTranslationProperty().set(taskView, 0f);
+            taskView.setNonGridTranslationX(accumulatedTranslationX);
             taskView.setNonGridPivotTranslationX(translateXToMiddle);
             // Compensate space caused by TaskView scaling.
             float widthDiff =
@@ -2639,23 +2641,25 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         if (endState.displayOverviewTasksAsGrid(mActivity.getDeviceProfile())) {
             TaskView runningTaskView = getRunningTaskView();
             float runningTaskPrimaryGridTranslation = 0;
+            float runningTaskSecondaryGridTranslation = 0;
             if (runningTaskView != null) {
                 // Apply the grid translation to running task unless it's being snapped to
                 // and removes the current translation applied to the running task.
-                runningTaskPrimaryGridTranslation = mOrientationHandler.getPrimaryValue(
-                        runningTaskView.getGridTranslationX(),
-                        runningTaskView.getGridTranslationY())
-                        - runningTaskView.getPrimaryNonGridTranslationProperty().get(
-                        runningTaskView);
+                runningTaskPrimaryGridTranslation = runningTaskView.getGridTranslationX()
+                        - runningTaskView.getNonGridTranslationX();
+                runningTaskSecondaryGridTranslation = runningTaskView.getGridTranslationY();
             }
             for (TaskViewSimulator tvs : taskViewSimulators) {
                 if (animatorSet == null) {
                     setGridProgress(1);
                     tvs.taskPrimaryTranslation.value = runningTaskPrimaryGridTranslation;
+                    tvs.taskSecondaryTranslation.value = runningTaskSecondaryGridTranslation;
                 } else {
                     animatorSet.play(ObjectAnimator.ofFloat(this, RECENTS_GRID_PROGRESS, 1));
                     animatorSet.play(tvs.taskPrimaryTranslation.animateToValue(
                             runningTaskPrimaryGridTranslation));
+                    animatorSet.play(tvs.taskSecondaryTranslation.animateToValue(
+                            runningTaskSecondaryGridTranslation));
                 }
             }
         }
@@ -3118,6 +3122,14 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
             TaskView taskView = requireTaskViewAt(i);
             taskView.setGridTranslationX(gridTranslations[i] - snappedTaskGridTranslationX
                     + snappedTaskNonGridScrollAdjustment);
+        }
+
+        final TaskView runningTask = getRunningTaskView();
+        if (showAsGrid() && enableGridOnlyOverview() && runningTask != null) {
+            runActionOnRemoteHandles(
+                    remoteTargetHandle -> remoteTargetHandle.getTaskViewSimulator()
+                            .taskSecondaryTranslation.value = runningTask.getGridTranslationY()
+            );
         }
 
         mClearAllButton.setGridTranslationPrimary(
@@ -3938,23 +3950,18 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     }
 
     /**
-     * Hides all overview actions if user is halfway through split selection, shows otherwise.
-     * We only show split option if:
-     * * Focused view is a single app
+     * Hides all overview actions if current page is for split apps, shows otherwise
+     * If actions are showing, we only show split option if
      * * Device is large screen
+     * * There are at least 2 tasks to invoke split
      */
     private void updateCurrentTaskActionsVisibility() {
-        boolean isGroupedTask = getCurrentPageTaskView() != null
-                && getCurrentPageTaskView().containsMultipleTasks();
-        // Update flags to see if entire actions bar should be hidden.
-        mActionsView.updateHiddenFlags(HIDDEN_SPLIT_SCREEN, isGroupedTask);
+        boolean isCurrentSplit = getCurrentPageTaskView() instanceof GroupedTaskView;
+        mActionsView.updateHiddenFlags(HIDDEN_SPLIT_SCREEN, isCurrentSplit);
         mActionsView.updateHiddenFlags(HIDDEN_SPLIT_SELECT_ACTIVE, isSplitSelectionActive());
-        // Update flags to see if actions bar should show buttons for a single task or a pair of
-        // tasks.
-        mActionsView.updateForGroupedTask(isGroupedTask);
-        // Update flags to see if split button should be hidden.
-        mActionsView.updateForTablet(mActivity.getDeviceProfile().isTablet);
-
+        mActionsView.updateSplitButtonHiddenFlags(FLAG_IS_NOT_TABLET,
+                !mActivity.getDeviceProfile().isTablet);
+        mActionsView.updateSplitButtonDisabledFlags(FLAG_SINGLE_TASK, /*enable=*/ false);
         if (isDesktopModeSupported()) {
             boolean isCurrentDesktop = getCurrentPageTaskView() instanceof DesktopTaskView;
             mActionsView.updateHiddenFlags(HIDDEN_DESKTOP, isCurrentDesktop);
