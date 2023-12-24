@@ -169,10 +169,6 @@ public final class FeatureFlags {
     // TODO(Block 8): Clean up flags
 
     // TODO(Block 9): Clean up flags
-    public static final BooleanFlag UNFOLDED_WIDGET_PICKER = getDebugFlag(301918659,
-            "UNFOLDED_WIDGET_PICKER", DISABLED, "Enable new widget picker that takes "
-                    + "advantage of the unfolded foldable format");
-
     public static final BooleanFlag MULTI_SELECT_EDIT_MODE = getDebugFlag(270709220,
             "MULTI_SELECT_EDIT_MODE", DISABLED, "Enable new multi-select edit mode "
                     + "for home screen");
@@ -200,10 +196,6 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_PARAMETRIZE_REORDER = getDebugFlag(289420844,
             "ENABLE_PARAMETRIZE_REORDER", DISABLED,
             "Enables generating the reorder using a set of parameters");
-
-    public static final BooleanFlag ENABLE_NO_LONG_PRESS_DRAG = getDebugFlag(299748096,
-            "ENABLE_NO_LONG_PRESS_DRAG", ENABLED,
-            "Don't trigger the drag if we are still under long press");
 
     // TODO(Block 12): Clean up flags
     public static final BooleanFlag ENABLE_MULTI_INSTANCE = getDebugFlag(270396680,
