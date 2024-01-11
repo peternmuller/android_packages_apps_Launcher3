@@ -16,7 +16,6 @@
 package com.android.quickstep.views;
 
 import static android.app.ActivityTaskManager.INVALID_TASK_ID;
-
 import static com.android.launcher3.LauncherState.ALL_APPS;
 import static com.android.launcher3.LauncherState.CLEAR_ALL_BUTTON;
 import static com.android.launcher3.LauncherState.EDIT_MODE;
@@ -145,8 +144,6 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
         setOverviewFullscreenEnabled(toState.getOverviewFullscreenProgress() == 1);
         if (toState == OVERVIEW_MODAL_TASK) {
             setOverviewSelectEnabled(true);
-        } else {
-            resetModalVisuals();
         }
 
         // Set border after select mode changes to avoid showing border during state transition
@@ -217,6 +214,7 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
         } else {
             if (mActivity.isInState(LauncherState.OVERVIEW_MODAL_TASK)) {
                 mActivity.getStateManager().goToState(LauncherState.OVERVIEW, animate);
+                resetModalVisuals();
             }
         }
     }

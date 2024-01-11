@@ -1,6 +1,5 @@
 package com.android.quickstep;
 
-import static com.android.launcher3.taskbar.TaskbarThresholdUtils.getFromNavThreshold;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 
 import android.app.Activity;
@@ -11,6 +10,7 @@ import android.os.Bundle;
 
 import androidx.annotation.Nullable;
 
+import com.android.launcher3.R;
 import com.android.launcher3.taskbar.TaskbarActivityContext;
 import com.android.launcher3.testing.TestInformationHandler;
 import com.android.launcher3.testing.shared.TestProtocol;
@@ -18,7 +18,6 @@ import com.android.launcher3.touch.PagedOrientationHandler;
 import com.android.launcher3.util.DisplayController;
 import com.android.quickstep.util.LayoutUtils;
 import com.android.quickstep.util.TISBindHelper;
-import com.android.quickstep.views.RecentsView;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -78,11 +77,6 @@ public class QuickstepTestInformationHandler extends TestInformationHandler {
                 return response;
             }
 
-            case TestProtocol.REQUEST_GET_OVERVIEW_CURRENT_PAGE_INDEX: {
-                return getLauncherUIProperty(Bundle::putInt,
-                        launcher -> launcher.<RecentsView>getOverviewPanel().getCurrentPage());
-            }
-
             case TestProtocol.REQUEST_HAS_TIS: {
                 response.putBoolean(TestProtocol.TEST_INFO_RESPONSE_FIELD, true);
                 return response;
@@ -99,7 +93,7 @@ public class QuickstepTestInformationHandler extends TestInformationHandler {
             case TestProtocol.REQUEST_TASKBAR_FROM_NAV_THRESHOLD: {
                 final Resources resources = mContext.getResources();
                 response.putInt(TestProtocol.TEST_INFO_RESPONSE_FIELD,
-                        getFromNavThreshold(resources, mDeviceProfile));
+                        resources.getDimensionPixelSize(R.dimen.taskbar_from_nav_threshold));
                 return response;
             }
 
@@ -159,14 +153,6 @@ public class QuickstepTestInformationHandler extends TestInformationHandler {
             case TestProtocol.REQUEST_RECREATE_TASKBAR:
                 // Allow null-pointer to catch illegal states.
                 runOnTISBinder(tisBinder -> tisBinder.getTaskbarManager().recreateTaskbar());
-                return response;
-
-            case TestProtocol.REQUEST_UNSTASH_BUBBLE_BAR_IF_STASHED:
-                runOnTISBinder(tisBinder -> {
-                    // Allow null-pointer to catch illegal states.
-                    tisBinder.getTaskbarManager().getCurrentActivityContext()
-                            .unstashBubbleBarIfStashed();
-                });
                 return response;
         }
 

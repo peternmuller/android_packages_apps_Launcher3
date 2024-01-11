@@ -59,7 +59,6 @@ import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.LauncherSettings.Favorites;
-import com.android.launcher3.backuprestore.LauncherRestoreEventLogger;
 import com.android.launcher3.model.ModelDbController;
 import com.android.launcher3.util.IntArray;
 import com.android.launcher3.util.LauncherModelHelper;
@@ -91,7 +90,6 @@ public class RestoreDbTaskTest {
     private SQLiteDatabase mMockDb;
     private Cursor mMockCursor;
     private LauncherPrefs mPrefs;
-    private LauncherRestoreEventLogger mMockRestoreEventLogger;
 
     @Before
     public void setup() {
@@ -102,7 +100,6 @@ public class RestoreDbTaskTest {
         mMockDb = mock(SQLiteDatabase.class);
         mMockCursor = mock(Cursor.class);
         mPrefs = new LauncherPrefs(mContext);
-        mMockRestoreEventLogger = mock(LauncherRestoreEventLogger.class);
     }
 
     @After
@@ -181,7 +178,7 @@ public class RestoreDbTaskTest {
         assertEquals(10, getItemCountForProfile(db, myProfileId_old));
         assertEquals(6, getItemCountForProfile(db, workProfileId_old));
 
-        mTask.sanitizeDB(mContext, controller, controller.getDb(), bm, mMockRestoreEventLogger);
+        mTask.sanitizeDB(mContext, controller, controller.getDb(), bm);
 
         // All the data has been migrated to the new user ids
         assertEquals(0, getItemCountForProfile(db, myProfileId_old));
@@ -210,7 +207,7 @@ public class RestoreDbTaskTest {
         assertEquals(10, getItemCountForProfile(db, myProfileId_old));
         assertEquals(6, getItemCountForProfile(db, workProfileId_old));
 
-        mTask.sanitizeDB(mContext, controller, controller.getDb(), bm, mMockRestoreEventLogger);
+        mTask.sanitizeDB(mContext, controller, controller.getDb(), bm);
 
         // All the data has been migrated to the new user ids
         assertEquals(0, getItemCountForProfile(db, myProfileId_old));
@@ -222,7 +219,7 @@ public class RestoreDbTaskTest {
     @Test
     public void givenLauncherPrefsHasNoIds_whenRestoreAppWidgetIdsIfExists_thenIdsAreRemoved() {
         // When
-        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController, mMockRestoreEventLogger);
+        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController);
         // Then
         assertThat(mPrefs.has(OLD_APP_WIDGET_IDS, APP_WIDGET_IDS)).isFalse();
     }
@@ -238,7 +235,7 @@ public class RestoreDbTaskTest {
 
         // When
         setRestoredAppWidgetIds(mContext, expectedOldIds, expectedNewIds);
-        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController, mMockRestoreEventLogger);
+        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController);
 
         // Then
         assertThat(expectedHost.getAppWidgetIds()).isEqualTo(expectedOldIds);
@@ -260,7 +257,7 @@ public class RestoreDbTaskTest {
 
         // When
         setRestoredAppWidgetIds(mContext, expectedOldIds, expectedNewIds);
-        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController, mMockRestoreEventLogger);
+        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController);
 
         // Then
         assertThat(expectedHost.getAppWidgetIds()).isEqualTo(expectedOldIds);
@@ -283,13 +280,12 @@ public class RestoreDbTaskTest {
         when(mMockDb.query(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(mMockCursor);
         when(mMockCursor.moveToFirst()).thenReturn(true);
-        when(mMockCursor.getColumnNames()).thenReturn(new String[] {});
         when(mMockCursor.isAfterLast()).thenReturn(true);
         RestoreDbTask.setPending(mContext);
 
         // When
         setRestoredAppWidgetIds(mContext, expectedOldIds, expectedNewIds);
-        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController, mMockRestoreEventLogger);
+        mTask.restoreAppWidgetIdsIfExists(mContext, mMockController);
 
         // Then
         assertThat(expectedHost.getAppWidgetIds()).isEqualTo(allExpectedIds);

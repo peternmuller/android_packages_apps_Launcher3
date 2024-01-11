@@ -28,16 +28,19 @@ import com.android.wm.shell.transition.IHomeTransitionListener;
  */
 public class HomeTransitionController {
 
-    @Nullable private QuickstepLauncher mLauncher;
+    private final QuickstepLauncher mLauncher;
     @Nullable private IHomeTransitionListener mHomeTransitionListener;
 
-    public void registerHomeTransitionListener(QuickstepLauncher launcher) {
+    public HomeTransitionController(QuickstepLauncher launcher) {
         mLauncher = launcher;
+    }
+
+    public void registerHomeTransitionListener() {
         mHomeTransitionListener = new IHomeTransitionListener.Stub() {
             @Override
             public void onHomeVisibilityChanged(boolean isVisible) {
                 MAIN_EXECUTOR.execute(() -> {
-                    if (mLauncher != null && mLauncher.getTaskbarUIController() != null) {
+                    if (mLauncher.getTaskbarUIController() != null) {
                         mLauncher.getTaskbarUIController().onLauncherVisibilityChanged(isVisible);
                     }
                 });
@@ -50,6 +53,5 @@ public class HomeTransitionController {
     public void unregisterHomeTransitionListener() {
         SystemUiProxy.INSTANCE.get(mLauncher).setHomeTransitionListener(null);
         mHomeTransitionListener = null;
-        mLauncher = null;
     }
 }

@@ -175,13 +175,6 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
         sTransientTaskbarStatusForTests = enable;
     }
 
-    /**
-     * Returns whether the taskbar is pinned in gesture navigation mode.
-     */
-    public static boolean isPinnedTaskbar(Context context) {
-        return INSTANCE.get(context).getInfo().isPinnedTaskbar();
-    }
-
     @Override
     public void close() {
         mDestroyed = true;
@@ -429,12 +422,6 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
                 return !mIsTaskbarPinned;
             }
             return true;
-        }
-        /**
-         * Returns whether the taskbar is pinned in gesture navigation mode.
-         */
-        public boolean isPinnedTaskbar() {
-            return navigationMode == NavigationMode.NO_BUTTON && !isTransientTaskbar();
         }
 
         /**

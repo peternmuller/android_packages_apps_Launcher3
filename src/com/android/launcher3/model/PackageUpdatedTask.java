@@ -15,11 +15,9 @@
  */
 package com.android.launcher3.model;
 
-import static com.android.launcher3.Flags.enableSupportForArchiving;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_PRIVATE_PROFILE_QUIET_MODE_ENABLED;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_QUIET_MODE_ENABLED;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_WORK_PROFILE_QUIET_MODE_ENABLED;
-import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_ARCHIVED;
 import static com.android.launcher3.model.data.WorkspaceItemInfo.FLAG_AUTOINSTALL_ICON;
 import static com.android.launcher3.model.data.WorkspaceItemInfo.FLAG_RESTORED_ICON;
 
@@ -69,7 +67,6 @@ import java.util.stream.Collectors;
  * Handles updates due to changes in package manager (app installed/updated/removed)
  * or when a user availability changes.
  */
-@SuppressWarnings("NewApi")
 public class PackageUpdatedTask extends BaseModelUpdateTask {
 
     // TODO(b/290090023): Set to false after root causing is done.
@@ -272,16 +269,6 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
                                             : PackageManagerHelper.getLoadingProgress(
                                                     activities.get(0)),
                                     PackageInstallInfo.STATUS_INSTALLED_DOWNLOADING);
-                            // In case an app is archived, we need to make sure that archived state
-                            // in WorkspaceItemInfo is refreshed.
-                            if (enableSupportForArchiving() && !activities.isEmpty()) {
-                                boolean newArchivalState = activities.get(
-                                        0).getActivityInfo().isArchived;
-                                if (newArchivalState != si.isArchived()) {
-                                    si.runtimeStatusFlags ^= FLAG_ARCHIVED;
-                                    infoUpdated = true;
-                                }
-                            }
                             if (si.itemType == Favorites.ITEM_TYPE_APPLICATION) {
                                 iconCache.getTitleAndIcon(si, si.usingLowResIcon());
                                 infoUpdated = true;

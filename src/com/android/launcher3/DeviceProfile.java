@@ -78,6 +78,7 @@ import java.util.function.Consumer;
 public class DeviceProfile {
 
     private static final int DEFAULT_DOT_SIZE = 100;
+    private static final float ALL_APPS_TABLET_MAX_ROWS = 5.5f;
     private static final float MIN_FOLDER_TEXT_SIZE_SP = 16f;
     private static final float MIN_WIDGET_PADDING_DP = 6f;
 
@@ -733,9 +734,14 @@ public class DeviceProfile {
             hotseatBorderSpace = cellLayoutBorderSpacePx.y;
         }
 
+        // AllApps height calculation depends on updated cellSize
         if (isTablet) {
-            allAppsPadding.top = mInsets.top;
-            allAppsShiftRange = heightPx;
+            int collapseHandleHeight =
+                    res.getDimensionPixelOffset(R.dimen.bottom_sheet_handle_area_height);
+            int contentHeight = heightPx - collapseHandleHeight - hotseatQsbHeight;
+            int targetContentHeight = (int) (allAppsCellHeightPx * ALL_APPS_TABLET_MAX_ROWS);
+            allAppsPadding.top = Math.max(mInsets.top, contentHeight - targetContentHeight);
+            allAppsShiftRange = heightPx - allAppsPadding.top;
         } else {
             allAppsPadding.top = 0;
             allAppsShiftRange =

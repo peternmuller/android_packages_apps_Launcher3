@@ -21,7 +21,6 @@ import android.graphics.Color
 import android.graphics.drawable.PaintDrawable
 import android.view.Gravity
 import android.view.ViewGroup
-import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -104,9 +103,8 @@ class KidsNavLayoutter(
 
         val contextualMargin = resources.getDimensionPixelSize(
                 R.dimen.taskbar_contextual_button_padding)
-        repositionContextualContainer(endContextualContainer, WRAP_CONTENT, 0, 0, Gravity.END)
-        repositionContextualContainer(startContextualContainer, WRAP_CONTENT, contextualMargin,
-                contextualMargin, Gravity.START)
+        repositionContextualContainer(endContextualContainer, 0, Gravity.END)
+        repositionContextualContainer(startContextualContainer, contextualMargin, Gravity.START)
 
         if (imeSwitcher != null) {
             startContextualContainer.addView(imeSwitcher)
