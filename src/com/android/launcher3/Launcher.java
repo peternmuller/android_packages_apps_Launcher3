@@ -1715,7 +1715,11 @@ public class Launcher extends StatefulActivity<LauncherState>
         mModel.removeCallbacks(this);
         mRotationHelper.destroy();
 
-        mAppWidgetHolder.stopListening();
+        try {
+            mAppWidgetHolder.stopListening();
+        } catch (NullPointerException ex) {
+            Log.w(TAG, "problem while stopping AppWidgetHost during Launcher destruction", ex);
+        }
         mAppWidgetHolder.destroy();
 
         TextKeyListener.getInstance().release();
@@ -2474,7 +2478,7 @@ public class Launcher extends StatefulActivity<LauncherState>
      */
     private LauncherAppWidgetInfo completeRestoreAppWidget(int appWidgetId, int finalRestoreFlag) {
         LauncherAppWidgetHostView view = mWorkspace.getWidgetForAppWidgetId(appWidgetId);
-        if (!(view instanceof PendingAppWidgetHostView)) {
+        if ((view == null) || !(view instanceof PendingAppWidgetHostView)) {
             Log.e(TAG, "Widget update called, when the widget no longer exists.");
             return null;
         }
@@ -2485,9 +2489,8 @@ public class Launcher extends StatefulActivity<LauncherState>
             info.pendingItemInfo = null;
         }
 
-        PendingAppWidgetHostView pv = (PendingAppWidgetHostView) view;
-        if (pv.isReinflateIfNeeded()) {
-            pv.reInflate();
+        if (((PendingAppWidgetHostView) view).isReinflateIfNeeded()) {
+            view.reInflate();
         }
 
         getModelWriter().updateItemInDatabase(info);

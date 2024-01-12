@@ -923,8 +923,6 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
             if (mIcon instanceof PreloadIconDrawable) {
                 preloadIconDrawable = (PreloadIconDrawable) mIcon;
                 preloadIconDrawable.setLevel(progressLevel);
-                // TODO(b/302115555): For archived apps, show icon as disabled if active session
-                //  exists.
                 preloadIconDrawable.setIsDisabled(info.getProgressLevel() == 0);
             } else {
                 preloadIconDrawable = makePreloadIcon();
@@ -950,7 +948,6 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         final PreloadIconDrawable preloadDrawable = newPendingIcon(getContext(), info);
 
         preloadDrawable.setLevel(progressLevel);
-        // TODO(b/302115555): For archived apps, show icon as disabled if active session exists.
         preloadDrawable.setIsDisabled(info.getProgressLevel() == 0);
         return preloadDrawable;
     }

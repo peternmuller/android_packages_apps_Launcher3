@@ -1290,7 +1290,7 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
     /**
      * Returns view on launcher that corresponds to the closing app in the list of app targets
      */
-    public @Nullable View findLauncherView(RemoteAnimationTarget[] appTargets) {
+    private @Nullable View findLauncherView(RemoteAnimationTarget[] appTargets) {
         for (RemoteAnimationTarget appTarget : appTargets) {
             if (appTarget.mode == MODE_CLOSING) {
                 View launcherView = findLauncherView(appTarget);

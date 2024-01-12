@@ -50,15 +50,13 @@ class PhoneSeascapeNavLayoutter(
         navButtonContainer.addView(recentsButton)
     }
 
-    override fun repositionContextualButtons(buttonSize: Int) {
+    override fun repositionContextualButtons() {
         endContextualContainer.removeAllViews()
         startContextualContainer.removeAllViews()
 
-        val roundedCornerContentMargin = resources.getDimensionPixelSize(
-                R.dimen.taskbar_phone_rounded_corner_content_margin)
-        val contentPadding = resources.getDimensionPixelSize(R.dimen.taskbar_phone_content_padding)
-        repositionContextualContainer(endContextualContainer, buttonSize, 0,
-                roundedCornerContentMargin + contentPadding,  Gravity.BOTTOM)
+        val contextualMargin = resources.getDimensionPixelSize(
+                R.dimen.taskbar_contextual_button_padding)
+        repositionContextualContainer(endContextualContainer, contextualMargin, Gravity.BOTTOM)
 
         if (imeSwitcher != null) {
             endContextualContainer.addView(imeSwitcher)

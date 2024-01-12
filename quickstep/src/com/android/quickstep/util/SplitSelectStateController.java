@@ -667,10 +667,8 @@ public class SplitSelectStateController {
 
             MAIN_EXECUTOR.execute(() -> {
                 // Only animate from taskView if it's already visible
-                boolean shouldLaunchFromTaskView = mLaunchingTaskView != null
-                        && mLaunchingTaskView.getRecentsView() != null
-                        && mLaunchingTaskView.getRecentsView().isTaskViewVisible(
-                        mLaunchingTaskView);
+                boolean shouldLaunchFromTaskView = mLaunchingTaskView != null &&
+                        mLaunchingTaskView.getRecentsView().isTaskViewVisible(mLaunchingTaskView);
                 mSplitAnimationController.playSplitLaunchAnimation(
                         shouldLaunchFromTaskView ? mLaunchingTaskView : null,
                         mLaunchingIconView,

@@ -103,9 +103,7 @@ public class TestUtil {
             out.close();
 
             final String result = UiDevice.getInstance(instrumentation)
-                    .executeShellCommand(String.format("pm install -i %s --user ",
-                            instrumentation.getContext().getPackageName())
-                            + userId + " " + apkFilename);
+                    .executeShellCommand("pm install --user " + userId + " " + apkFilename);
             Assert.assertTrue(
                     "Failed to install wellbeing test apk; make sure the device is rooted",
                     "Success".equals(result.replaceAll("\\s+", "")));

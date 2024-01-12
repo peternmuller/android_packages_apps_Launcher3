@@ -17,8 +17,6 @@
 package com.android.launcher3.model;
 
 import static com.android.launcher3.BuildConfig.WIDGET_ON_FIRST_SCREEN;
-import static com.android.launcher3.Flags.enableSupportForArchiving;
-import static com.android.launcher3.Flags.enableLauncherBrMetrics;
 import static com.android.launcher3.LauncherPrefs.IS_FIRST_LOAD_AFTER_RESTORE;
 import static com.android.launcher3.LauncherPrefs.SHOULD_SHOW_SMARTSPACE;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR;
@@ -133,7 +131,6 @@ import java.util.concurrent.CancellationException;
  *   - all apps icons
  *   - deep shortcuts within apps
  */
-@SuppressWarnings("NewApi")
 public class LoaderTask implements Runnable {
     private static final String TAG = "LoaderTask";
     public static final String SMARTSPACE_ON_HOME_SCREEN = "pref_smartspace_home_screen";
@@ -233,11 +230,8 @@ public class LoaderTask implements Runnable {
         LoaderMemoryLogger memoryLogger = new LoaderMemoryLogger();
         mIsRestoreFromBackup =
                 (Boolean) LauncherPrefs.get(mApp.getContext()).get(IS_FIRST_LOAD_AFTER_RESTORE);
-        LauncherRestoreEventLogger restoreEventLogger = null;
-        if (enableLauncherBrMetrics()) {
-            restoreEventLogger = LauncherRestoreEventLogger.Companion
-                    .newInstance(mApp.getContext());
-        }
+        LauncherRestoreEventLogger restoreEventLogger = LauncherRestoreEventLogger
+                .Companion.newInstance(mApp.getContext());
         try (LauncherModel.LoaderTransaction transaction = mApp.getModel().beginLoader(this)) {
 
             List<ShortcutInfo> allShortcuts = new ArrayList<>();
@@ -368,11 +362,9 @@ public class LoaderTask implements Runnable {
             transaction.commit();
             memoryLogger.clearLogs();
             if (mIsRestoreFromBackup) {
+                restoreEventLogger.reportLauncherRestoreResults();
                 mIsRestoreFromBackup = false;
                 LauncherPrefs.get(mApp.getContext()).putSync(IS_FIRST_LOAD_AFTER_RESTORE.to(false));
-                if (restoreEventLogger != null) {
-                    restoreEventLogger.reportLauncherRestoreResults();
-                }
             }
         } catch (CancellationException e) {
             // Loader stopped, ignore
@@ -427,7 +419,7 @@ public class LoaderTask implements Runnable {
         final WidgetManagerHelper widgetHelper = new WidgetManagerHelper(context);
 
         ModelDbController dbController = mApp.getModel().getModelDbController();
-        dbController.tryMigrateDB(restoreEventLogger);
+        dbController.tryMigrateDB();
         Log.d(TAG, "loadWorkspace: loading default favorites");
         dbController.loadDefaultFavoritesIfNecessary();
 
@@ -780,21 +772,13 @@ public class LoaderTask implements Runnable {
                                     PackageInstallInfo.STATUS_INSTALLED_DOWNLOADING);
                         }
 
-                        if ((c.restoreFlag != 0
-                                || (enableSupportForArchiving()
-                                && activityInfo != null
-                                && activityInfo.getApplicationInfo().isArchived))
-                                && !TextUtils.isEmpty(targetPkg)) {
+                        if (c.restoreFlag != 0 && !TextUtils.isEmpty(targetPkg)) {
                             tempPackageKey.update(targetPkg, c.user);
                             SessionInfo si = installingPkgs.get(tempPackageKey);
                             if (si == null) {
                                 info.runtimeStatusFlags
                                         &= ~ItemInfoWithIcon.FLAG_INSTALL_SESSION_ACTIVE;
-                            } else if (activityInfo == null
-                                    // For archived apps, include progress info in case there is
-                                    // a pending install session post restart of device.
-                                    || (enableSupportForArchiving()
-                                    && activityInfo.getApplicationInfo().isArchived)) {
+                            } else if (activityInfo == null) {
                                 int installProgress = (int) (si.getProgress() * 100);
 
                                 info.setProgressLevel(installProgress,
@@ -1111,8 +1095,6 @@ public class LoaderTask implements Runnable {
             for (int i = 0; i < apps.size(); i++) {
                 LauncherActivityInfo app = apps.get(i);
                 AppInfo appInfo = new AppInfo(app, user, quietMode);
-                // TODO(b/302115555): Handle the case when archived apps with active sessions are
-                //  loaded.
 
                 iconRequestInfos.add(new IconRequestInfo<>(
                         appInfo, app, /* useLowResIcon= */ false));

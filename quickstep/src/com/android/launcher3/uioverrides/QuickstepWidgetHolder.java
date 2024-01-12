@@ -67,6 +67,8 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
 
     private static AppWidgetHost sWidgetHost = null;
 
+    private final SparseArray<AppWidgetHostView> mViews = new SparseArray<>();
+
     private final @Nullable RemoteViews.InteractionHandler mInteractionHandler;
 
     private final @NonNull IntConsumer mAppWidgetRemovedCallback;
@@ -110,12 +112,16 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
 
     @Override
     protected void updateDeferredView() {
+        super.updateDeferredView();
         int count = mPendingUpdateMap.size();
         for (int i = 0; i < count; i++) {
             int widgetId = mPendingUpdateMap.keyAt(i);
             AppWidgetHostView view = mViews.get(widgetId);
+            if (view == null) {
+                continue;
+            }
             PendingUpdate pendingUpdate = mPendingUpdateMap.valueAt(i);
-            if (view == null || pendingUpdate == null) {
+            if (pendingUpdate == null) {
                 continue;
             }
             if (pendingUpdate.providerInfo != null) {
@@ -166,6 +172,7 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
     @Override
     public void deleteAppWidgetId(int appWidgetId) {
         super.deleteAppWidgetId(appWidgetId);
+        mViews.remove(appWidgetId);
         sListeners.remove(appWidgetId);
     }
 
@@ -231,6 +238,7 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
     @Override
     public LauncherAppWidgetHostView createView(@NonNull Context context, int appWidgetId,
             @NonNull LauncherAppWidgetProviderInfo appWidget) {
+
         if (appWidget.isCustomWidget()) {
             LauncherAppWidgetHostView lahv = new LauncherAppWidgetHostView(context);
             lahv.setAppWidget(appWidgetId, appWidget);
@@ -244,6 +252,7 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
         } else {
             widgetView = new LauncherAppWidgetHostView(context);
         }
+        widgetView.setIsWidgetCachingDisabled(true);
         widgetView.setInteractionHandler(mInteractionHandler);
         widgetView.setAppWidget(appWidgetId, appWidget);
         mViews.put(appWidgetId, widgetView);
