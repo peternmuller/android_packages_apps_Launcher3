@@ -21,12 +21,14 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 
 import static com.android.launcher3.LauncherPrefs.ALL_APPS_OVERVIEW_THRESHOLD;
+import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_DELAY;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_END_SCALE_PERCENT;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_ITERATIONS;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_SCALE_EXPONENT;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_START_SCALE_PERCENT;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_SLOP_PERCENTAGE;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_TIMEOUT_MS;
+import static com.android.launcher3.LauncherPrefs.PRIVATE_SPACE_APPS;
 import static com.android.launcher3.settings.SettingsActivity.EXTRA_FRAGMENT_HIGHLIGHT_KEY;
 import static com.android.launcher3.uioverrides.plugins.PluginManagerWrapper.PLUGIN_CHANGED;
 import static com.android.launcher3.uioverrides.plugins.PluginManagerWrapper.pluginEnabledKey;
@@ -66,6 +68,7 @@ import androidx.preference.SeekBarPreference;
 import androidx.preference.SwitchPreference;
 
 import com.android.launcher3.ConstantItem;
+import com.android.launcher3.Flags;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.config.FeatureFlags;
@@ -114,6 +117,9 @@ public class DeveloperOptionsUI {
             addAllAppsFromOverviewCatergory();
         }
         addCustomLpnhCategory();
+        if (Flags.enablePrivateSpace()) {
+            addCustomPrivateAppsCategory();
+        }
     }
 
     private void filterPreferences(String query, PreferenceGroup pg) {
@@ -358,8 +364,16 @@ public class DeveloperOptionsUI {
             category.addPreference(createSeekBarPreference("Haptic hint scale exponent",
                     1, 5, 1, LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_SCALE_EXPONENT));
             category.addPreference(createSeekBarPreference("Haptic hint iterations (12 ms each)",
-                    0, 100, 1, LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_ITERATIONS));
+                    0, 200, 1, LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_ITERATIONS));
+            category.addPreference(createSeekBarPreference("Haptic hint delay (ms)",
+                    0, 400, 1, LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_DELAY));
         }
+    }
+
+    private void addCustomPrivateAppsCategory() {
+        PreferenceCategory category = newCategory("Apps in Private Space Config");
+        category.addPreference(createSeekBarPreference(
+                "Number of Apps to put in private region", 0, 100, 1, PRIVATE_SPACE_APPS));
     }
 
     /**
@@ -392,8 +406,8 @@ public class DeveloperOptionsUI {
         int value = LauncherPrefs.get(getContext()).get(launcherPref);
         seekBarPref.setValue(value);
         // For some reason the initial value is not triggering the summary update, so call manually.
-        seekBarPref.getOnPreferenceChangeListener().onPreferenceChange(seekBarPref, value);
-
+        seekBarPref.setSummary(String.valueOf(scale == 1 ? value
+                : value / (float) scale));
         return seekBarPref;
     }
 

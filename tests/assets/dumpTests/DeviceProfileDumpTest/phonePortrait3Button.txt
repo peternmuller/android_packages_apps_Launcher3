@@ -7,6 +7,7 @@ DeviceProfile:
 	isLandscape:false
 	isMultiWindowMode:false
 	isTwoPanels:false
+	isLeftRightSplit:false
 	windowX: 0.0px (0.0dp)
 	windowY: 0.0px (0.0dp)
 	widthPx: 1080.0px (411.42856dp)
@@ -37,8 +38,8 @@ DeviceProfile:
 	iconSizePx: 147.0px (56.0dp)
 	iconTextSizePx: 38.0px (14.476191dp)
 	iconDrawablePaddingPx: 12.0px (4.571429dp)
-	inv.numFolderRows: 4
-	inv.numFolderColumns: 4
+	numFolderRows: 4
+	numFolderColumns: 4
 	folderCellWidthPx: 195.0px (74.28571dp)
 	folderCellHeightPx: 230.0px (87.61905dp)
 	folderChildIconSizePx: 147.0px (56.0dp)
@@ -55,7 +56,6 @@ DeviceProfile:
 	bottomSheetWorkspaceScale: 1.0
 	bottomSheetDepth: 0.0
 	allAppsShiftRange: 788.0px (300.1905dp)
-	allAppsTopPadding: 0.0px (0.0dp)
 	allAppsOpenDuration: 600
 	allAppsCloseDuration: 300
 	allAppsIconSizePx: 147.0px (56.0dp)
@@ -66,7 +66,9 @@ DeviceProfile:
 	allAppsBorderSpacePxX: 42.0px (16.0dp)
 	allAppsBorderSpacePxY: 42.0px (16.0dp)
 	numShownAllAppsColumns: 5
-	allAppsLeftRightPadding: 0.0px (0.0dp)
+	allAppsPadding.top: 0.0px (0.0dp)
+	allAppsPadding.left: 0.0px (0.0dp)
+	allAppsPadding.right: 0.0px (0.0dp)
 	allAppsLeftRightMargin: 0.0px (0.0dp)
 	hotseatBarSizePx: 294.0px (112.0dp)
 	inv.hotseatColumnSpan: 5

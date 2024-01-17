@@ -49,6 +49,7 @@ import static com.android.launcher3.touch.BothAxesSwipeDetector.DIRECTION_UP;
 import static com.android.launcher3.util.NavigationMode.THREE_BUTTONS;
 import static com.android.launcher3.util.VibratorWrapper.OVERVIEW_HAPTIC;
 import static com.android.launcher3.util.window.RefreshRateTracker.getSingleFrameMs;
+import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 import static com.android.quickstep.views.RecentsView.ADJACENT_PAGE_HORIZONTAL_OFFSET;
 import static com.android.quickstep.views.RecentsView.CONTENT_ALPHA;
 import static com.android.quickstep.views.RecentsView.FULLSCREEN_PROGRESS;
@@ -65,6 +66,7 @@ import android.graphics.PointF;
 import android.view.MotionEvent;
 import android.view.animation.Interpolator;
 
+import com.android.internal.jank.Cuj;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
@@ -83,7 +85,6 @@ import com.android.quickstep.util.AnimatorControllerWithResistance;
 import com.android.quickstep.util.LayoutUtils;
 import com.android.quickstep.util.MotionPauseDetector;
 import com.android.quickstep.util.WorkspaceRevealAnim;
-import com.android.quickstep.views.DesktopTaskView;
 import com.android.quickstep.views.LauncherRecentsView;
 import com.android.quickstep.views.RecentsView;
 import com.android.systemui.shared.system.InteractionJankMonitorWrapper;
@@ -177,7 +178,7 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
         if ((stateFlags & SYSUI_STATE_OVERVIEW_DISABLED) != 0) {
             return false;
         }
-        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
+        if (isDesktopModeSupported()) {
             // TODO(b/268075592): add support for quickswitch to/from desktop
             return false;
         }
@@ -191,8 +192,7 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
     public void onDragStart(boolean start) {
         mMotionPauseDetector.clear();
         if (start) {
-            InteractionJankMonitorWrapper.begin(mRecentsView,
-                    InteractionJankMonitorWrapper.CUJ_QUICK_SWITCH);
+            InteractionJankMonitorWrapper.begin(mRecentsView, Cuj.CUJ_LAUNCHER_QUICK_SWITCH);
 
             mStartState = mLauncher.getStateManager().getState();
 
@@ -328,7 +328,7 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
         if (mMotionPauseDetector.isPaused() && noFling) {
             // Going to Overview.
             cancelAnimations();
-            InteractionJankMonitorWrapper.cancel(InteractionJankMonitorWrapper.CUJ_QUICK_SWITCH);
+            InteractionJankMonitorWrapper.cancel(Cuj.CUJ_LAUNCHER_QUICK_SWITCH);
 
             StateAnimationConfig config = new StateAnimationConfig();
             config.duration = ATOMIC_DURATION_FROM_PAUSED_TO_OVERVIEW;
@@ -446,7 +446,7 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
                     RecentsView.SCROLL_VIBRATION_PRIMITIVE_SCALE,
                     RecentsView.SCROLL_VIBRATION_FALLBACK);
         } else {
-            InteractionJankMonitorWrapper.cancel(InteractionJankMonitorWrapper.CUJ_QUICK_SWITCH);
+            InteractionJankMonitorWrapper.cancel(Cuj.CUJ_LAUNCHER_QUICK_SWITCH);
         }
 
         nonOverviewAnim.setDuration(Math.max(xDuration, yDuration));
@@ -470,7 +470,7 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
                                         : LAUNCHER_UNKNOWN_SWIPEDOWN));
 
         if (targetState == QUICK_SWITCH_FROM_HOME) {
-            InteractionJankMonitorWrapper.end(InteractionJankMonitorWrapper.CUJ_QUICK_SWITCH);
+            InteractionJankMonitorWrapper.end(Cuj.CUJ_LAUNCHER_QUICK_SWITCH);
         }
 
         mLauncher.getStateManager().goToState(targetState, false, forEndCallback(this::clearState));

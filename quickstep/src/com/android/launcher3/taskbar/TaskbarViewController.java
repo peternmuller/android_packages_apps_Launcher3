@@ -22,15 +22,13 @@ import static com.android.launcher3.LauncherAnimUtils.VIEW_ALPHA;
 import static com.android.launcher3.LauncherAnimUtils.VIEW_TRANSLATE_X;
 import static com.android.launcher3.LauncherAnimUtils.VIEW_TRANSLATE_Y;
 import static com.android.launcher3.Utilities.mapRange;
-import static com.android.launcher3.Utilities.squaredHypot;
 import static com.android.launcher3.anim.AnimatedFloat.VALUE;
 import static com.android.launcher3.anim.AnimatorListeners.forEndCallback;
-import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_PINNING;
+import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
+import static com.android.launcher3.config.FeatureFlags.enableTaskbarPinning;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASKBAR_ALLAPPS_BUTTON_TAP;
 import static com.android.launcher3.taskbar.TaskbarPinningController.PINNING_PERSISTENT;
 import static com.android.launcher3.taskbar.TaskbarPinningController.PINNING_TRANSIENT;
-import static com.android.launcher3.taskbar.TaskbarManager.isPhoneButtonNavMode;
-import static com.android.launcher3.taskbar.TaskbarManager.isPhoneMode;
 import static com.android.launcher3.util.MultiPropertyFactory.MULTI_PROPERTY_VALUE;
 import static com.android.launcher3.util.MultiTranslateDelegate.INDEX_TASKBAR_ALIGNMENT_ANIM;
 import static com.android.launcher3.util.MultiTranslateDelegate.INDEX_TASKBAR_PINNING_ANIM;
@@ -43,6 +41,7 @@ import android.animation.ValueAnimator;
 import android.annotation.NonNull;
 import android.graphics.Rect;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Interpolator;
@@ -52,6 +51,7 @@ import androidx.core.graphics.ColorUtils;
 import androidx.core.view.OneShotPreDrawListener;
 
 import com.android.app.animation.Interpolators;
+import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.R;
@@ -189,8 +189,8 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
     public void init(TaskbarControllers controllers) {
         mControllers = controllers;
         mTaskbarView.init(new TaskbarViewCallbacks());
-        mTaskbarView.getLayoutParams().height = isPhoneMode(mActivity.getDeviceProfile())
-                ? mActivity.getResources().getDimensionPixelSize(R.dimen.taskbar_size)
+        mTaskbarView.getLayoutParams().height = mActivity.isPhoneMode()
+                ? mActivity.getResources().getDimensionPixelSize(R.dimen.taskbar_phone_size)
                 : mActivity.getDeviceProfile().taskbarHeight;
 
         mTaskbarIconScaleForStash.updateValue(1f);
@@ -213,13 +213,13 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
 
         mActivity.addOnDeviceProfileChangeListener(mDeviceProfileChangeListener);
 
-        if (TaskbarManager.FLAG_HIDE_NAVBAR_WINDOW) {
+        if (ENABLE_TASKBAR_NAVBAR_UNIFICATION) {
             // This gets modified in NavbarButtonsViewController, but the initial value it reads
             // may be incorrect since it's state gets destroyed on taskbar recreate, so reset here
             mTaskbarIconAlpha.get(ALPHA_INDEX_SMALL_SCREEN)
-                    .animateToValue(isPhoneButtonNavMode(mActivity) ? 0 : 1).start();
+                    .animateToValue(mActivity.isPhoneButtonNavMode() ? 0 : 1).start();
         }
-        if (ENABLE_TASKBAR_PINNING.get()) {
+        if (enableTaskbarPinning()) {
             mTaskbarView.addOnLayoutChangeListener(mTaskbarViewLayoutChangeListener);
         }
     }
@@ -232,7 +232,7 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
     }
 
     public void onDestroy() {
-        if (ENABLE_TASKBAR_PINNING.get()) {
+        if (enableTaskbarPinning()) {
             mTaskbarView.removeOnLayoutChangeListener(mTaskbarViewLayoutChangeListener);
         }
         LauncherAppState.getInstance(mActivity).getModel().removeCallbacks(mModelCallbacks);
@@ -338,6 +338,17 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
         }
     }
 
+    /**
+     * Animate away taskbar icon notification dots during the taskbar pinning animation.
+     */
+    public void animateAwayNotificationDotsDuringTaskbarPinningAnimation() {
+        for (View iconView : mTaskbarView.getIconViews()) {
+            if (iconView instanceof BubbleTextView && ((BubbleTextView) iconView).hasDot()) {
+                ((BubbleTextView) iconView).animateDotScale(0);
+            }
+        }
+    }
+
     private void updateTaskbarIconTranslationXForPinning() {
         View[] iconViews = mTaskbarView.getIconViews();
         float scale = mTaskbarIconTranslationXForPinning.value;
@@ -353,6 +364,10 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
 
         float allAppIconTranslateRange = mapRange(scale, transientTaskbarAllAppsOffset,
                 persistentTaskbarAllAppsOffset);
+
+        if (mIsRtl) {
+            allAppIconTranslateRange *= -1;
+        }
 
         float halfIconCount = iconViews.length / 2.0f;
         for (int iconIndex = 0; iconIndex < iconViews.length; iconIndex++) {
@@ -581,6 +596,11 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
      *                       1 => fully aligned
      */
     public void setLauncherIconAlignment(float alignmentRatio, DeviceProfile launcherDp) {
+        if (mActivity.isPhoneMode()) {
+            mIconAlignControllerLazy = null;
+            return;
+        }
+
         boolean isHotseatIconOnTopWhenAligned =
                 mControllers.uiController.isHotseatIconOnTopWhenAligned();
         boolean isStashed = mControllers.taskbarStashController.isStashed();
@@ -609,11 +629,6 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
      */
     private AnimatorPlaybackController createIconAlignmentController(DeviceProfile launcherDp) {
         PendingAnimation setter = new PendingAnimation(100);
-        if (TaskbarManager.isPhoneMode(launcherDp)) {
-            // No animation for icons in small-screen
-            return setter.createPlaybackController();
-        }
-
         mOnControllerPreCreateCallback.run();
         DeviceProfile taskbarDp = mActivity.getDeviceProfile();
         Rect hotseatPadding = launcherDp.getHotseatLayoutPadding(mActivity);
@@ -659,7 +674,7 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
                 // to avoid icons disappearing rather than fading out visually.
                 setter.setViewAlpha(child, 0, Interpolators.clampToProgress(LINEAR, 0.8f, 1f));
             } else if ((isAllAppsButton && !FeatureFlags.ENABLE_ALL_APPS_BUTTON_IN_HOTSEAT.get())
-                    || (isTaskbarDividerView && ENABLE_TASKBAR_PINNING.get())) {
+                    || (isTaskbarDividerView && enableTaskbarPinning())) {
                 if (!isToHome
                         && mIsHotseatIconOnTopWhenAligned
                         && mIsStashed) {
@@ -714,13 +729,19 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
                 continue;
             }
 
-            int positionInHotseat;
-            if (isAllAppsButton || isTaskbarDividerView) {
-                // Note that there is no All Apps button or taskbar divider view in the hotseat,
+            float positionInHotseat;
+            if (isAllAppsButton) {
+                // Note that there is no All Apps button in the hotseat,
                 // this position is only used as its convenient for animation purposes.
                 positionInHotseat = Utilities.isRtl(child.getResources())
                         ? taskbarDp.numShownHotseatIcons
                         : -1;
+            }  else if (isTaskbarDividerView) {
+                // Note that there is no taskbar divider view in the hotseat,
+                // this position is only used as its convenient for animation purposes.
+                positionInHotseat = Utilities.isRtl(child.getResources())
+                        ? taskbarDp.numShownHotseatIcons - 0.5f
+                        : -0.5f;
             } else if (child.getTag() instanceof ItemInfo) {
                 positionInHotseat = ((ItemInfo) child.getTag()).screenId;
             } else {
@@ -860,54 +881,24 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
             };
         }
 
-        public View.OnLongClickListener getIconOnLongClickListener() {
-            return mControllers.taskbarDragController::startDragOnLongClick;
+        public View.OnTouchListener getTaskbarDividerRightClickListener() {
+            return (v, event) -> {
+                if (event.isFromSource(InputDevice.SOURCE_MOUSE)
+                        && event.getButtonState() == MotionEvent.BUTTON_SECONDARY) {
+                    mControllers.taskbarPinningController.showPinningView(v);
+                    return true;
+                }
+                return false;
+            };
         }
 
-        public View.OnLongClickListener getBackgroundOnLongClickListener() {
-            return view -> mControllers.taskbarStashController
-                    .updateAndAnimateIsManuallyStashedInApp(true);
+        public View.OnLongClickListener getIconOnLongClickListener() {
+            return mControllers.taskbarDragController::startDragOnLongClick;
         }
 
         /** Gets the hover listener for the provided icon view. */
         public View.OnHoverListener getIconOnHoverListener(View icon) {
             return new TaskbarHoverToolTipController(mActivity, mTaskbarView, icon);
-        }
-
-        /**
-         * Get the first chance to handle TaskbarView#onTouchEvent, and return whether we want to
-         * consume the touch so TaskbarView treats it as an ACTION_CANCEL.
-         * TODO(b/270395798): We can remove this entirely once we remove the Transient Taskbar flag.
-         */
-        public boolean onTouchEvent(MotionEvent motionEvent) {
-            final float x = motionEvent.getRawX();
-            final float y = motionEvent.getRawY();
-            switch (motionEvent.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    mDownX = x;
-                    mDownY = y;
-                    mControllers.taskbarStashController.startStashHint(/* animateForward = */ true);
-                    mCanceledStashHint = false;
-                    break;
-                case MotionEvent.ACTION_MOVE:
-                    if (!mCanceledStashHint
-                            && squaredHypot(mDownX - x, mDownY - y) > mSquaredTouchSlop) {
-                        mControllers.taskbarStashController.startStashHint(
-                                /* animateForward= */ false);
-                        mCanceledStashHint = true;
-                        return true;
-                    }
-                    break;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    if (!mCanceledStashHint) {
-                        mControllers.taskbarStashController.startStashHint(
-                                /* animateForward= */ false);
-                    }
-                    break;
-            }
-
-            return false;
         }
 
         /**

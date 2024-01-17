@@ -15,8 +15,8 @@
  */
 package com.android.launcher3.touch;
 
-import static com.android.launcher3.Launcher.REQUEST_BIND_PENDING_APPWIDGET;
-import static com.android.launcher3.Launcher.REQUEST_RECONFIGURE_APPWIDGET;
+import static com.android.launcher3.LauncherConstants.ActivityCodes.REQUEST_BIND_PENDING_APPWIDGET;
+import static com.android.launcher3.LauncherConstants.ActivityCodes.REQUEST_RECONFIGURE_APPWIDGET;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_FOLDER_OPEN;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_DISABLED_BY_PUBLISHER;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_DISABLED_LOCKED_USER;
@@ -31,6 +31,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageInstaller.SessionInfo;
+import android.os.Process;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -58,10 +59,13 @@ import com.android.launcher3.pm.InstallSessionHelper;
 import com.android.launcher3.shortcuts.ShortcutKey;
 import com.android.launcher3.testing.TestLogging;
 import com.android.launcher3.testing.shared.TestProtocol;
+import com.android.launcher3.uioverrides.ApiWrapper;
 import com.android.launcher3.util.ItemInfoMatcher;
-import com.android.launcher3.util.PackageManagerHelper;
 import com.android.launcher3.views.FloatingIconView;
+import com.android.launcher3.views.Snackbar;
 import com.android.launcher3.widget.LauncherAppWidgetProviderInfo;
+import com.android.launcher3.widget.PendingAddShortcutInfo;
+import com.android.launcher3.widget.PendingAddWidgetInfo;
 import com.android.launcher3.widget.PendingAppWidgetHostView;
 import com.android.launcher3.widget.WidgetAddFlowHandler;
 import com.android.launcher3.widget.WidgetManagerHelper;
@@ -107,6 +111,16 @@ public class ItemClickHandler {
             }
         } else if (tag instanceof ItemClickProxy) {
             ((ItemClickProxy) tag).onItemClicked(v);
+        } else if (tag instanceof PendingAddShortcutInfo) {
+            CharSequence msg = Utilities.wrapForTts(
+                    launcher.getText(R.string.long_press_shortcut_to_add),
+                    launcher.getString(R.string.long_accessible_way_to_add_shortcut));
+            Snackbar.show(launcher, msg, null);
+        } else if (tag instanceof PendingAddWidgetInfo) {
+            CharSequence msg = Utilities.wrapForTts(
+                    launcher.getText(R.string.long_press_widget_to_add),
+                    launcher.getString(R.string.long_accessible_way_to_add));
+            Snackbar.show(launcher, msg, null);
         }
     }
 
@@ -132,8 +146,8 @@ public class ItemClickHandler {
      */
     private static void onClickAppPairIcon(View v) {
         Launcher launcher = Launcher.getLauncher(v.getContext());
-        FolderInfo folderInfo = ((AppPairIcon) v).getInfo();
-        launcher.launchAppPair(folderInfo.contents.get(0), folderInfo.contents.get(1));
+        AppPairIcon appPairIcon = (AppPairIcon) v;
+        launcher.launchAppPair(appPairIcon);
     }
 
     /**
@@ -194,7 +208,8 @@ public class ItemClickHandler {
                 }
             }
             // Fallback to using custom market intent.
-            Intent intent = new PackageManagerHelper(launcher).getMarketIntent(packageName);
+            Intent intent = ApiWrapper.getAppMarketActivityIntent(launcher,
+                    packageName, Process.myUserHandle());
             launcher.startActivitySafely(v, intent, item);
         };
 
@@ -331,8 +346,8 @@ public class ItemClickHandler {
                 && (((ItemInfoWithIcon) item).runtimeStatusFlags
                 & ItemInfoWithIcon.FLAG_INSTALL_SESSION_ACTIVE) != 0) {
             ItemInfoWithIcon appInfo = (ItemInfoWithIcon) item;
-            intent = new PackageManagerHelper(launcher)
-                    .getMarketIntent(appInfo.getTargetComponent().getPackageName());
+            intent = ApiWrapper.getAppMarketActivityIntent(launcher,
+                    appInfo.getTargetComponent().getPackageName(), Process.myUserHandle());
         } else {
             intent = item.getIntent();
         }

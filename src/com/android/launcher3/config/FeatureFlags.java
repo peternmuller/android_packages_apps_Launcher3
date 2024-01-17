@@ -23,6 +23,7 @@ import static com.android.launcher3.config.FeatureFlags.FlagState.TEAMFOOD;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getDebugFlag;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getIntFlag;
 import static com.android.launcher3.uioverrides.flags.FlagsFactory.getReleaseFlag;
+import static com.android.wm.shell.Flags.enableTaskbarNavbarUnification;
 
 import android.view.ViewConfiguration;
 
@@ -119,6 +120,14 @@ public final class FeatureFlags {
             getReleaseFlag(301680992, "CUSTOM_LPNH_THRESHOLDS", DISABLED,
                     "Add dev options to customize the LPNH trigger slop and milliseconds");
 
+    public static final BooleanFlag ANIMATE_LPNH =
+            getReleaseFlag(308693847, "ANIMATE_LPNH", TEAMFOOD,
+                    "Animates navbar when long pressing");
+
+    public static final BooleanFlag SHRINK_NAV_HANDLE_ON_PRESS =
+            getReleaseFlag(314158312, "SHRINK_NAV_HANDLE_ON_PRESS", DISABLED,
+                    "Shrinks navbar when long pressing if ANIMATE_LPNH is enabled");
+
     public static final IntFlag LPNH_SLOP_PERCENTAGE =
             getIntFlag(301680992, "LPNH_SLOP_PERCENTAGE", 100,
                     "Controls touch slop percentage for lpnh");
@@ -160,10 +169,6 @@ public final class FeatureFlags {
     // TODO(Block 8): Clean up flags
 
     // TODO(Block 9): Clean up flags
-    public static final BooleanFlag UNFOLDED_WIDGET_PICKER = getDebugFlag(301918659,
-            "UNFOLDED_WIDGET_PICKER", DISABLED, "Enable new widget picker that takes "
-                    + "advantage of the unfolded foldable format");
-
     public static final BooleanFlag MULTI_SELECT_EDIT_MODE = getDebugFlag(270709220,
             "MULTI_SELECT_EDIT_MODE", DISABLED, "Enable new multi-select edit mode "
                     + "for home screen");
@@ -192,10 +197,6 @@ public final class FeatureFlags {
             "ENABLE_PARAMETRIZE_REORDER", DISABLED,
             "Enables generating the reorder using a set of parameters");
 
-    public static final BooleanFlag ENABLE_NO_LONG_PRESS_DRAG = getDebugFlag(299748096,
-            "ENABLE_NO_LONG_PRESS_DRAG", DISABLED,
-            "Don't trigger the drag if we are still under long press");
-
     // TODO(Block 12): Clean up flags
     public static final BooleanFlag ENABLE_MULTI_INSTANCE = getDebugFlag(270396680,
             "ENABLE_MULTI_INSTANCE", DISABLED,
@@ -210,15 +211,19 @@ public final class FeatureFlags {
     public static final BooleanFlag NOTIFY_CRASHES = getDebugFlag(270393108, "NOTIFY_CRASHES",
             TEAMFOOD, "Sends a notification whenever launcher encounters an uncaught exception.");
 
-    public static final BooleanFlag ENABLE_TRANSIENT_TASKBAR = getDebugFlag(270395798,
-            "ENABLE_TRANSIENT_TASKBAR", ENABLED, "Enables transient taskbar.");
+    public static final boolean ENABLE_TASKBAR_NAVBAR_UNIFICATION =
+            enableTaskbarNavbarUnification();
 
     // Aconfig migration complete for ENABLE_TASKBAR_NO_RECREATION.
     public static final BooleanFlag ENABLE_TASKBAR_NO_RECREATION = getDebugFlag(299193589,
             "ENABLE_TASKBAR_NO_RECREATION", DISABLED,
             "Enables taskbar with no recreation from lifecycle changes of TaskbarActivityContext.");
     public static boolean enableTaskbarNoRecreate() {
-        return ENABLE_TASKBAR_NO_RECREATION.get() || Flags.enableTaskbarNoRecreate();
+        return ENABLE_TASKBAR_NO_RECREATION.get() || Flags.enableTaskbarNoRecreate()
+                // Task bar pinning and task bar nav bar unification are both dependent on
+                // ENABLE_TASKBAR_NO_RECREATION. We want to turn ENABLE_TASKBAR_NO_RECREATION on
+                // when either of the dependent features is turned on.
+                || ENABLE_TASKBAR_PINNING.get() || ENABLE_TASKBAR_NAVBAR_UNIFICATION;
     }
 
     // TODO(Block 16): Clean up flags
@@ -254,10 +259,6 @@ public final class FeatureFlags {
     public static final BooleanFlag IME_STICKY_SNACKBAR_EDU = getDebugFlag(270391693,
             "IME_STICKY_SNACKBAR_EDU", ENABLED, "Show sticky IME edu in AllApps");
 
-    public static final BooleanFlag ENABLE_PEOPLE_TILE_PREVIEW = getDebugFlag(270391653,
-            "ENABLE_PEOPLE_TILE_PREVIEW", DISABLED,
-            "Experimental: Shows conversation shortcuts on home screen as search results");
-
     public static final BooleanFlag FOLDER_NAME_MAJORITY_RANKING = getDebugFlag(270391638,
             "FOLDER_NAME_MAJORITY_RANKING", ENABLED,
             "Suggests folder names based on majority based ranking.");
@@ -267,18 +268,59 @@ public final class FeatureFlags {
             "Inject fallback app corpus result when AiAi fails to return it.");
 
     public static final BooleanFlag ENABLE_LONG_PRESS_NAV_HANDLE =
-            getReleaseFlag(282993230, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
+            getReleaseFlag(299682306, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
                     "Enables long pressing on the bottom bar nav handle to trigger events.");
 
     public static final BooleanFlag ENABLE_SEARCH_HAPTIC_HINT =
-            getReleaseFlag(303023676, "ENABLE_SEARCH_HAPTIC_HINT", TEAMFOOD,
-                    "Enables haptic hint when long pressing on the bottom bar nav handle.");
+            getReleaseFlag(314005131, "ENABLE_SEARCH_HAPTIC_HINT", ENABLED,
+                    "Enables haptic hint while long pressing on the bottom bar nav handle.");
+
+    public static final BooleanFlag ENABLE_SEARCH_HAPTIC_COMMIT =
+            getReleaseFlag(314005577, "ENABLE_SEARCH_HAPTIC_COMMIT", ENABLED,
+                    "Enables haptic hint at end of long pressing on the bottom bar nav handle.");
+
+    public static final IntFlag LPNH_HAPTIC_HINT_START_SCALE_PERCENT =
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_START_SCALE_PERCENT", 0,
+            "Haptic hint start scale.");
+
+    public static final IntFlag LPNH_HAPTIC_HINT_END_SCALE_PERCENT =
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_END_SCALE_PERCENT", 100,
+            "Haptic hint end scale.");
+
+    public static final IntFlag LPNH_HAPTIC_HINT_SCALE_EXPONENT =
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_SCALE_EXPONENT", 1,
+            "Haptic hint scale exponent.");
+
+    public static final IntFlag LPNH_HAPTIC_HINT_ITERATIONS =
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_ITERATIONS", 50,
+            "Haptic hint number of iterations.");
+
+    public static final BooleanFlag ENABLE_LPNH_DEEP_PRESS =
+            getReleaseFlag(310952290, "ENABLE_LPNH_DEEP_PRESS", ENABLED,
+                    "Long press of nav handle is instantly triggered if deep press is detected.");
+
+    public static final IntFlag LPNH_HAPTIC_HINT_DELAY =
+            getIntFlag(309972570, "LPNH_HAPTIC_HINT_DELAY", 0,
+                    "Delay before haptic hint starts.");
 
     // TODO(Block 17): Clean up flags
-    public static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(270396583,
-            "ENABLE_TASKBAR_PINNING", DISABLED,
+    // Aconfig migration complete for ENABLE_TASKBAR_PINNING.
+    private static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(270396583,
+            "ENABLE_TASKBAR_PINNING", TEAMFOOD,
             "Enables taskbar pinning to allow user to switch between transient and persistent "
                     + "taskbar flavors");
+
+    public static boolean enableTaskbarPinning() {
+        return ENABLE_TASKBAR_PINNING.get() || Flags.enableTaskbarPinning();
+    }
+
+    /**
+     * Use a static boolean to gate the taskbar pinning education step
+     */
+    public static boolean enableTaskbarPinningEdu() {
+        boolean enableTaskbarPinningEdu = false;
+        return enableTaskbarPinning() && enableTaskbarPinningEdu;
+    }
 
     public static final BooleanFlag MOVE_STARTUP_DATA_TO_DEVICE_PROTECTED_STORAGE = getDebugFlag(
             251502424, "ENABLE_BOOT_AWARE_STARTUP_DATA", DISABLED,
@@ -391,11 +433,7 @@ public final class FeatureFlags {
             "USE_LOCAL_ICON_OVERRIDES", ENABLED,
             "Use inbuilt monochrome icons if app doesn't provide one");
 
-    // TODO(Block 28): Clean up flags
-    public static final BooleanFlag ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS =
-            getDebugFlag(270394122, "ENABLE_SPLIT_FROM_FULLSCREEN_SHORTCUT", DISABLED,
-                    "Enable splitting from fullscreen app with keyboard shortcuts");
-
+    // Aconfig migration complete for ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE.
     public static final BooleanFlag ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE = getDebugFlag(
             270393453, "ENABLE_SPLIT_FROM_WORKSPACE_TO_WORKSPACE", DISABLED,
             "Enable initiating split screen from workspace to workspace.");
@@ -438,10 +476,10 @@ public final class FeatureFlags {
 
     // TODO(Block 33): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_RV_PREINFLATION = getDebugFlag(288161355,
-            "ENABLE_ALL_APPS_RV_PREINFLATION", ENABLED,
+            "ENABLE_ALL_APPS_RV_PREINFLATION", TEAMFOOD,
             "Enables preinflating all apps icons to avoid scrolling jank.");
     public static final BooleanFlag ALL_APPS_GONE_VISIBILITY = getDebugFlag(291651514,
-            "ALL_APPS_GONE_VISIBILITY", ENABLED,
+            "ALL_APPS_GONE_VISIBILITY", TEAMFOOD,
             "Set all apps container view's hidden visibility to GONE instead of INVISIBLE.");
 
     // TODO(Block 34): Empty block

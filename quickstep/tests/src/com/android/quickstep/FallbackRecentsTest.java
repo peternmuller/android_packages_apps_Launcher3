@@ -104,7 +104,7 @@ public class FallbackRecentsTest {
         Context context = instrumentation.getContext();
         mDevice = UiDevice.getInstance(instrumentation);
         mDevice.setOrientationNatural();
-        mLauncher = new LauncherInstrumentation();
+        mLauncher = AbstractLauncherUiTest.createLauncherInstrumentation();
         mLauncher.enableDebugTracing();
         // b/143488140
         //mLauncher.enableCheckEventsForSuccessfulGestures();
@@ -131,8 +131,7 @@ public class FallbackRecentsTest {
                     UiDevice.getInstance(getInstrumentation()).executeShellCommand(
                             getLauncherCommand(getLauncherInMyProcess()));
                     // b/143488140
-                    mDevice.pressHome();
-                    mDevice.waitForIdle();
+                    pressHomeAndWaitForOverviewClose();
                 }
             }
         };
@@ -144,7 +143,7 @@ public class FallbackRecentsTest {
                 .around(new TestStabilityRule())
                 .around(new NavigationModeSwitchRule(mLauncher))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
-                .around(viewCaptureRule)
+                // .around(viewCaptureRule) b/315482167
                 .around(new TestIsolationRule(mLauncher, false))
                 .around(setLauncherCommand);
 
@@ -162,7 +161,7 @@ public class FallbackRecentsTest {
     @Before
     public void setUp() {
         mLauncher.onTestStart();
-        AbstractLauncherUiTest.verifyKeyguardInvisible();
+        AbstractLauncherUiTest.onTestStart();
     }
 
     @After
@@ -218,8 +217,15 @@ public class FallbackRecentsTest {
     }
 
     private BaseOverview pressHomeAndGoToOverview() {
-        mDevice.pressHome();
+        pressHomeAndWaitForOverviewClose();
         return mLauncher.getLaunchedAppState().switchToOverview();
+    }
+
+    private void pressHomeAndWaitForOverviewClose() {
+        mDevice.pressHome();
+        Wait.atMost("Recents activity didn't stop",
+                () -> getFromRecents(recents -> !recents.isStarted()),
+                DEFAULT_UI_TIMEOUT, mLauncher);
     }
 
     // b/143488140

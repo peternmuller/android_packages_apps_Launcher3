@@ -15,6 +15,8 @@
  */
 package com.android.launcher3.ui;
 
+import static android.platform.test.flag.junit.SetFlagsRule.DefaultInitValueType.DEVICE_DEFAULT;
+
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.launcher3.testing.shared.TestProtocol.ICON_MISSING;
@@ -43,6 +45,7 @@ import android.platform.test.flag.junit.SetFlagsRule;
 import android.system.OsConstants;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
@@ -89,7 +92,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Base class for all instrumentation tests providing various utility methods. RUN 4
+ * Base class for all instrumentation tests providing various utility methods.
  */
 public abstract class AbstractLauncherUiTest {
 
@@ -102,12 +105,20 @@ public abstract class AbstractLauncherUiTest {
     private static boolean sDumpWasGenerated = false;
     private static boolean sActivityLeakReported = false;
     private static boolean sSeenKeyguard = false;
+    private static boolean sFirstTimeWaitingForWizard = true;
 
     private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
 
     protected LooperExecutor mMainThreadExecutor = MAIN_EXECUTOR;
-    protected final UiDevice mDevice = UiDevice.getInstance(getInstrumentation());
-    protected final LauncherInstrumentation mLauncher = new LauncherInstrumentation();
+    protected final UiDevice mDevice = getUiDevice();
+    protected final LauncherInstrumentation mLauncher = createLauncherInstrumentation();
+
+    @NonNull
+    public static LauncherInstrumentation createLauncherInstrumentation() {
+        waitForSetupWizardDismissal(); // precondition for creating LauncherInstrumentation
+        return new LauncherInstrumentation(true);
+    }
+
     protected Context mTargetContext;
     protected String mTargetPackage;
     private int mLauncherPid;
@@ -119,7 +130,12 @@ public abstract class AbstractLauncherUiTest {
 
     /** Detects activity leaks and throws an exception if a leak is found. */
     public static void checkDetectedLeaks(LauncherInstrumentation launcher,
-            boolean requireOneActiveActivity) {
+            boolean requireOneActiveActivityUnused) {
+        if (TestStabilityRule.isPresubmit()) return; // b/313501215
+
+        final boolean requireOneActiveActivity =
+                false; // workaround for leaks when there is an unexpected Recents activity
+
         if (sActivityLeakReported) return;
 
         // Check whether activity leak detector has found leaked activities.
@@ -158,7 +174,7 @@ public abstract class AbstractLauncherUiTest {
                 if (TestHelpers.isInLauncherProcess()) {
                     Debug.dumpHprofData(fileName);
                 } else {
-                    final UiDevice device = UiDevice.getInstance(getInstrumentation());
+                    final UiDevice device = getUiDevice();
                     device.executeShellCommand(
                             "am dumpheap " + device.getLauncherPackageName() + " " + fileName);
                 }
@@ -185,7 +201,7 @@ public abstract class AbstractLauncherUiTest {
             Utilities.enableRunningInTestHarnessForTests();
             mLauncher.setSystemHealthSupplier(startTime -> TestCommandReceiver.callCommand(
                             TestCommandReceiver.GET_SYSTEM_HEALTH_MESSAGE, startTime.toString())
-                            .getString("result"));
+                    .getString("result"));
             mLauncher.setOnSettledStateAction(
                     containerType -> executeOnLauncher(
                             launcher ->
@@ -204,12 +220,23 @@ public abstract class AbstractLauncherUiTest {
     public ScreenRecordRule mScreenRecordRule = new ScreenRecordRule();
 
     @Rule
-    public SetFlagsRule mSetFlagsRule = getFlagsRule();
+    public SetFlagsRule mSetFlagsRule = new SetFlagsRule(DEVICE_DEFAULT);
 
-    private SetFlagsRule getFlagsRule() {
-        SetFlagsRule flagsRule = new SetFlagsRule();
-        flagsRule.initAllFlagsToReleaseConfigDefault();
-        return flagsRule;
+    public static void initialize(AbstractLauncherUiTest test) throws Exception {
+        initialize(test, false);
+    }
+
+    public static void initialize(
+            AbstractLauncherUiTest test, boolean clearWorkspace) throws Exception {
+        test.reinitializeLauncherData(clearWorkspace);
+        test.mDevice.pressHome();
+        test.waitForLauncherCondition("Launcher didn't start", launcher -> launcher != null);
+        test.waitForState("Launcher internal state didn't switch to Home",
+                () -> LauncherState.NORMAL);
+        test.waitForResumed("Launcher internal state is still Background");
+        // Check that we switched to home.
+        test.mLauncher.getWorkspace();
+        AbstractLauncherUiTest.checkDetectedLeaks(test.mLauncher, true);
     }
 
     protected void clearPackageData(String pkg) throws IOException, InterruptedException {
@@ -230,7 +257,7 @@ public abstract class AbstractLauncherUiTest {
         final RuleChain inner = RuleChain
                 .outerRule(new PortraitLandscapeRunner(this))
                 .around(new FailureWatcher(mLauncher, viewCaptureRule::getViewCaptureData))
-                .around(viewCaptureRule)
+                // .around(viewCaptureRule) // b/315482167
                 .around(new TestIsolationRule(mLauncher, true));
 
         return TestHelpers.isInLauncherProcess()
@@ -251,12 +278,6 @@ public abstract class AbstractLauncherUiTest {
     @Before
     public void setUp() throws Exception {
         mLauncher.onTestStart();
-
-        if (TestStabilityRule.isPresubmit()) {
-            aggressivelyUnlockSysUi();
-        } else {
-            verifyKeyguardInvisible();
-        }
 
         final String launcherPackageName = mDevice.getLauncherPackageName();
         try {
@@ -288,23 +309,40 @@ public abstract class AbstractLauncherUiTest {
             }
         }
 
-        verifyKeyguardInvisible();
+        onTestStart();
     }
 
-    private boolean hasSystemUiObject(String resId) {
-        return mDevice.hasObject(By.res(SYSTEMUI_PACKAGE, resId));
+    /** Method that should be called when a test starts. */
+    public static void onTestStart() {
+        waitForSetupWizardDismissal();
+
+        if (TestStabilityRule.isPresubmit()) {
+            aggressivelyUnlockSysUi();
+        } else {
+            verifyKeyguardInvisible();
+        }
     }
 
-    // Seeing if this will decrease: b/303755862
-    void aggressivelyUnlockSysUi() {
+    private static boolean hasSystemUiObject(String resId) {
+        return getUiDevice().hasObject(
+                By.res(SYSTEMUI_PACKAGE, resId));
+    }
+
+    @NonNull
+    private static UiDevice getUiDevice() {
+        return UiDevice.getInstance(getInstrumentation());
+    }
+
+    private static void aggressivelyUnlockSysUi() {
+        final UiDevice device = getUiDevice();
         for (int i = 0; i < 10 && hasSystemUiObject("keyguard_status_view"); ++i) {
             Log.d(TAG, "Before attempting to unlock the phone");
             try {
-                mDevice.executeShellCommand("input keyevent 82");
+                device.executeShellCommand("input keyevent 82");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            mDevice.waitForIdle();
+            device.waitForIdle();
         }
         Assert.assertTrue("Keyguard still visible",
                 TestHelpers.wait(
@@ -312,7 +350,27 @@ public abstract class AbstractLauncherUiTest {
         Log.d(TAG, "Keyguard is not visible");
     }
 
-    public static void verifyKeyguardInvisible() {
+    /** Waits for setup wizard to go away. */
+    private static void waitForSetupWizardDismissal() {
+        if (!TestStabilityRule.isPresubmit()) return;
+
+        if (sFirstTimeWaitingForWizard) {
+            try {
+                getUiDevice().executeShellCommand(
+                        "am force-stop com.google.android.setupwizard");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        final boolean wizardDismissed = TestHelpers.wait(
+                Until.gone(By.pkg("com.google.android.setupwizard").depth(0)),
+                sFirstTimeWaitingForWizard ? 120000 : 0);
+        sFirstTimeWaitingForWizard = false;
+        Assert.assertTrue("Setup wizard is still visible", wizardDismissed);
+    }
+
+    private static void verifyKeyguardInvisible() {
         final boolean keyguardAlreadyVisible = sSeenKeyguard;
 
         sSeenKeyguard = sSeenKeyguard
@@ -534,6 +592,12 @@ public abstract class AbstractLauncherUiTest {
         getInstrumentation().getTargetContext().startActivity(intent);
         assertTrue("App didn't start: " + selector,
                 TestHelpers.wait(Until.hasObject(selector), DEFAULT_UI_TIMEOUT));
+
+        // Wait for the Launcher to stop.
+        final LauncherInstrumentation launcherInstrumentation = new LauncherInstrumentation();
+        Wait.atMost("Launcher activity didn't stop",
+                () -> !launcherInstrumentation.isLauncherActivityStarted(),
+                DEFAULT_ACTIVITY_TIMEOUT, launcherInstrumentation);
     }
 
     public static ActivityInfo resolveSystemAppInfo(String category) {

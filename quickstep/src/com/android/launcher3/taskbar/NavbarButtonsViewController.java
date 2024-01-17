@@ -23,8 +23,8 @@ import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR_PANEL;
 import static com.android.launcher3.LauncherAnimUtils.ROTATION_DRAWABLE_PERCENT;
 import static com.android.launcher3.LauncherAnimUtils.VIEW_TRANSLATE_X;
 import static com.android.launcher3.Utilities.getDescendantCoordRelativeToAncestor;
+import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
 import static com.android.launcher3.taskbar.LauncherTaskbarUIController.SYSUI_SURFACE_PROGRESS_INDEX;
-import static com.android.launcher3.taskbar.TaskbarManager.isPhoneButtonNavMode;
 import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_A11Y;
 import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_BACK;
 import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_HOME;
@@ -51,6 +51,7 @@ import android.animation.ObjectAnimator;
 import android.annotation.DrawableRes;
 import android.annotation.IdRes;
 import android.annotation.LayoutRes;
+import android.content.Context;
 import android.content.pm.ActivityInfo.Config;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -77,6 +78,8 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+
+import androidx.annotation.Nullable;
 
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.LauncherAnimUtils;
@@ -144,6 +147,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
     private int mState;
 
     private final TaskbarActivityContext mContext;
+    private final @Nullable Context mNavigationBarPanelContext;
     private final WindowManagerProxy mWindowManagerProxy;
     private final FrameLayout mNavButtonsView;
     private final LinearLayout mNavButtonContainer;
@@ -201,8 +205,10 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
     private final RecentsHitboxExtender mHitboxExtender = new RecentsHitboxExtender();
     private ImageView mRecentsButton;
 
-    public NavbarButtonsViewController(TaskbarActivityContext context, FrameLayout navButtonsView) {
+    public NavbarButtonsViewController(TaskbarActivityContext context,
+            @Nullable Context navigationBarPanelContext, FrameLayout navButtonsView) {
         mContext = context;
+        mNavigationBarPanelContext = navigationBarPanelContext;
         mWindowManagerProxy = WindowManagerProxy.INSTANCE.get(mContext);
         mNavButtonsView = navButtonsView;
         mNavButtonContainer = mNavButtonsView.findViewById(R.id.end_nav_buttons);
@@ -231,7 +237,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
         Point p = !mContext.isUserSetupComplete()
                 ? new Point(0, mControllers.taskbarActivityContext.getSetupWindowHeight())
                 : DimensionUtils.getTaskbarPhoneDimensions(deviceProfile, resources,
-                        TaskbarManager.isPhoneMode(deviceProfile));
+                        mContext.isPhoneMode());
         mNavButtonsView.getLayoutParams().height = p.y;
 
         mIsImeRenderingNavButtons =
@@ -297,7 +303,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
             initButtons(mNavButtonContainer, mEndContextualContainer,
                     mControllers.navButtonController);
             updateButtonLayoutSpacing();
-            updateStateForFlag(FLAG_SMALL_SCREEN, isPhoneButtonNavMode(mContext));
+            updateStateForFlag(FLAG_SMALL_SCREEN, mContext.isPhoneButtonNavMode());
 
             mPropertyHolders.add(new StatePropertyHolder(
                     mControllers.taskbarDragLayerController.getNavbarBackgroundAlpha(),
@@ -310,7 +316,8 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
             rotationButton.hide();
             mControllers.rotationButtonController.setRotationButton(rotationButton, null);
         } else {
-            mFloatingRotationButton = new FloatingRotationButton(mContext,
+            mFloatingRotationButton = new FloatingRotationButton(
+                    ENABLE_TASKBAR_NAVBAR_UNIFICATION ? mNavigationBarPanelContext : mContext,
                     R.string.accessibility_rotate_button,
                     R.layout.rotate_suggestion,
                     R.id.rotate_suggestion,
@@ -379,10 +386,12 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
         int navButtonSize = mContext.getResources().getDimensionPixelSize(
                 R.dimen.taskbar_nav_buttons_size);
         boolean isRtl = Utilities.isRtl(mContext.getResources());
-        mPropertyHolders.add(new StatePropertyHolder(
-                mBackButton, flags -> (flags & FLAG_ONLY_BACK_FOR_BOUNCER_VISIBLE) != 0
-                        || (flags & FLAG_KEYGUARD_VISIBLE) != 0,
-                VIEW_TRANSLATE_X, navButtonSize * (isRtl ? -2 : 2), 0));
+        if (!mContext.isPhoneMode()) {
+            mPropertyHolders.add(new StatePropertyHolder(
+                    mBackButton, flags -> (flags & FLAG_ONLY_BACK_FOR_BOUNCER_VISIBLE) != 0
+                            || (flags & FLAG_KEYGUARD_VISIBLE) != 0,
+                    VIEW_TRANSLATE_X, navButtonSize * (isRtl ? -2 : 2), 0));
+        }
 
         // home button
         mHomeButton = addButton(R.drawable.ic_sysbar_home, BUTTON_HOME, navContainer,
@@ -621,7 +630,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
      * Sets the translationY of the nav buttons based on the current device state.
      */
     public void updateNavButtonTranslationY() {
-        if (isPhoneButtonNavMode(mContext)) {
+        if (mContext.isPhoneButtonNavMode()) {
             return;
         }
         final float normalTranslationY = mTaskbarNavButtonTranslationY.value;
@@ -734,15 +743,14 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
         // TODO(b/244231596) we're getting the incorrect kidsMode value in small-screen
         boolean isInKidsMode = mContext.isNavBarKidsModeActive();
 
-        if (TaskbarManager.FLAG_HIDE_NAVBAR_WINDOW) {
+        if (ENABLE_TASKBAR_NAVBAR_UNIFICATION) {
             NavButtonLayoutter navButtonLayoutter =
                     NavButtonLayoutFactory.Companion.getUiLayoutter(
                             dp, mNavButtonsView, mImeSwitcherButton,
                             mControllers.rotationButtonController.getRotationButton(),
                             mA11yButton, res, isInKidsMode, isInSetup, isThreeButtonNav,
-                            TaskbarManager.isPhoneMode(dp),
-                            mWindowManagerProxy.getRotation(mContext));
-            navButtonLayoutter.layoutButtons(dp, isA11yButtonPersistent());
+                            mContext.isPhoneMode(), mWindowManagerProxy.getRotation(mContext));
+            navButtonLayoutter.layoutButtons(mContext, isA11yButtonPersistent());
             updateNavButtonColor();
             return;
         }

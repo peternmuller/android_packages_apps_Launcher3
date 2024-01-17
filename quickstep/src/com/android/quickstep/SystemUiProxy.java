@@ -97,9 +97,11 @@ import com.android.wm.shell.transition.IHomeTransitionListener;
 import com.android.wm.shell.transition.IShellTransitions;
 import com.android.wm.shell.util.GroupedRecentTaskInfo;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  * Holds the reference to SystemUI.
@@ -145,6 +147,9 @@ public class SystemUiProxy implements ISystemUiProxy {
     private IDesktopTaskListener mDesktopTaskListener;
     private final LinkedHashMap<RemoteTransition, TransitionFilter> mRemoteTransitions =
             new LinkedHashMap<>();
+
+    private final List<Runnable> mStateChangeCallbacks = new ArrayList<>();
+
     private IBinder mOriginalTransactionToken = null;
     private IOnBackInvokedCallback mBackToLauncherCallback;
     private IRemoteAnimationRunner mBackToLauncherRunner;
@@ -176,9 +181,12 @@ public class SystemUiProxy implements ISystemUiProxy {
         mContext = context;
         mAsyncHandler = new Handler(UI_HELPER_EXECUTOR.getLooper(), this::handleMessageAsync);
         final Intent baseIntent = new Intent().setPackage(mContext.getPackageName());
+        final ActivityOptions options = ActivityOptions.makeBasic()
+                .setPendingIntentCreatorBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
         mRecentsPendingIntent = PendingIntent.getActivity(mContext, 0, baseIntent,
                 PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT
-                        | Intent.FILL_IN_COMPONENT);
+                        | Intent.FILL_IN_COMPONENT, options.toBundle());
     }
 
     @Override
@@ -263,6 +271,7 @@ public class SystemUiProxy implements ISystemUiProxy {
         setDesktopTaskListener(mDesktopTaskListener);
         setAssistantOverridesRequested(
                 AssistUtils.newInstance(mContext).getSysUiAssistOverrideInvocationTypes());
+        mStateChangeCallbacks.forEach(Runnable::run);
     }
 
     /**
@@ -271,6 +280,20 @@ public class SystemUiProxy implements ISystemUiProxy {
     @MainThread
     public void clearProxy() {
         setProxy(null, null, null, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    /**
+     * Adds a callback to be notified whenever the active state changes
+     */
+    public void addOnStateChangeListener(Runnable callback) {
+        mStateChangeCallbacks.add(callback);
+    }
+
+    /**
+     * Removes a previously added state change callback
+     */
+    public void removeOnStateChangeListener(Runnable callback) {
+        mStateChangeCallbacks.remove(callback);
     }
 
     // TODO(141886704): Find a way to remove this
@@ -393,6 +416,17 @@ public class SystemUiProxy implements ISystemUiProxy {
                 mSystemUiProxy.setAssistantOverridesRequested(invocationTypes);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call setAssistantOverridesRequested", e);
+            }
+        }
+    }
+
+    @Override
+    public void animateNavBarLongPress(boolean isTouchDown, boolean shrink, long durationMs) {
+        if (mSystemUiProxy != null) {
+            try {
+                mSystemUiProxy.animateNavBarLongPress(isTouchDown, shrink, durationMs);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call animateNavBarLongPress", e);
             }
         }
     }
@@ -1066,6 +1100,25 @@ public class SystemUiProxy implements ISystemUiProxy {
     }
 
     /**
+     * Returns a surface which can be used to attach overlays to home task or null if
+     * the task doesn't exist or sysui is not connected
+     */
+    @Nullable
+    public SurfaceControl getHomeTaskOverlayContainer() {
+        // Use a local reference as this method can be called on a worker thread, which can lead
+        // to NullPointer exceptions if mShellTransitions is modified on the main thread.
+        IShellTransitions shellTransitions = mShellTransitions;
+        if (shellTransitions != null) {
+            try {
+                return mShellTransitions.getHomeTaskOverlayContainer();
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call getOverlayContainerForTask", e);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Use SystemUI's transaction-queue instead of Launcher's independent one. This is necessary
      * if Launcher and SystemUI need to coordinate transactions (eg. for shell transitions).
      */
@@ -1209,7 +1262,7 @@ public class SystemUiProxy implements ISystemUiProxy {
         }
         try {
             mBackAnimation.setBackToLauncherCallback(callback, runner);
-        } catch (RemoteException e) {
+        } catch (RemoteException | SecurityException e) {
             Log.e(TAG, "Failed call setBackToLauncherCallback", e);
         }
     }
@@ -1249,19 +1302,21 @@ public class SystemUiProxy implements ISystemUiProxy {
     }
 
     public ArrayList<GroupedRecentTaskInfo> getRecentTasks(int numTasks, int userId) {
-        if (mRecentTasks != null) {
-            try {
-                final GroupedRecentTaskInfo[] rawTasks = mRecentTasks.getRecentTasks(numTasks,
-                        RECENT_IGNORE_UNAVAILABLE, userId);
-                if (rawTasks == null) {
-                    return new ArrayList<>();
-                }
-                return new ArrayList<>(Arrays.asList(rawTasks));
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call getRecentTasks", e);
-            }
+        if (mRecentTasks == null) {
+            Log.w(TAG, "getRecentTasks() failed due to null mRecentTasks");
+            return new ArrayList<>();
         }
-        return new ArrayList<>();
+        try {
+            final GroupedRecentTaskInfo[] rawTasks = mRecentTasks.getRecentTasks(numTasks,
+                    RECENT_IGNORE_UNAVAILABLE, userId);
+            if (rawTasks == null) {
+                return new ArrayList<>();
+            }
+            return new ArrayList<>(Arrays.asList(rawTasks));
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed call getRecentTasks", e);
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -1405,7 +1460,7 @@ public class SystemUiProxy implements ISystemUiProxy {
     public boolean startRecentsActivity(Intent intent, ActivityOptions options,
             RecentsAnimationListener listener) {
         if (mRecentTasks == null) {
-            ActiveGestureLog.INSTANCE.trackEvent(RECENT_TASKS_MISSING);
+            ActiveGestureLog.INSTANCE.addLog("Null mRecentTasks", RECENT_TASKS_MISSING);
             return false;
         }
         final IRecentsAnimationRunner runner = new IRecentsAnimationRunner.Stub() {
@@ -1462,5 +1517,36 @@ public class SystemUiProxy implements ISystemUiProxy {
             Log.e(TAG, "Error querying drag state", e);
             return false;
         }
+    }
+
+    public void dump(PrintWriter pw) {
+        pw.println(TAG + ":");
+
+        pw.println("\tmSystemUiProxy=" + mSystemUiProxy);
+        pw.println("\tmPip=" + mPip);
+        pw.println("\tmPipAnimationListener=" + mPipAnimationListener);
+        pw.println("\tmBubbles=" + mBubbles);
+        pw.println("\tmBubblesListener=" + mBubblesListener);
+        pw.println("\tmSplitScreen=" + mSplitScreen);
+        pw.println("\tmSplitScreenListener=" + mSplitScreenListener);
+        pw.println("\tmSplitSelectListener=" + mSplitSelectListener);
+        pw.println("\tmOneHanded=" + mOneHanded);
+        pw.println("\tmShellTransitions=" + mShellTransitions);
+        pw.println("\tmHomeTransitionListener=" + mHomeTransitionListener);
+        pw.println("\tmStartingWindow=" + mStartingWindow);
+        pw.println("\tmStartingWindowListener=" + mStartingWindowListener);
+        pw.println("\tmSysuiUnlockAnimationController=" + mSysuiUnlockAnimationController);
+        pw.println("\tmLauncherActivityClass=" + mLauncherActivityClass);
+        pw.println("\tmLauncherUnlockAnimationController=" + mLauncherUnlockAnimationController);
+        pw.println("\tmRecentTasks=" + mRecentTasks);
+        pw.println("\tmRecentTasksListener=" + mRecentTasksListener);
+        pw.println("\tmBackAnimation=" + mBackAnimation);
+        pw.println("\tmBackToLauncherCallback=" + mBackToLauncherCallback);
+        pw.println("\tmBackToLauncherRunner=" + mBackToLauncherRunner);
+        pw.println("\tmDesktopMode=" + mDesktopMode);
+        pw.println("\tmDesktopTaskListener=" + mDesktopTaskListener);
+        pw.println("\tmUnfoldAnimation=" + mUnfoldAnimation);
+        pw.println("\tmUnfoldAnimationListener=" + mUnfoldAnimationListener);
+        pw.println("\tmDragAndDrop=" + mDragAndDrop);
     }
 }

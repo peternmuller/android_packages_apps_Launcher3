@@ -16,8 +16,8 @@
 
 package com.android.quickstep.util;
 
-import static com.android.launcher3.config.FeatureFlags.ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS;
 import static com.android.launcher3.util.Executors.MODEL_EXECUTOR;
+import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -34,6 +34,7 @@ import android.graphics.drawable.Drawable;
 import android.os.UserHandle;
 import android.view.View;
 
+import com.android.internal.jank.Cuj;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherAppState;
@@ -44,7 +45,6 @@ import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.IconCache;
 import com.android.launcher3.model.data.PackageItemInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
-import com.android.quickstep.views.DesktopTaskView;
 import com.android.quickstep.views.FloatingTaskView;
 import com.android.quickstep.views.RecentsView;
 import com.android.systemui.shared.system.InteractionJankMonitorWrapper;
@@ -53,7 +53,6 @@ import com.android.systemui.shared.system.InteractionJankMonitorWrapper;
 public class SplitToWorkspaceController {
 
     private final Launcher mLauncher;
-    private final DeviceProfile mDP;
     private final SplitSelectStateController mController;
 
     private final int mHalfDividerSize;
@@ -61,7 +60,6 @@ public class SplitToWorkspaceController {
 
     public SplitToWorkspaceController(Launcher launcher, SplitSelectStateController controller) {
         mLauncher = launcher;
-        mDP = mLauncher.getDeviceProfile();
         mController = controller;
         mIconCache = LauncherAppState.getInstanceNoCreate().getIconCache();
         mHalfDividerSize = mLauncher.getResources().getDimensionPixelSize(
@@ -75,7 +73,8 @@ public class SplitToWorkspaceController {
      * @return {@code true} if we can attempt launch the widget into split, {@code false} otherwise
      *         to allow launcher to handle the click
      */
-    public boolean handleSecondWidgetSelectionForSplit(View view, PendingIntent pendingIntent) {
+    public boolean handleSecondWidgetSelectionForSplit(View view, PendingIntent pendingIntent,
+            Intent remoteResponseIntent) {
         if (shouldIgnoreSecondSplitLaunch()) {
             return false;
         }
@@ -89,7 +88,7 @@ public class SplitToWorkspaceController {
             Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
 
             view.post(() -> {
-                mController.setSecondTask(pendingIntent);
+                mController.setSecondWidget(pendingIntent, remoteResponseIntent);
                 // Convert original widgetView into bitmap to use for animation
                 Canvas canvas = new Canvas(bitmap);
                 view.draw(canvas);
@@ -136,7 +135,8 @@ public class SplitToWorkspaceController {
 
     private void startWorkspaceAnimation(@NonNull View view, @Nullable Bitmap bitmap,
             @Nullable Drawable icon) {
-        boolean isTablet = mLauncher.getDeviceProfile().isTablet;
+        DeviceProfile dp = mLauncher.getDeviceProfile();
+        boolean isTablet = dp.isTablet;
         SplitAnimationTimings timings = AnimUtils.getDeviceSplitToConfirmTimings(isTablet);
         PendingAnimation pendingAnimation = new PendingAnimation(timings.getDuration());
 
@@ -147,7 +147,7 @@ public class SplitToWorkspaceController {
 
         RecentsView recentsView = mLauncher.getOverviewPanel();
         recentsView.getPagedOrientationHandler().getFinalSplitPlaceholderBounds(mHalfDividerSize,
-                mDP, mController.getActiveSplitStagePosition(), firstTaskEndingBounds,
+                dp, mController.getActiveSplitStagePosition(), firstTaskEndingBounds,
                 secondTaskEndingBounds);
 
         FloatingTaskView firstFloatingTaskView = mController.getFirstFloatingTaskView();
@@ -175,8 +175,7 @@ public class SplitToWorkspaceController {
             public void onAnimationEnd(Animator animation) {
                 if (!mIsCancelled) {
                     mController.launchSplitTasks(aBoolean -> cleanUp());
-                    InteractionJankMonitorWrapper.end(
-                            InteractionJankMonitorWrapper.CUJ_SPLIT_SCREEN_ENTER);
+                    InteractionJankMonitorWrapper.end(Cuj.CUJ_SPLIT_SCREEN_ENTER);
                 }
             }
 
@@ -191,9 +190,8 @@ public class SplitToWorkspaceController {
     }
 
     private boolean shouldIgnoreSecondSplitLaunch() {
-        return (!ENABLE_SPLIT_FROM_FULLSCREEN_WITH_KEYBOARD_SHORTCUTS.get()
-                && !FeatureFlags.enableSplitContextually()
-                && !DesktopTaskView.DESKTOP_MODE_SUPPORTED)
+        return (!FeatureFlags.enableSplitContextually()
+                && !isDesktopModeSupported())
                 || !mController.isSplitSelectActive();
     }
 }

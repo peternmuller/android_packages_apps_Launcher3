@@ -133,7 +133,7 @@
     <string name="widgets_list_closed" msgid="6141506579418771922">"ವಿಜೆಟ್ ಪಟ್ಟಿಯನ್ನು ಮುಚ್ಚಲಾಗಿದೆ"</string>
     <string name="action_add_to_workspace" msgid="215894119683164916">"ಹೋಮ್ ಸ್ಕ್ರೀನ್‌ಗೆ ಸೇರಿಸಿ"</string>
     <string name="action_move_here" msgid="2170188780612570250">"ಐಟಂ ಇಲ್ಲಿಗೆ ಸರಿಸಿ"</string>
-    <string name="item_added_to_workspace" msgid="4211073925752213539">"ಮುಖಪುಟ ಪರದೆಗೆ ಐಟಂ ಸೇರಿಸಲಾಗಿದೆ"</string>
+    <string name="item_added_to_workspace" msgid="4211073925752213539">"ಹೋಮ್ ಸ್ಕ್ರೀನ್‌ಗೆ ಐಟಂ ಸೇರಿಸಲಾಗಿದೆ"</string>
     <string name="item_removed" msgid="851119963877842327">"ಐಟಂ ತೆಗೆದುಹಾಕಲಾಗಿದೆ"</string>
     <string name="undo" msgid="4151576204245173321">"ರದ್ದುಮಾಡಿ"</string>
     <string name="action_move" msgid="4339390619886385032">"ಐಟಂ ಸರಿಸಿ"</string>
@@ -172,9 +172,11 @@
     <string name="work_apps_pause_btn_text" msgid="4669288269140620646">"ಕೆಲಸಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆ್ಯಪ್‌ಗಳನ್ನು ವಿರಾಮಗೊಳಿಸಿ"</string>
     <string name="work_apps_enable_btn_text" msgid="1736198302467317371">"ವಿರಾಮವನ್ನು ರದ್ದುಗೊಳಿಸಿ"</string>
     <string name="developer_options_filter_hint" msgid="5896817443635989056">"ಫಿಲ್ಟರ್‌"</string>
-    <string name="search_pref_screen_title" msgid="3258959643336315962">"ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ಹುಡುಕಿ"</string>
-    <string name="search_pref_screen_title_tablet" msgid="5220319680451343959">"ನಿಮ್ಮ ಟ್ಯಾಬ್ಲೆಟ್ ಅನ್ನು ಹುಡುಕಿ"</string>
     <string name="remote_action_failed" msgid="1383965239183576790">"ವಿಫಲವಾಗಿದೆ: <xliff:g id="WHAT">%1$s</xliff:g>"</string>
-    <!-- no translation found for private_space_label (2359721649407947001) -->
-    <skip />
+    <string name="private_space_label" msgid="2359721649407947001">"ಖಾಸಗಿ ಸ್ಪೇಸ್"</string>
+    <string name="ps_container_title" msgid="4391796149519594205">"ಖಾಸಗಿ"</string>
+    <string name="ps_container_settings" msgid="6059734123353320479">"ಖಾಸಗಿ ಸ್ಪೇಸ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
+    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"ಖಾಸಗಿ ಸ್ಪೇಸ್ ಅನ್ನು ಲಾಕ್/ಅನ್‌ಲಾಕ್ ಮಾಡಿ"</string>
+    <string name="ps_container_transition" msgid="8667331812048014412">"ಖಾಸಗಿ ಸ್ಪೇಸ್ ಪರಿವರ್ತನೆಯಾಗುತ್ತಿದೆ"</string>
+    <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"ಓವರ್‌ಫ್ಲೋ"</string>
 </resources>

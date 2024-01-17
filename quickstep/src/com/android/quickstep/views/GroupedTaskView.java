@@ -17,6 +17,7 @@ import android.view.ViewStub;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.internal.jank.Cuj;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
@@ -27,7 +28,6 @@ import com.android.launcher3.util.TransformingTouchDelegate;
 import com.android.quickstep.RecentsModel;
 import com.android.quickstep.TaskIconCache;
 import com.android.quickstep.TaskThumbnailCache;
-import com.android.quickstep.TaskUtils;
 import com.android.quickstep.util.CancellableTask;
 import com.android.quickstep.util.RecentsOrientedState;
 import com.android.quickstep.util.SplitSelectStateController;
@@ -170,7 +170,7 @@ public class GroupedTaskView extends TaskView {
                         (task) -> {
                             setIcon(mIconView2, task.icon);
                             if (enableOverviewIconMenu()) {
-                                setText(mIconView2, TaskUtils.getTitle(getContext(), task));
+                                setText(mIconView2, task.title);
                             }
                             mDigitalWellBeingToast2.initialize(mSecondaryTask);
                             mDigitalWellBeingToast2.setSplitConfiguration(mSplitBoundsConfig);
@@ -247,12 +247,11 @@ public class GroupedTaskView extends TaskView {
         RunnableList endCallback = new RunnableList();
         RecentsView recentsView = getRecentsView();
         // Callbacks run from remote animation when recents animation not currently running
-        InteractionJankMonitorWrapper.begin(this,
-                InteractionJankMonitorWrapper.CUJ_SPLIT_SCREEN_ENTER, "Enter form GroupedTaskView");
+        InteractionJankMonitorWrapper.begin(this, Cuj.CUJ_SPLIT_SCREEN_ENTER,
+                "Enter form GroupedTaskView");
         launchTaskInternal(success -> {
             endCallback.executeAllAndDestroy();
-            InteractionJankMonitorWrapper.end(
-                    InteractionJankMonitorWrapper.CUJ_SPLIT_SCREEN_ENTER);
+            InteractionJankMonitorWrapper.end(Cuj.CUJ_SPLIT_SCREEN_ENTER);
         }, false /* freezeTaskList */, true /*launchingExistingTaskview*/);
 
 
@@ -373,7 +372,20 @@ public class GroupedTaskView extends TaskView {
                                     mActivity.getDeviceProfile().overviewTaskThumbnailTopMarginPx,
                             MeasureSpec.EXACTLY));
         }
-        updateIconPlacement();
+        if (!enableOverviewIconMenu()) {
+            updateIconPlacement();
+            return;
+        }
+
+        if (getRecentsView() == null) {
+            return;
+        }
+
+        int iconMargins = getResources().getDimensionPixelSize(
+                R.dimen.task_thumbnail_icon_menu_start_margin) * 2;
+        ((IconAppChipView) mIconView).setMaxWidth(mSnapshotView.getMeasuredWidth() - iconMargins);
+        ((IconAppChipView) mIconView2).setMaxWidth(mSnapshotView2.getMeasuredWidth() - iconMargins);
+        setOrientationState(getRecentsView().getPagedViewOrientedState());
     }
 
     @Override
@@ -424,7 +436,7 @@ public class GroupedTaskView extends TaskView {
         super.setIconsAndBannersTransitionProgress(progress, invert);
         // Value set by super call
         float scale = mIconView.getAlpha();
-        mIconView2.setAlpha(scale);
+        mIconView2.setContentAlpha(scale);
         mDigitalWellBeingToast2.updateBannerOffset(1f - scale);
     }
 

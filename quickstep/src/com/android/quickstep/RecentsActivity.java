@@ -22,10 +22,12 @@ import static android.view.RemoteAnimationTarget.MODE_OPENING;
 import static com.android.launcher3.QuickstepTransitionManager.RECENTS_LAUNCH_DURATION;
 import static com.android.launcher3.QuickstepTransitionManager.STATUS_BAR_TRANSITION_DURATION;
 import static com.android.launcher3.QuickstepTransitionManager.STATUS_BAR_TRANSITION_PRE_DELAY;
+import static com.android.launcher3.testing.shared.TestProtocol.LAUNCHER_ACTIVITY_STOPPED_MESSAGE;
 import static com.android.launcher3.testing.shared.TestProtocol.OVERVIEW_STATE_ORDINAL;
 import static com.android.quickstep.OverviewComponentObserver.startHomeIntentSafely;
 import static com.android.quickstep.TaskUtils.taskIsATargetWithMode;
 import static com.android.quickstep.TaskViewUtils.createRecentsWindowAnimator;
+import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -81,7 +83,6 @@ import com.android.quickstep.fallback.RecentsState;
 import com.android.quickstep.util.RecentsAtomicAnimationFactory;
 import com.android.quickstep.util.SplitSelectStateController;
 import com.android.quickstep.util.TISBindHelper;
-import com.android.quickstep.views.DesktopTaskView;
 import com.android.quickstep.views.OverviewActionsView;
 import com.android.quickstep.views.RecentsView;
 import com.android.quickstep.views.TaskView;
@@ -95,6 +96,7 @@ import java.util.List;
  * See {@link com.android.quickstep.views.RecentsView}.
  */
 public final class RecentsActivity extends StatefulActivity<RecentsState> {
+    private static final String TAG = "RecentsActivity";
 
     public static final ActivityTracker<RecentsActivity> ACTIVITY_TRACKER =
             new ActivityTracker<>();
@@ -142,7 +144,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
                         systemUiProxy, RecentsModel.INSTANCE.get(this),
                         null /*activityBackCallback*/);
         mDragLayer.recreateControllers();
-        if (DesktopTaskView.DESKTOP_MODE_SUPPORTED) {
+        if (isDesktopModeSupported()) {
             mDesktopRecentsTransitionController = new DesktopRecentsTransitionController(
                     getStateManager(), systemUiProxy, getIApplicationThread(),
                     null /* depthController */
@@ -344,6 +346,8 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
         // Workaround for b/78520668, explicitly trim memory once UI is hidden
         onTrimMemory(TRIM_MEMORY_UI_HIDDEN);
         mFallbackRecentsView.updateLocusId();
+        AccessibilityManagerCompat.sendTestProtocolEventToTest(
+                this, LAUNCHER_ACTIVITY_STOPPED_MESSAGE);
     }
 
     @Override
@@ -428,7 +432,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> {
                 new RemoteAnimationAdapter(runner, HOME_APPEAR_DURATION, 0),
                 new RemoteTransition(runner.toRemoteTransition(), getIApplicationThread(),
                         "StartHomeFromRecents"));
-        startHomeIntentSafely(this, options.toBundle());
+        startHomeIntentSafely(this, options.toBundle(), TAG);
     }
 
     private final RemoteAnimationFactory mAnimationToHomeFactory =

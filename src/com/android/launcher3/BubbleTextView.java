@@ -175,6 +175,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
     @ViewDebug.ExportedProperty(category = "launcher")
     private DotInfo mDotInfo;
     private DotRenderer mDotRenderer;
+    private Locale mCurrentLocale;
     @ViewDebug.ExportedProperty(category = "launcher", deepExport = true)
     protected DotRenderer.DrawParams mDotParams;
     private Animator mDotScaleAnim;
@@ -250,6 +251,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
 
         mDotParams = new DotRenderer.DrawParams();
 
+        mCurrentLocale = context.getResources().getConfiguration().locale;
         setEllipsize(TruncateAt.END);
         setAccessibilityDelegate(mActivity.getAccessibilityDelegate());
         setTextAlpha(1f);
@@ -294,7 +296,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         }
     }
 
-    private void animateDotScale(float... dotScales) {
+    public void animateDotScale(float... dotScales) {
         cancelDotScaleAnim();
         mDotScaleAnim = ObjectAnimator.ofFloat(this, DOT_SCALE_PROPERTY, dotScales);
         mDotScaleAnim.addListener(new AnimatorListenerAdapter() {
@@ -411,10 +413,12 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
      *  Only if actual text can be displayed in two line, the {@code true} value will be effective.
      */
     protected boolean shouldUseTwoLine() {
-        return ((FeatureFlags.enableTwolineAllapps())
-                && (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_PREDICTION_ROW))
-                || (FeatureFlags.ENABLE_TWOLINE_DEVICESEARCH.get()
-                && mDisplay == DISPLAY_SEARCH_RESULT);
+        return (FeatureFlags.enableTwolineAllapps() && isCurrentLanguageEnglish())
+                && (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_PREDICTION_ROW);
+    }
+
+    protected boolean isCurrentLanguageEnglish() {
+        return mCurrentLocale.equals(Locale.US);
     }
 
     @UiThread
@@ -646,7 +650,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         return mForceHideDot;
     }
 
-    private boolean hasDot() {
+    public boolean hasDot() {
         return mDotInfo != null;
     }
 

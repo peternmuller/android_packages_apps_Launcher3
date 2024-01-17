@@ -34,6 +34,7 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.LauncherApps;
+import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -52,6 +53,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.DeviceProfile;
@@ -306,6 +308,33 @@ public interface ActivityContext {
     }
 
     /**
+     * Returns if the connected keyboard is a hardware keyboard.
+     */
+    default boolean isHardwareKeyboard() {
+        return Configuration.KEYBOARD_QWERTY
+                == ((Context) this).getResources().getConfiguration().keyboard;
+    }
+
+    /**
+     * Returns if the software keyboard is hidden. Hardware keyboards do not display on screen by
+     * default.
+     */
+    default boolean isSoftwareKeyboardHidden() {
+        if (isHardwareKeyboard()) {
+            return true;
+        } else {
+            View dragLayer = getDragLayer();
+            WindowInsets insets = dragLayer.getRootWindowInsets();
+            if (insets == null) {
+                return false;
+            }
+            WindowInsetsCompat insetsCompat =
+                    WindowInsetsCompat.toWindowInsetsCompat(insets, dragLayer);
+            return !insetsCompat.isVisible(WindowInsetsCompat.Type.ime());
+        }
+    }
+
+    /**
      * Sends a pending intent animating from a view.
      *
      * @param v View to animate.
@@ -447,7 +476,8 @@ public interface ActivityContext {
     }
 
     default CellPosMapper getCellPosMapper() {
-        return CellPosMapper.DEFAULT;
+        DeviceProfile dp = getDeviceProfile();
+        return new CellPosMapper(dp.isVerticalBarLayout(), dp.numShownHotseatIcons);
     }
 
     /** Whether bubbles are enabled. */

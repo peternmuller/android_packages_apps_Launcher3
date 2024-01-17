@@ -21,7 +21,9 @@ import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR;
 import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR_PANEL;
 
+import static com.android.launcher3.BaseActivity.EVENT_DESTROYED;
 import static com.android.launcher3.LauncherState.OVERVIEW;
+import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
 import static com.android.launcher3.config.FeatureFlags.enableTaskbarNoRecreate;
 import static com.android.launcher3.util.DisplayController.TASKBAR_NOT_DESTROYED_TAG;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
@@ -30,7 +32,6 @@ import static com.android.quickstep.util.SystemActionConstants.ACTION_SHOW_TASKB
 import static com.android.quickstep.util.SystemActionConstants.SYSTEM_ACTION_ID_TASKBAR;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ComponentCallbacks;
 import android.content.Context;
@@ -41,7 +42,6 @@ import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Handler;
-import android.os.SystemProperties;
 import android.os.Trace;
 import android.provider.Settings;
 import android.util.Log;
@@ -61,7 +61,6 @@ import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.taskbar.unfold.NonDestroyableScopedUnfoldTransitionProgressProvider;
 import com.android.launcher3.uioverrides.QuickstepLauncher;
-import com.android.launcher3.util.ActivityLifecycleCallbacksAdapter;
 import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.SettingsCache;
 import com.android.launcher3.util.SimpleBroadcastReceiver;
@@ -72,6 +71,7 @@ import com.android.quickstep.util.AssistUtils;
 import com.android.systemui.shared.system.QuickStepContract;
 import com.android.systemui.unfold.UnfoldTransitionProgressProvider;
 import com.android.systemui.unfold.util.ScopedUnfoldTransitionProgressProvider;
+import com.android.wm.shell.Flags;
 
 import java.io.PrintWriter;
 import java.util.StringJoiner;
@@ -99,9 +99,6 @@ public class TaskbarManager {
             | ActivityInfo.CONFIG_SCREEN_LAYOUT
             | ActivityInfo.CONFIG_SMALLEST_SCREEN_SIZE;
 
-    public static final boolean FLAG_HIDE_NAVBAR_WINDOW =
-            SystemProperties.getBoolean("persist.wm.debug.hide_navbar_window", false);
-
     private static final Uri USER_SETUP_COMPLETE_URI = Settings.Secure.getUriFor(
             Settings.Secure.USER_SETUP_COMPLETE);
 
@@ -109,6 +106,7 @@ public class TaskbarManager {
             Settings.Secure.NAV_BAR_KIDS_MODE);
 
     private final Context mContext;
+    private final @Nullable Context mNavigationBarPanelContext;
     private WindowManager mWindowManager;
     private FrameLayout mTaskbarRootLayout;
     private boolean mAddedWindow;
@@ -145,27 +143,25 @@ public class TaskbarManager {
     private final SimpleBroadcastReceiver mTaskbarBroadcastReceiver =
             new SimpleBroadcastReceiver(this::showTaskbarFromBroadcast);
 
-    private final ActivityLifecycleCallbacksAdapter mLifecycleCallbacks =
-            new ActivityLifecycleCallbacksAdapter() {
-                @Override
-                public void onActivityDestroyed(Activity activity) {
-                    if (mActivity != activity) return;
-                    if (mActivity != null) {
-                        mActivity.removeOnDeviceProfileChangeListener(
-                                mDebugActivityDeviceProfileChanged);
-                        Log.d(TASKBAR_NOT_DESTROYED_TAG,
-                                "unregistering activity lifecycle callbacks from "
-                                        + "onActivityDestroyed.");
-                        mActivity.unregisterActivityLifecycleCallbacks(this);
-                    }
-                    mActivity = null;
-                    debugWhyTaskbarNotDestroyed("clearActivity");
-                    if (mTaskbarActivityContext != null) {
-                        mTaskbarActivityContext.setUIController(TaskbarUIController.DEFAULT);
-                    }
-                    mUnfoldProgressProvider.setSourceProvider(null);
-                }
-            };
+    private final Runnable mActivityOnDestroyCallback = new Runnable() {
+        @Override
+        public void run() {
+            if (mActivity != null) {
+                mActivity.removeOnDeviceProfileChangeListener(
+                        mDebugActivityDeviceProfileChanged);
+                Log.d(TASKBAR_NOT_DESTROYED_TAG,
+                        "unregistering activity lifecycle callbacks from "
+                                + "onActivityDestroyed.");
+                mActivity.removeEventCallback(EVENT_DESTROYED, this);
+            }
+            mActivity = null;
+            debugWhyTaskbarNotDestroyed("clearActivity");
+            if (mTaskbarActivityContext != null) {
+                mTaskbarActivityContext.setUIController(TaskbarUIController.DEFAULT);
+            }
+            mUnfoldProgressProvider.setSourceProvider(null);
+        }
+    };
 
     UnfoldTransitionProgressProvider.TransitionProgressListener mUnfoldTransitionProgressListener =
             new UnfoldTransitionProgressProvider.TransitionProgressListener() {
@@ -201,7 +197,11 @@ public class TaskbarManager {
         Display display =
                 service.getSystemService(DisplayManager.class).getDisplay(DEFAULT_DISPLAY);
         mContext = service.createWindowContext(display,
-                FLAG_HIDE_NAVBAR_WINDOW ? TYPE_NAVIGATION_BAR : TYPE_NAVIGATION_BAR_PANEL, null);
+                ENABLE_TASKBAR_NAVBAR_UNIFICATION ? TYPE_NAVIGATION_BAR : TYPE_NAVIGATION_BAR_PANEL,
+                null);
+        mNavigationBarPanelContext = ENABLE_TASKBAR_NAVBAR_UNIFICATION
+                ? service.createWindowContext(display, TYPE_NAVIGATION_BAR_PANEL, null)
+                : null;
         if (enableTaskbarNoRecreate()) {
             mWindowManager = mContext.getSystemService(WindowManager.class);
             mTaskbarRootLayout = new FrameLayout(mContext) {
@@ -253,7 +253,7 @@ public class TaskbarManager {
                         destroyExistingTaskbar();
                     } else {
                         if (dp != null && isTaskbarPresent(dp)) {
-                            if (FLAG_HIDE_NAVBAR_WINDOW) {
+                            if (ENABLE_TASKBAR_NAVBAR_UNIFICATION) {
                                 // Re-initialize for screen size change? Should this be done
                                 // by looking at screen-size change flag in configDiff in the
                                 // block above?
@@ -298,7 +298,7 @@ public class TaskbarManager {
         debugWhyTaskbarNotDestroyed("destroyExistingTaskbar: " + mTaskbarActivityContext);
         if (mTaskbarActivityContext != null) {
             mTaskbarActivityContext.onDestroy();
-            if (!FLAG_HIDE_NAVBAR_WINDOW || enableTaskbarNoRecreate()) {
+            if (!ENABLE_TASKBAR_NAVBAR_UNIFICATION || enableTaskbarNoRecreate()) {
                 mTaskbarActivityContext = null;
             }
         }
@@ -371,7 +371,7 @@ public class TaskbarManager {
         mActivity.addOnDeviceProfileChangeListener(mDebugActivityDeviceProfileChanged);
         Log.d(TASKBAR_NOT_DESTROYED_TAG,
                 "registering activity lifecycle callbacks from setActivity().");
-        mActivity.registerActivityLifecycleCallbacks(mLifecycleCallbacks);
+        mActivity.addEventCallback(EVENT_DESTROYED, mActivityOnDestroyCallback);
         UnfoldTransitionProgressProvider unfoldTransitionProgressProvider =
                 getUnfoldTransitionProgressProviderForActivity(activity);
         if (unfoldTransitionProgressProvider != null) {
@@ -430,7 +430,7 @@ public class TaskbarManager {
             boolean isTaskbarEnabled = dp != null && isTaskbarPresent(dp);
             debugWhyTaskbarNotDestroyed("recreateTaskbar: isTaskbarEnabled=" + isTaskbarEnabled
                 + " [dp != null (i.e. mUserUnlocked)]=" + (dp != null)
-                + " FLAG_HIDE_NAVBAR_WINDOW=" + FLAG_HIDE_NAVBAR_WINDOW
+                + " FLAG_HIDE_NAVBAR_WINDOW=" + ENABLE_TASKBAR_NAVBAR_UNIFICATION
                 + " dp.isTaskbarPresent=" + (dp == null ? "null" : dp.isTaskbarPresent));
             if (!isTaskbarEnabled) {
                 SystemUiProxy.INSTANCE.get(mContext)
@@ -439,8 +439,9 @@ public class TaskbarManager {
             }
 
             if (enableTaskbarNoRecreate() || mTaskbarActivityContext == null) {
-                mTaskbarActivityContext = new TaskbarActivityContext(mContext, dp,
-                        mNavButtonController, mUnfoldProgressProvider);
+                mTaskbarActivityContext = new TaskbarActivityContext(mContext,
+                        mNavigationBarPanelContext, dp, mNavButtonController,
+                        mUnfoldProgressProvider);
             } else {
                 mTaskbarActivityContext.updateDeviceProfile(dp);
             }
@@ -491,24 +492,8 @@ public class TaskbarManager {
         }
     }
 
-    /**
-     * @return {@code true} if provided device profile isn't a large screen profile
-     *                      and we are using a single window for taskbar and navbar.
-     */
-    public static boolean isPhoneMode(DeviceProfile deviceProfile) {
-        return TaskbarManager.FLAG_HIDE_NAVBAR_WINDOW && deviceProfile.isPhone;
-    }
-
-    /**
-     * @return {@code true} if {@link #isPhoneMode(DeviceProfile)} is true and we're using
-     *                      3 button-nav
-     */
-    public static boolean isPhoneButtonNavMode(TaskbarActivityContext context) {
-        return isPhoneMode(context.getDeviceProfile()) && context.isThreeButtonNav();
-    }
-
-    private boolean isTaskbarPresent(DeviceProfile deviceProfile) {
-        return FLAG_HIDE_NAVBAR_WINDOW || deviceProfile.isTaskbarPresent;
+    private static boolean isTaskbarPresent(DeviceProfile deviceProfile) {
+        return ENABLE_TASKBAR_NAVBAR_UNIFICATION || deviceProfile.isTaskbarPresent;
     }
 
     public void onRotationProposal(int rotation, boolean isValid) {
@@ -547,7 +532,7 @@ public class TaskbarManager {
             Log.d(TASKBAR_NOT_DESTROYED_TAG,
                     "unregistering activity lifecycle callbacks from "
                             + "removeActivityCallbackAndListeners().");
-            mActivity.unregisterActivityLifecycleCallbacks(mLifecycleCallbacks);
+            mActivity.removeEventCallback(EVENT_DESTROYED, mActivityOnDestroyCallback);
             UnfoldTransitionProgressProvider unfoldTransitionProgressProvider =
                     getUnfoldTransitionProgressProviderForActivity(mActivity);
             if (unfoldTransitionProgressProvider != null) {

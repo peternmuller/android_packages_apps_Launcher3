@@ -18,6 +18,8 @@ package com.android.launcher3.taskbar;
 import static android.view.KeyEvent.ACTION_UP;
 import static android.view.KeyEvent.KEYCODE_BACK;
 
+import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.RectF;
@@ -104,7 +106,7 @@ public class TaskbarDragLayer extends BaseDragLayer<TaskbarActivityContext> {
 
     public void init(TaskbarDragLayerController.TaskbarDragLayerCallbacks callbacks) {
         mControllerCallbacks = callbacks;
-        mBackgroundRenderer.updateStashedHandleWidth(mActivity.getDeviceProfile(), getResources());
+        mBackgroundRenderer.updateStashedHandleWidth(mActivity, getResources());
         recreateControllers();
     }
 
@@ -126,7 +128,7 @@ public class TaskbarDragLayer extends BaseDragLayer<TaskbarActivityContext> {
     }
 
     protected void onDestroy() {
-        onDestroy(!TaskbarManager.FLAG_HIDE_NAVBAR_WINDOW);
+        onDestroy(!ENABLE_TASKBAR_NAVBAR_UNIFICATION);
     }
 
     @Override
