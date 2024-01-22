@@ -40,6 +40,7 @@ import static com.android.launcher3.model.data.ItemInfo.NO_MATCHING_ID;
 import static com.android.launcher3.popup.QuickstepSystemShortcut.getSplitSelectShortcutByPosition;
 import static com.android.launcher3.popup.SystemShortcut.APP_INFO;
 import static com.android.launcher3.popup.SystemShortcut.INSTALL;
+import static com.android.launcher3.popup.SystemShortcut.PRIVATE_PROFILE_INSTALL;
 import static com.android.launcher3.popup.SystemShortcut.WIDGETS;
 import static com.android.launcher3.taskbar.LauncherTaskbarUIController.ALL_APPS_PAGE_PROGRESS_INDEX;
 import static com.android.launcher3.taskbar.LauncherTaskbarUIController.MINUS_ONE_PAGE_PROGRESS_INDEX;
@@ -84,6 +85,7 @@ import android.widget.TextClock;
 import android.window.BackEvent;
 import android.window.OnBackAnimationCallback;
 import android.window.OnBackInvokedDispatcher;
+import android.window.RemoteTransition;
 import android.window.SplashScreen;
 
 import androidx.annotation.BinderThread;
@@ -94,6 +96,7 @@ import androidx.annotation.RequiresApi;
 import com.android.app.viewcapture.SettingsAwareViewCapture;
 import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.DeviceProfile;
+import com.android.launcher3.Flags;
 import com.android.launcher3.HomeTransitionController;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherSettings.Favorites;
@@ -414,6 +417,10 @@ public class QuickstepLauncher extends Launcher {
         shortcuts.addAll(getSplitShortcuts());
         shortcuts.add(WIDGETS);
         shortcuts.add(INSTALL);
+
+        if (Flags.enablePrivateSpaceInstallShortcut()) {
+            shortcuts.add(PRIVATE_PROFILE_INSTALL);
+        }
         return shortcuts.stream();
     }
 
@@ -1271,7 +1278,8 @@ public class QuickstepLauncher extends Launcher {
     /**
      * Launches the given {@link GroupTask} in splitscreen.
      */
-    public void launchSplitTasks(@NonNull GroupTask groupTask) {
+    public void launchSplitTasks(
+            @NonNull GroupTask groupTask, @Nullable RemoteTransition remoteTransition) {
         // Top/left and bottom/right tasks respectively.
         Task task1 = groupTask.task1;
         // task2 should never be null when calling this method. Allow a crash to catch invalid calls
@@ -1285,7 +1293,8 @@ public class QuickstepLauncher extends Launcher {
                 /* freezeTaskList= */ false,
                 groupTask.mSplitBounds == null
                         ? SNAP_TO_50_50
-                        : groupTask.mSplitBounds.snapPosition);
+                        : groupTask.mSplitBounds.snapPosition,
+                remoteTransition);
     }
 
     /**

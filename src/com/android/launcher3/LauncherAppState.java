@@ -44,6 +44,7 @@ import com.android.launcher3.icons.IconCache;
 import com.android.launcher3.icons.IconProvider;
 import com.android.launcher3.icons.LauncherIconProvider;
 import com.android.launcher3.icons.LauncherIcons;
+import com.android.launcher3.model.ModelLauncherCallbacks;
 import com.android.launcher3.notification.NotificationListener;
 import com.android.launcher3.pm.InstallSessionHelper;
 import com.android.launcher3.pm.InstallSessionTracker;
@@ -56,6 +57,7 @@ import com.android.launcher3.util.SafeCloseable;
 import com.android.launcher3.util.SettingsCache;
 import com.android.launcher3.util.SimpleBroadcastReceiver;
 import com.android.launcher3.util.Themes;
+import com.android.launcher3.util.TraceHelper;
 import com.android.launcher3.widget.custom.CustomWidgetManager;
 
 public class LauncherAppState implements SafeCloseable {
@@ -71,6 +73,8 @@ public class LauncherAppState implements SafeCloseable {
     private final LauncherIconProvider mIconProvider;
     private final IconCache mIconCache;
     private final InvariantDeviceProfile mInvariantDeviceProfile;
+    private boolean mIsSafeModeEnabled;
+
     private final RunnableList mOnTerminateCallback = new RunnableList();
 
     public static LauncherAppState getInstance(final Context context) {
@@ -90,15 +94,18 @@ public class LauncherAppState implements SafeCloseable {
         Log.v(Launcher.TAG, "LauncherAppState initiated");
         Preconditions.assertUIThread();
 
+        mIsSafeModeEnabled = TraceHelper.allowIpcs("isSafeMode",
+                () -> context.getPackageManager().isSafeMode());
         mInvariantDeviceProfile.addOnChangeListener(modelPropertiesChanged -> {
             if (modelPropertiesChanged) {
                 refreshAndReloadLauncher();
             }
         });
 
-        mContext.getSystemService(LauncherApps.class).registerCallback(mModel);
+        ModelLauncherCallbacks callbacks = mModel.newModelCallbacks();
+        mContext.getSystemService(LauncherApps.class).registerCallback(callbacks);
         mOnTerminateCallback.add(() ->
-                mContext.getSystemService(LauncherApps.class).unregisterCallback(mModel));
+                mContext.getSystemService(LauncherApps.class).unregisterCallback(callbacks));
 
         SimpleBroadcastReceiver modelChangeReceiver =
                 new SimpleBroadcastReceiver(mModel::onBroadcastIntent);
@@ -222,6 +229,10 @@ public class LauncherAppState implements SafeCloseable {
 
     public InvariantDeviceProfile getInvariantDeviceProfile() {
         return mInvariantDeviceProfile;
+    }
+
+    public boolean isSafeModeEnabled() {
+        return mIsSafeModeEnabled;
     }
 
     /**
