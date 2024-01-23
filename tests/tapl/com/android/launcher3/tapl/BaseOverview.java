@@ -140,8 +140,19 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
                 flingForwardImpl();
             }
 
-            mLauncher.clickLauncherObject(
-                    mLauncher.waitForObjectInContainer(verifyActiveContainer(), clearAllSelector));
+            final Runnable clickClearAll = () -> mLauncher.clickLauncherObject(
+                    mLauncher.waitForObjectInContainer(verifyActiveContainer(),
+                            clearAllSelector));
+            if (mLauncher.is3PLauncher()) {
+                mLauncher.executeAndWaitForLauncherStop(
+                        clickClearAll,
+                        "clicking 'Clear All'");
+            } else {
+                mLauncher.runToState(
+                        clickClearAll,
+                        NORMAL_STATE_ORDINAL,
+                        "clicking 'Clear All'");
+            }
 
             mLauncher.waitUntilLauncherObjectGone(clearAllSelector);
         }
@@ -162,9 +173,12 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
 
             OverviewTask currentTask = flingToFirstTask();
 
-            mLauncher.touchOutsideContainer(currentTask.getUiObject(),
-                    /* tapRight= */ true,
-                    /* halfwayToEdge= */ false);
+            mLauncher.runToState(
+                    () -> mLauncher.touchOutsideContainer(currentTask.getUiObject(),
+                            /* tapRight= */ true,
+                            /* halfwayToEdge= */ false),
+                    NORMAL_STATE_ORDINAL,
+                    "touching outside of first task");
 
             return new Workspace(mLauncher);
         }
@@ -197,11 +211,15 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
     public void touchTaskbarBottomCorner(boolean tapRight) {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
             Taskbar taskbar = new Taskbar(mLauncher);
-            taskbar.touchBottomCorner(tapRight);
             if (mLauncher.isTransientTaskbar()) {
+                mLauncher.runToState(
+                        () -> taskbar.touchBottomCorner(tapRight),
+                        NORMAL_STATE_ORDINAL,
+                        "touching taskbar");
                 // Tapping outside Transient Taskbar returns to Workspace, wait for that state.
                 new Workspace(mLauncher);
             } else {
+                taskbar.touchBottomCorner(tapRight);
                 // Should stay in Overview.
                 verifyActiveContainer();
                 verifyActionsViewVisibility();

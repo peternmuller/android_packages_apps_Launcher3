@@ -385,8 +385,8 @@ public final class LauncherInstrumentation {
                 .getParcelable(TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
 
-    Insets getImeInsets() {
-        return getTestInfo(TestProtocol.REQUEST_IME_INSETS)
+    Insets getSystemGestureRegion() {
+        return getTestInfo(TestProtocol.REQUEST_SYSTEM_GESTURE_REGION)
                 .getParcelable(TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
 
@@ -1027,17 +1027,25 @@ public final class LauncherInstrumentation {
             return;
         }
 
-        linearGesture(
-                displaySize.x / 2, displaySize.y - 1,
-                displaySize.x / 2, 0,
-                ZERO_BUTTON_STEPS_FROM_BACKGROUND_TO_HOME,
-                false, GestureScope.EXPECT_PILFER);
+        if (isLauncher3()) {
+            gestureToDismissPopup(displaySize);
+        } else {
+            runToState(() -> gestureToDismissPopup(displaySize), NORMAL_STATE_ORDINAL, "swiping");
+        }
 
         try (LauncherInstrumentation.Closable c1 = addContextLayer(
                 String.format("Swiped up from floating view %s to home", floatingRes.get()))) {
             waitUntilLauncherObjectGone(floatingRes.get());
             waitForLauncherObject(getAnyObjectSelector());
         }
+    }
+
+    private void gestureToDismissPopup(Point displaySize) {
+        linearGesture(
+                displaySize.x / 2, displaySize.y - 1,
+                displaySize.x / 2, 0,
+                ZERO_BUTTON_STEPS_FROM_BACKGROUND_TO_HOME,
+                false, GestureScope.EXPECT_PILFER);
     }
 
     /**
@@ -1741,32 +1749,38 @@ public final class LauncherInstrumentation {
         final long downTime = SystemClock.uptimeMillis();
         final Point start = new Point(startX, startY);
         final Point end = new Point(endX, endY);
+        long endTime = downTime;
         sendPointer(downTime, downTime, MotionEvent.ACTION_DOWN, start, gestureScope);
-        if (mTrackpadGestureType != TrackpadGestureType.NONE) {
-            sendPointer(downTime, downTime, getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 1),
-                    start, gestureScope);
-            if (mTrackpadGestureType == TrackpadGestureType.THREE_FINGER
-                    || mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
+        try {
+
+            if (mTrackpadGestureType != TrackpadGestureType.NONE) {
                 sendPointer(downTime, downTime,
-                        getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 2),
+                        getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 1),
                         start, gestureScope);
-                if (mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
+                if (mTrackpadGestureType == TrackpadGestureType.THREE_FINGER
+                        || mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
                     sendPointer(downTime, downTime,
-                            getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 3),
+                            getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 2),
+                            start, gestureScope);
+                    if (mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
+                        sendPointer(downTime, downTime,
+                                getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 3),
+                                start, gestureScope);
+                    }
+                }
+            }
+            endTime = movePointer(
+                    start, end, steps, false, downTime, downTime, slowDown, gestureScope);
+            if (mTrackpadGestureType != TrackpadGestureType.NONE) {
+                for (int i = mPointerCount; i >= 2; i--) {
+                    sendPointer(downTime, downTime,
+                            getPointerAction(MotionEvent.ACTION_POINTER_UP, i - 1),
                             start, gestureScope);
                 }
             }
+        } finally {
+            sendPointer(downTime, endTime, MotionEvent.ACTION_UP, end, gestureScope);
         }
-        final long endTime = movePointer(
-                start, end, steps, false, downTime, downTime, slowDown, gestureScope);
-        if (mTrackpadGestureType != TrackpadGestureType.NONE) {
-            for (int i = mPointerCount; i >= 2; i--) {
-                sendPointer(downTime, downTime,
-                        getPointerAction(MotionEvent.ACTION_POINTER_UP, i - 1),
-                        start, gestureScope);
-            }
-        }
-        sendPointer(downTime, endTime, MotionEvent.ACTION_UP, end, gestureScope);
     }
 
     private static int getPointerAction(int action, int index) {
@@ -2358,12 +2372,13 @@ public final class LauncherInstrumentation {
                         : containerBounds.left - 1;
             }
             // If IME is visible and overlaps the container bounds, touch above it.
+            final Insets systemGestureRegion = getSystemGestureRegion();
             int bottomBound = Math.min(
                     containerBounds.bottom,
-                    getRealDisplaySize().y - getImeInsets().bottom);
+                    getRealDisplaySize().y - systemGestureRegion.bottom);
             int y = (bottomBound - containerBounds.top) / 2;
             // Do not tap in the status bar.
-            y = Math.max(y, getWindowInsets().top);
+            y = Math.max(y, systemGestureRegion.top);
 
             final long downTime = SystemClock.uptimeMillis();
             final Point tapTarget = new Point(x, y);
