@@ -2,9 +2,11 @@ package com.android.launcher3.popup;
 
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_PRIVATE_SPACE_INSTALL_SYSTEM_SHORTCUT_TAP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_APP_INFO_TAP;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_DONT_SUGGEST_APP_TAP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_WIDGETS_TAP;
 
 import android.app.ActivityOptions;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
@@ -34,6 +36,7 @@ import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.widget.WidgetsBottomSheet;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -236,13 +239,21 @@ public abstract class SystemShortcut<T extends Context & ActivityContext> extend
                     return null;
                 }
                 // Do not show shortcut if an app is already installed to the space
-                ComponentKey targetKey =
-                        new ComponentKey(itemInfo.getTargetComponent(), privateProfileUser);
-                if (launcher.getAppsView().getAppsStore().getApp(targetKey) != null) {
+                ComponentName targetComponent = itemInfo.getTargetComponent();
+                if (launcher.getAppsView()
+                                .getAppsStore()
+                                .getApp(new ComponentKey(targetComponent, privateProfileUser))
+                        != null) {
                     return null;
                 }
 
-                // TODO(b/302666597): do not install app if it's in deny list (e.g. settings)
+                // Do not show shortcut for settings
+                String[] packagesToSkip =
+                        launcher.getResources()
+                                .getStringArray(R.array.skip_private_profile_shortcut_packages);
+                if (Arrays.asList(packagesToSkip).contains(targetComponent.getPackageName())) {
+                    return null;
+                }
 
                 return new InstallToPrivateProfile(
                         launcher, itemInfo, originalView, privateProfileUser);
@@ -311,6 +322,34 @@ public abstract class SystemShortcut<T extends Context & ActivityContext> extend
                     Process.myUserHandle());
             mTarget.startActivitySafely(view, intent, mItemInfo);
             AbstractFloatingView.closeAllOpenViews(mTarget);
+        }
+    }
+
+    public static final Factory<Launcher> DONT_SUGGEST_APP = new Factory<Launcher>() {
+        @Nullable
+        @Override
+        public SystemShortcut<Launcher> getShortcut(Launcher activity, ItemInfo itemInfo,
+                View originalView) {
+            if (!itemInfo.isPredictedItem()) {
+                return null;
+            }
+            return new DontSuggestApp(activity, itemInfo, originalView);
+        }
+    };
+
+    private static class DontSuggestApp extends SystemShortcut<Launcher> {
+        DontSuggestApp(Launcher target, ItemInfo itemInfo,
+                View originalView) {
+            super(R.drawable.ic_block_no_shadow, R.string.dismiss_prediction_label, target,
+                    itemInfo, originalView);
+        }
+
+        @Override
+        public void onClick(View view) {
+            dismissTaskMenuView(mTarget);
+            mTarget.getStatsLogManager().logger()
+                    .withItemInfo(mItemInfo)
+                    .log(LAUNCHER_SYSTEM_SHORTCUT_DONT_SUGGEST_APP_TAP);
         }
     }
 
