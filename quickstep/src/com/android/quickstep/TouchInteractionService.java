@@ -23,6 +23,7 @@ import static android.view.MotionEvent.ACTION_POINTER_DOWN;
 import static android.view.MotionEvent.ACTION_POINTER_UP;
 import static android.view.MotionEvent.ACTION_UP;
 
+import static com.android.launcher3.Flags.enableCursorHoverStates;
 import static com.android.launcher3.Launcher.INTENT_ACTION_ALL_APPS_TOGGLE;
 import static com.android.launcher3.LauncherPrefs.backedUpItem;
 import static com.android.launcher3.MotionEventsUtils.isTrackpadMotionEvent;
@@ -734,7 +735,8 @@ public class TouchInteractionService extends Service {
         final int action = event.getActionMasked();
         // Note this will create a new consumer every mouse click, as after ACTION_UP from the click
         // an ACTION_HOVER_ENTER will fire as well.
-        boolean isHoverActionWithoutConsumer = isHoverActionWithoutConsumer(event);
+        boolean isHoverActionWithoutConsumer = enableCursorHoverStates()
+                && isHoverActionWithoutConsumer(event);
         CompoundString reasonString = action == ACTION_DOWN
                 ? new CompoundString("onMotionEvent: ") : CompoundString.NO_OP;
         if (action == ACTION_DOWN || isHoverActionWithoutConsumer) {
@@ -1003,14 +1005,22 @@ public class TouchInteractionService extends Service {
                     base = new TaskbarUnstashInputConsumer(this, base, mInputMonitorCompat, tac,
                             mOverviewCommandHelper);
                 }
-            } else if (canStartSystemGesture && !previousGestureState.isRecentsAnimationRunning()) {
+            }
+
+            NavHandle navHandle = tac != null ? tac.getNavHandle()
+                    : SystemUiProxy.INSTANCE.get(this);
+            if (canStartSystemGesture && !previousGestureState.isRecentsAnimationRunning()
+                    && navHandle.canNavHandleBeLongPressed()) {
                 reasonString.append(NEWLINE_PREFIX)
                         .append(reasonPrefix)
                         .append(SUBSTRING_PREFIX)
-                        .append("Not running recents animation, ")
-                        .append("using NavHandleLongPressInputConsumer");
+                        .append("Not running recents animation, ");
+                if (tac != null && tac.getNavHandle().canNavHandleBeLongPressed()) {
+                    reasonString.append("stashed handle is long-pressable, ");
+                }
+                reasonString.append("using NavHandleLongPressInputConsumer");
                 base = new NavHandleLongPressInputConsumer(this, base, mInputMonitorCompat,
-                        mDeviceState);
+                        mDeviceState, navHandle);
             }
 
             if (mDeviceState.isBubblesExpanded()) {
