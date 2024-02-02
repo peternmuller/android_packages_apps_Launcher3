@@ -32,12 +32,12 @@ import com.android.launcher3.dragndrop.DragOptions.PreDragCondition;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.folder.Folder;
 import com.android.launcher3.keyboard.KeyboardDragAndDropView;
+import com.android.launcher3.model.data.AppInfo;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
 import com.android.launcher3.model.data.WorkspaceItemFactory;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
-import com.android.launcher3.notification.NotificationListener;
 import com.android.launcher3.popup.ArrowPopup;
 import com.android.launcher3.popup.PopupContainerWithArrow;
 import com.android.launcher3.touch.ItemLongClickListener;
@@ -70,7 +70,6 @@ public class LauncherAccessibilityDelegate extends BaseAccessibilityDelegate<Lau
     protected static final int MOVE_TO_WORKSPACE = R.id.action_move_to_workspace;
     protected static final int RESIZE = R.id.action_resize;
     public static final int DEEP_SHORTCUTS = R.id.action_deep_shortcuts;
-    public static final int SHORTCUTS_AND_NOTIFICATIONS = R.id.action_shortcuts_and_notifications;
 
     public LauncherAccessibilityDelegate(Launcher launcher) {
         super(launcher);
@@ -93,8 +92,6 @@ public class LauncherAccessibilityDelegate extends BaseAccessibilityDelegate<Lau
                 RESIZE, R.string.action_resize, KeyEvent.KEYCODE_R));
         mActions.put(DEEP_SHORTCUTS, new LauncherAction(DEEP_SHORTCUTS,
                 R.string.action_deep_shortcut, KeyEvent.KEYCODE_S));
-        mActions.put(SHORTCUTS_AND_NOTIFICATIONS, new LauncherAction(DEEP_SHORTCUTS,
-                R.string.shortcuts_menu_with_notifications_description, KeyEvent.KEYCODE_S));
     }
 
     @Override
@@ -102,8 +99,7 @@ public class LauncherAccessibilityDelegate extends BaseAccessibilityDelegate<Lau
         // If the request came from keyboard, do not add custom shortcuts as that is already
         // exposed as a direct shortcut
         if (ShortcutUtil.supportsShortcuts(item)) {
-            out.add(mActions.get(NotificationListener.getInstanceIfConnected() != null
-                    ? SHORTCUTS_AND_NOTIFICATIONS : DEEP_SHORTCUTS));
+            out.add(mActions.get(DEEP_SHORTCUTS));
         }
 
         for (ButtonDropTarget target : mContext.getDropTargetBar().getDropTargets()) {
@@ -131,7 +127,8 @@ public class LauncherAccessibilityDelegate extends BaseAccessibilityDelegate<Lau
     }
 
     private boolean supportAddToWorkSpace(ItemInfo item) {
-        return (item instanceof WorkspaceItemFactory)
+        return ((item instanceof AppInfo)
+                    && (((AppInfo) item).runtimeStatusFlags & FLAG_NOT_PINNABLE) == 0)
                 || ((item instanceof WorkspaceItemInfo)
                     && (((WorkspaceItemInfo) item).runtimeStatusFlags & FLAG_NOT_PINNABLE) == 0)
                 || ((item instanceof PendingAddItemInfo)
@@ -188,7 +185,7 @@ public class LauncherAccessibilityDelegate extends BaseAccessibilityDelegate<Lau
                 host.performAccessibilityAction(ACTION_ACCESSIBILITY_FOCUS, null);
             });
             return true;
-        } else if (action == DEEP_SHORTCUTS || action == SHORTCUTS_AND_NOTIFICATIONS) {
+        } else if (action == DEEP_SHORTCUTS) {
             BubbleTextView btv = host instanceof BubbleTextView ? (BubbleTextView) host
                     : (host instanceof BubbleTextHolder
                             ? ((BubbleTextHolder) host).getBubbleText() : null);

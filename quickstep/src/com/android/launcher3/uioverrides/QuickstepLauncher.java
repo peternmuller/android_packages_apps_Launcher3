@@ -21,6 +21,7 @@ import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_OPTIMIZE_MEAS
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED;
 
 import static com.android.app.animation.Interpolators.EMPHASIZED;
+import static com.android.launcher3.Flags.enableUnfoldStateAnimation;
 import static com.android.launcher3.LauncherConstants.SavedInstanceKeys.PENDING_SPLIT_SELECT_INFO;
 import static com.android.launcher3.LauncherConstants.SavedInstanceKeys.RUNTIME_STATE;
 import static com.android.launcher3.LauncherSettings.Animation.DEFAULT_NO_ICON;
@@ -53,6 +54,7 @@ import static com.android.launcher3.testing.shared.TestProtocol.QUICK_SWITCH_STA
 import static com.android.launcher3.util.DisplayController.CHANGE_ACTIVE_SCREEN;
 import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
+import static com.android.quickstep.util.AnimUtils.completeRunnableListCallback;
 import static com.android.quickstep.util.SplitAnimationTimings.TABLET_HOME_TO_SPLIT;
 import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 import static com.android.systemui.shared.system.ActivityManagerWrapper.CLOSE_SYSTEM_WINDOWS_REASON_HOME_KEY;
@@ -66,7 +68,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.res.Configuration;
-import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.hardware.display.DisplayManager;
@@ -74,6 +75,7 @@ import android.media.permission.SafeCloseable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.IRemoteCallback;
 import android.os.SystemProperties;
 import android.os.Trace;
 import android.util.AttributeSet;
@@ -144,7 +146,6 @@ import com.android.launcher3.uioverrides.touchcontrollers.TransposedQuickSwitchT
 import com.android.launcher3.uioverrides.touchcontrollers.TwoButtonNavbarTouchController;
 import com.android.launcher3.util.ActivityOptionsWrapper;
 import com.android.launcher3.util.DisplayController;
-import com.android.launcher3.util.Executors;
 import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.NavigationMode;
 import com.android.launcher3.util.ObjectWrapper;
@@ -170,6 +171,8 @@ import com.android.quickstep.util.SplitSelectStateController;
 import com.android.quickstep.util.SplitToWorkspaceController;
 import com.android.quickstep.util.SplitWithKeyboardShortcutController;
 import com.android.quickstep.util.TISBindHelper;
+import com.android.quickstep.util.unfold.LauncherUnfoldTransitionController;
+import com.android.quickstep.util.unfold.ProxyUnfoldTransitionProvider;
 import com.android.quickstep.views.FloatingTaskView;
 import com.android.quickstep.views.OverviewActionsView;
 import com.android.quickstep.views.RecentsView;
@@ -365,11 +368,21 @@ public class QuickstepLauncher extends Launcher {
     public RunnableList startActivitySafely(View v, Intent intent, ItemInfo item) {
         // Only pause is taskbar controller is not present until the transition (if it exists) ends
         mHotseatPredictionController.setPauseUIUpdate(getTaskbarUIController() == null);
+        Log.d("b/318394698", "startActivitySafely being run, getTaskbarUIController is: "
+                + getTaskbarUIController());
+        PredictionRowView<?> predictionRowView =
+                getAppsView().getFloatingHeaderView().findFixedRowByType(PredictionRowView.class);
+        // Pause the prediction row updates until the transition (if it exists) ends.
+        predictionRowView.setPredictionUiUpdatePaused(true);
         RunnableList result = super.startActivitySafely(v, intent, item);
         if (result == null) {
             mHotseatPredictionController.setPauseUIUpdate(false);
+            predictionRowView.setPredictionUiUpdatePaused(false);
         } else {
-            result.add(() -> mHotseatPredictionController.setPauseUIUpdate(false));
+            result.add(() -> {
+                mHotseatPredictionController.setPauseUIUpdate(false);
+                predictionRowView.setPredictionUiUpdatePaused(false);
+            });
         }
         return result;
     }
@@ -466,7 +479,7 @@ public class QuickstepLauncher extends Launcher {
 
     @Override
     public void bindExtraContainerItems(FixedContainerItems item) {
-        Log.d(TAG, "Bind extra container items");
+        Log.d(TAG, "Bind extra container items. ContainerId = " + item.containerId);
         if (item.containerId == Favorites.CONTAINER_PREDICTION) {
             mAllAppsPredictions = item;
             PredictionRowView<?> predictionRowView =
@@ -712,8 +725,12 @@ public class QuickstepLauncher extends Launcher {
     }
 
     @Override
-    public boolean isSplitSelectionEnabled() {
+    public boolean isSplitSelectionActive() {
         return mSplitSelectStateController.isSplitSelectActive();
+    }
+
+    public boolean areBothSplitAppsConfirmed() {
+        return mSplitSelectStateController.isBothSplitAppsConfirmed();
     }
 
     @Override
@@ -955,9 +972,17 @@ public class QuickstepLauncher extends Launcher {
     }
 
     private void initUnfoldTransitionProgressProvider() {
-        final UnfoldTransitionConfig config = new ResourceUnfoldTransitionConfig();
-        if (config.isEnabled()) {
-            initRemotelyCalculatedUnfoldAnimation(config);
+        if (!enableUnfoldStateAnimation()) {
+            final UnfoldTransitionConfig config = new ResourceUnfoldTransitionConfig();
+            if (config.isEnabled()) {
+                initRemotelyCalculatedUnfoldAnimation(config);
+            }
+        } else {
+            ProxyUnfoldTransitionProvider provider =
+                    SystemUiProxy.INSTANCE.get(this).getUnfoldTransitionProvider();
+            if (provider != null) {
+                new LauncherUnfoldTransitionController(this, provider);
+            }
         }
     }
 
@@ -1115,13 +1140,14 @@ public class QuickstepLauncher extends Launcher {
     @Override
     public ActivityOptionsWrapper makeDefaultActivityOptions(int splashScreenStyle) {
         RunnableList callbacks = new RunnableList();
-        ActivityOptions options = ActivityOptions.makeCustomAnimation(
-                this, 0, 0, Color.TRANSPARENT,
-                Executors.MAIN_EXECUTOR.getHandler(), null,
-                elapsedRealTime -> callbacks.executeAllAndDestroy());
+        ActivityOptions options = ActivityOptions.makeCustomAnimation(this, 0, 0);
         options.setSplashScreenStyle(splashScreenStyle);
         options.setPendingIntentBackgroundActivityStartMode(
                 ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+
+        IRemoteCallback endCallback = completeRunnableListCallback(callbacks);
+        options.setOnAnimationAbortListener(endCallback);
+        options.setOnAnimationFinishedListener(endCallback);
         return new ActivityOptionsWrapper(options, callbacks);
     }
 

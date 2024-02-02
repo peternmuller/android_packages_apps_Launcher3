@@ -43,14 +43,12 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
-import android.annotation.TargetApi;
 import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.Matrix;
 import android.graphics.Matrix.ScaleToFit;
 import android.graphics.Rect;
 import android.graphics.RectF;
-import android.os.Build;
 import android.view.RemoteAnimationTarget;
 import android.view.SurfaceControl;
 import android.view.View;
@@ -94,7 +92,6 @@ import java.util.function.Consumer;
 /**
  * Utility class for helpful methods related to {@link TaskView} objects and their tasks.
  */
-@TargetApi(Build.VERSION_CODES.R)
 public final class TaskViewUtils {
 
     private TaskViewUtils() {}
@@ -196,12 +193,13 @@ public final class TaskViewUtils {
                 remoteTargetHandles = gluer.assignTargets(targets);
             }
         }
+
         final int recentsActivityRotation =
                 recentsView.getPagedViewOrientedState().getRecentsActivityRotation();
-        for (RemoteTargetHandle remoteTargetGluer : remoteTargetHandles) {
-            remoteTargetGluer.getTaskViewSimulator().getOrientationState().setRecentsRotation(
-                    recentsActivityRotation);
-            remoteTargetGluer.getTransformParams().setSyncTransactionApplier(applier);
+        for (RemoteTargetHandle remoteTargetHandle : remoteTargetHandles) {
+            remoteTargetHandle.getTaskViewSimulator().getOrientationState()
+                    .setRecentsRotation(recentsActivityRotation);
+            remoteTargetHandle.getTransformParams().setSyncTransactionApplier(applier);
         }
 
         int taskIndex = recentsView.indexOfChild(v);
@@ -393,6 +391,13 @@ public final class TaskViewUtils {
         }
 
         out.addListener(new AnimationSuccessListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+                for (RemoteTargetHandle remoteTargetHandle : remoteTargetHandles) {
+                    remoteTargetHandle.getTaskViewSimulator().setDrawsBelowRecents(false);
+                }
+            }
+
             @Override
             public void onAnimationSuccess(Animator animator) {
                 if (isQuickSwitch) {

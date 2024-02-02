@@ -16,6 +16,8 @@
 
 package com.android.launcher3.allapps;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+
 import static com.android.launcher3.allapps.UserProfileManager.STATE_DISABLED;
 import static com.android.launcher3.allapps.UserProfileManager.STATE_ENABLED;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_PRIVATE_PROFILE_QUIET_MODE_ENABLED;
@@ -31,8 +33,10 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Process;
@@ -43,21 +47,28 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.pm.UserCache;
+import com.android.launcher3.util.ActivityContextWrapper;
 import com.android.launcher3.util.UserIconInfo;
 import com.android.launcher3.util.rule.TestStabilityRule;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 @RunWith(AndroidJUnit4.class)
 public class PrivateProfileManagerTest {
+
+    @Rule(order = 0)
+    public TestRule testStabilityRule = new TestStabilityRule();
 
     private static final UserHandle MAIN_HANDLE = Process.myUserHandle();
     private static final UserHandle PRIVATE_HANDLE = new UserHandle(11);
@@ -84,6 +95,8 @@ public class PrivateProfileManagerTest {
     private AllAppsStore mAllAppsStore;
     @Mock
     private PackageManager mPackageManager;
+    @Mock
+    private LauncherApps mLauncherApps;
 
     private boolean mRunnableCalled = false;
 
@@ -98,6 +111,13 @@ public class PrivateProfileManagerTest {
         when(mActivityAllAppsContainerView.getAppsStore()).thenReturn(mAllAppsStore);
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mPackageManager.resolveActivity(any(), any())).thenReturn(new ResolveInfo());
+        when(mContext.getSystemService(LauncherApps.class)).thenReturn(mLauncherApps);
+        when(mLauncherApps.getAppMarketActivityIntent(any(), any())).thenReturn(PendingIntent
+                .getActivity(new ActivityContextWrapper(getApplicationContext()), 0,
+                        new Intent(), PendingIntent.FLAG_IMMUTABLE).getIntentSender());
+        when(mContext.getPackageName())
+                .thenReturn("com.android.launcher3.tests.privateProfileManager");
+        when(mLauncherApps.getPreInstalledSystemPackages(any())).thenReturn(new ArrayList<>());
         mPrivateProfileManager = new PrivateProfileManager(mUserManager,
                 mActivityAllAppsContainerView, mStatsLogManager, mUserCache);
     }
