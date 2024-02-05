@@ -16,10 +16,8 @@
 
 package com.android.launcher3.appprediction;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -50,7 +48,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@TargetApi(Build.VERSION_CODES.P)
 public class PredictionRowView<T extends Context & ActivityContext>
         extends LinearLayout implements OnDeviceProfileChangeListener, FloatingHeaderRow {
 
@@ -71,6 +68,8 @@ public class PredictionRowView<T extends Context & ActivityContext>
     private FloatingHeaderView mParent;
 
     private boolean mPredictionsEnabled = false;
+
+    private boolean mPredictionUiUpdatePaused = false;
 
     public PredictionRowView(@NonNull Context context) {
         this(context, null);
@@ -193,7 +192,18 @@ public class PredictionRowView<T extends Context & ActivityContext>
         applyPredictionApps();
     }
 
+    /** Pause the prediction row UI update */
+    public void setPredictionUiUpdatePaused(boolean predictionUiUpdatePaused) {
+        mPredictionUiUpdatePaused = predictionUiUpdatePaused;
+        if (!mPredictionUiUpdatePaused) {
+            applyPredictionApps();
+        }
+    }
+
     private void applyPredictionApps() {
+        if (mPredictionUiUpdatePaused) {
+            return;
+        }
         if (getChildCount() != mNumPredictedAppsPerRow) {
             while (getChildCount() > mNumPredictedAppsPerRow) {
                 removeViewAt(0);

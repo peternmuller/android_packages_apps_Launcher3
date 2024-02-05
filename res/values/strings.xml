@@ -402,18 +402,12 @@
 
     <!-- Accessibility action to show quick actions menu for an icon. [CHAR_LIMIT=30] -->
     <string name="action_deep_shortcut">Shortcuts</string>
-    <!-- Accessibility description when the context menu of a launcher icon that has notifications as well as shortcuts (providing quick access to app's actions). The "shortcuts" translation should be consistent with the one for action_deep_shortcut. [CHAR_LIMIT=50] -->
-    <string name="shortcuts_menu_with_notifications_description">Shortcuts and notifications
-    </string>
 
     <!-- Accessibility action to dismiss a notification in the shortcuts menu for an icon. [CHAR_LIMIT=30] -->
     <string name="action_dismiss_notification">Dismiss</string>
 
     <!-- Content description for arrow tip close button. [CHAR LIMIT=NONE] -->
     <string name="accessibility_close">Close</string>
-
-    <!-- Accessibility confirmation for notification being dismissed. -->
-    <string name="notification_dismissed">Notification dismissed</string>
 
     <!-- Label of tab to indicate personal apps -->
     <string name="all_apps_personal_tab">Personal</string>
@@ -453,8 +447,10 @@
     <string name="remote_action_failed">Failed: <xliff:g id="what" example="Pause">%1$s</xliff:g></string>
 
     <!-- Strings for Private Space -->
-    <!-- Private space label -->
+    <!-- Private space tile label -->
     <string name="private_space_label">Private space</string>
+    <!-- Private space tile secondary label -->
+    <string name="private_space_secondary_label">Keep private apps locked and hidden</string>
     <!-- Title for Private Space Container shown at the bottom of all apps drawer -->
     <string name="ps_container_title">Private</string>
     <!-- Description for Private Space Settings button -->
