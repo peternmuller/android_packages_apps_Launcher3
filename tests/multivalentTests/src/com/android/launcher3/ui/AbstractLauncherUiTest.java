@@ -370,7 +370,8 @@ public abstract class AbstractLauncherUiTest {
         Assert.assertTrue("Setup wizard is still visible", wizardDismissed);
     }
 
-    private static void verifyKeyguardInvisible() {
+    /** Asserts that keyguard is not visible */
+    public static void verifyKeyguardInvisible() {
         final boolean keyguardAlreadyVisible = sSeenKeyguard;
 
         sSeenKeyguard = sSeenKeyguard
@@ -598,6 +599,9 @@ public abstract class AbstractLauncherUiTest {
         Wait.atMost("Launcher activity didn't stop",
                 () -> !launcherInstrumentation.isLauncherActivityStarted(),
                 DEFAULT_ACTIVITY_TIMEOUT, launcherInstrumentation);
+
+        // Reset activity stop count.
+        launcherInstrumentation.getAndResetActivityStopCount();
     }
 
     public static ActivityInfo resolveSystemAppInfo(String category) {

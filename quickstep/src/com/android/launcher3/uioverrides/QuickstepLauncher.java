@@ -36,6 +36,7 @@ import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
 import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.sendCustomAccessibilityEvent;
+import static com.android.launcher3.config.FeatureFlags.enableSplitContextually;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_APP_LAUNCH_TAP;
 import static com.android.launcher3.model.data.ItemInfo.NO_MATCHING_ID;
 import static com.android.launcher3.popup.QuickstepSystemShortcut.getSplitSelectShortcutByPosition;
@@ -43,6 +44,7 @@ import static com.android.launcher3.popup.SystemShortcut.APP_INFO;
 import static com.android.launcher3.popup.SystemShortcut.DONT_SUGGEST_APP;
 import static com.android.launcher3.popup.SystemShortcut.INSTALL;
 import static com.android.launcher3.popup.SystemShortcut.PRIVATE_PROFILE_INSTALL;
+import static com.android.launcher3.popup.SystemShortcut.UNINSTALL_APP;
 import static com.android.launcher3.popup.SystemShortcut.WIDGETS;
 import static com.android.launcher3.taskbar.LauncherTaskbarUIController.ALL_APPS_PAGE_PROGRESS_INDEX;
 import static com.android.launcher3.taskbar.LauncherTaskbarUIController.MINUS_ONE_PAGE_PROGRESS_INDEX;
@@ -437,6 +439,9 @@ public class QuickstepLauncher extends Launcher {
         if (Flags.enableShortcutDontSuggestApp()) {
             shortcuts.add(DONT_SUGGEST_APP);
         }
+        if (Flags.enablePrivateSpace()) {
+            shortcuts.add(UNINSTALL_APP);
+        }
         return shortcuts.stream();
     }
 
@@ -672,7 +677,7 @@ public class QuickstepLauncher extends Launcher {
                     splitSelectSource.alreadyRunningTaskId = taskWasFound
                             ? foundTask.key.id
                             : INVALID_TASK_ID;
-                    if (FeatureFlags.enableSplitContextually()) {
+                    if (enableSplitContextually()) {
                         startSplitToHome(splitSelectSource);
                     } else {
                         recentsView.initiateSplitSelect(splitSelectSource);
@@ -757,7 +762,7 @@ public class QuickstepLauncher extends Launcher {
 
         super.onPause();
 
-        if (FeatureFlags.enableSplitContextually()) {
+        if (enableSplitContextually()) {
             // If Launcher pauses before both split apps are selected, exit split screen.
             if (!mSplitSelectStateController.isBothSplitAppsConfirmed() &&
                     !mSplitSelectStateController.isLaunchingFirstAppFullscreen()) {
@@ -1346,6 +1351,15 @@ public class QuickstepLauncher extends Launcher {
     @Override
     public boolean hasBubbles() {
         return (mTaskbarUIController != null && mTaskbarUIController.hasBubbles());
+    }
+
+    @Override
+    public boolean handleIncorrectSplitTargetSelection() {
+        if (enableSplitContextually() && !mSplitSelectStateController.isSplitSelectActive()) {
+            return false;
+        }
+        mSplitSelectStateController.getSplitInstructionsView().goBoing();
+        return true;
     }
 
     private static final class LauncherTaskViewController extends
