@@ -3246,8 +3246,9 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         anim.add(ObjectAnimator.ofFloat(taskView, secondaryViewTranslate,
                 verticalFactor * secondaryTaskDimension * 2).setDuration(duration), LINEAR, sp);
 
-        if (mEnableDrawingLiveTile && taskView.isRunningTask()) {
+        if (taskView.isRunningTask()) {
             anim.addOnFrameCallback(() -> {
+                if (!mEnableDrawingLiveTile) return;
                 runActionOnRemoteHandles(
                         remoteTargetHandle -> remoteTargetHandle.getTaskViewSimulator()
                                 .taskSecondaryTranslation.value = mOrientationHandler
@@ -4381,11 +4382,14 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
 
     private void updatePivots() {
         if (mOverviewSelectEnabled) {
-            getModalTaskSize(mTempRect);
-            Rect selectedTaskPosition = getSelectedTaskBounds();
-
-            Utilities.getPivotsForScalingRectToRect(mTempRect, selectedTaskPosition,
-                    mTempPointF);
+            if (enableGridOnlyOverview()) {
+                getModalTaskSize(mTempRect);
+                Rect selectedTaskPosition = getSelectedTaskBounds();
+                Utilities.getPivotsForScalingRectToRect(mTempRect, selectedTaskPosition,
+                        mTempPointF);
+            } else {
+                mTempPointF.set(mLastComputedTaskSize.centerX(), mLastComputedTaskSize.bottom);
+            }
         } else {
             mTempRect.set(mLastComputedTaskSize);
             // Only update pivot when it is tablet and not in grid yet, so the pivot is correct
@@ -5708,10 +5712,19 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     }
 
     private void updateEnabledOverlays() {
+        TaskView focusedTaskView = getFocusedTaskView();
         int taskCount = getTaskViewCount();
         for (int i = 0; i < taskCount; i++) {
             TaskView taskView = requireTaskViewAt(i);
+            if (taskView == focusedTaskView) {
+                continue;
+            }
             taskView.setOverlayEnabled(mOverlayEnabled && isTaskViewFullyVisible(taskView));
+        }
+        // Focus task overlay should be enabled and refreshed at last
+        if (focusedTaskView != null) {
+            focusedTaskView.setOverlayEnabled(
+                    mOverlayEnabled && isTaskViewFullyVisible(focusedTaskView));
         }
     }
 

@@ -43,7 +43,7 @@ import org.junit.Test;
  * Test that we can open and close the all apps in multiple situations.
  * The test runs in Out of process (Oop) and in process.
  */
-public class TaplOpenCloseAllApps extends AbstractLauncherUiTest {
+public class TaplOpenCloseAllAppsTest extends AbstractLauncherUiTest {
 
     public static final String READ_DEVICE_CONFIG_PERMISSION =
             "android.permission.READ_DEVICE_CONFIG";
@@ -130,6 +130,7 @@ public class TaplOpenCloseAllApps extends AbstractLauncherUiTest {
      */
     @Test
     @PortraitLandscape
+    @PlatinumTest(focusArea = "launcher")
     public void testAllAppsFromHome() {
         // Test opening all apps
         assertNotNull("switchToAllApps() returned null",
@@ -181,10 +182,10 @@ public class TaplOpenCloseAllApps extends AbstractLauncherUiTest {
             executeOnLauncher(launcher -> assertTrue("flingBackward() didn't scroll App Apps",
                     flingBackwardY < flingForwardY));
 
-            // Test scrolling down to YouTube.
-            assertNotNull("All apps: can't find YouTube", allApps.getAppIcon("YouTube"));
-            // Test scrolling up to Camera.
-            assertNotNull("All apps: can't find Camera", allApps.getAppIcon("Camera"));
+            // Test scrolling down to the end of the app list.
+            assertNotNull("All apps: can't find YouTube", allApps.getAppIcon("ZZZ"));
+            // Test scrolling up to the beginning oof the app list.
+            assertNotNull("All apps: can't find Camera", allApps.getAppIcon("AAA"));
             // Test failing to find a non-existing app.
             final AllApps allAppsFinal = allApps;
             expectFail("All apps: could find a non-existing app",

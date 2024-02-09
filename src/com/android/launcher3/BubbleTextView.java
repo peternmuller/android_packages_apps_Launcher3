@@ -22,6 +22,7 @@ import static com.android.launcher3.Flags.enableCursorHoverStates;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_ICON_LABEL_AUTO_SCALING;
 import static com.android.launcher3.graphics.PreloadIconDrawable.newPendingIcon;
 import static com.android.launcher3.icons.BitmapInfo.FLAG_NO_BADGE;
+import static com.android.launcher3.icons.BitmapInfo.FLAG_SKIP_USER_BADGE;
 import static com.android.launcher3.icons.BitmapInfo.FLAG_THEMED;
 import static com.android.launcher3.icons.GraphicsUtils.setColorAlphaBound;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_INCREMENTAL_DOWNLOAD_ACTIVE;
@@ -164,6 +165,8 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
     @ViewDebug.ExportedProperty(category = "launcher")
     private boolean mHideBadge = false;
     @ViewDebug.ExportedProperty(category = "launcher")
+    private boolean mSkipUserBadge = false;
+    @ViewDebug.ExportedProperty(category = "launcher")
     private boolean mIsIconVisible = true;
     @ViewDebug.ExportedProperty(category = "launcher")
     private int mTextColor;
@@ -266,6 +269,10 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
 
     public void setHideBadge(boolean hideBadge) {
         mHideBadge = hideBadge;
+    }
+
+    public void setSkipUserBadge(boolean skipUserBadge) {
+        mSkipUserBadge = skipUserBadge;
     }
 
     /**
@@ -396,6 +403,9 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         // Remove badge on icons smaller than 48dp.
         if (mHideBadge || mDisplay == DISPLAY_SEARCH_RESULT_SMALL) {
             flags |= FLAG_NO_BADGE;
+        }
+        if (mSkipUserBadge) {
+            flags |= FLAG_SKIP_USER_BADGE;
         }
         FastBitmapDrawable iconDrawable = info.newIcon(getContext(), flags);
         mDotParams.appColor = iconDrawable.getIconColor();
@@ -923,7 +933,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
             if (mIcon instanceof PreloadIconDrawable) {
                 preloadIconDrawable = (PreloadIconDrawable) mIcon;
                 preloadIconDrawable.setLevel(progressLevel);
-                preloadIconDrawable.setIsDisabled(info.getProgressLevel() == 0);
+                preloadIconDrawable.setIsDisabled(isIconDisabled(info));
             } else {
                 preloadIconDrawable = makePreloadIcon();
                 setIcon(preloadIconDrawable);
@@ -948,8 +958,16 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         final PreloadIconDrawable preloadDrawable = newPendingIcon(getContext(), info);
 
         preloadDrawable.setLevel(progressLevel);
-        preloadDrawable.setIsDisabled(info.getProgressLevel() == 0);
+        preloadDrawable.setIsDisabled(isIconDisabled(info));
         return preloadDrawable;
+    }
+
+    private boolean isIconDisabled(ItemInfoWithIcon info) {
+        if (info.isArchived()) {
+            return info.getProgressLevel() == 0
+                    && (info.runtimeStatusFlags & FLAG_INSTALL_SESSION_ACTIVE) != 0;
+        }
+        return info.getProgressLevel() == 0;
     }
 
     public void applyDotState(ItemInfo itemInfo, boolean animate) {

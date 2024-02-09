@@ -103,6 +103,7 @@
     <dimen name="all_apps_search_bar_content_overlap">24dp</dimen>
     <dimen name="all_apps_search_bar_bottom_padding">30dp</dimen>
     <dimen name="all_apps_empty_search_message_top_offset">40dp</dimen>
+    <dimen name="all_apps_search_top_row_extra_height">4dp</dimen>
     <dimen name="all_apps_header_pill_height">48dp</dimen>
     <dimen name="all_apps_header_pill_corner_radius">12dp</dimen>
     <dimen name="all_apps_header_tab_height">48dp</dimen>
@@ -155,6 +156,7 @@
     <dimen name="work_edu_card_margin">16dp</dimen>
     <dimen name="work_edu_card_radius">16dp</dimen>
     <dimen name="work_edu_card_bottom_margin">26dp</dimen>
+    <dimen name="work_edu_card_text_end_margin">32dp</dimen>
     <dimen name="work_apps_paused_button_stroke">1dp</dimen>
 
     <dimen name="work_card_margin">24dp</dimen>
@@ -368,6 +370,11 @@
     <!-- Taskbar related (placeholders to compile in Launcher3 without Quickstep) -->
     <dimen name="taskbar_size">0dp</dimen>
     <dimen name="taskbar_phone_size">@*android:dimen/navigation_bar_frame_height</dimen>
+    <dimen name="taskbar_phone_home_button_size">80dp</dimen>
+    <dimen name="taskbar_phone_content_padding">8dp</dimen>
+    <dimen name="taskbar_phone_rounded_corner_content_margin">
+        @*android:dimen/rounded_corner_content_padding
+    </dimen>
     <dimen name="taskbar_stashed_size">0dp</dimen>
     <dimen name="qsb_widget_height">0dp</dimen>
     <dimen name="qsb_shadow_height">0dp</dimen>

@@ -80,6 +80,9 @@ public class ApiWrapper {
                 if (android.os.Flags.allowPrivateProfile() && Flags.enablePrivateSpace()) {
                     LauncherApps launcherApps = context.getSystemService(LauncherApps.class);
                     LauncherUserInfo launcherUserInfo = launcherApps.getLauncherUserInfo(user);
+                    if (launcherUserInfo == null) {
+                        continue;
+                    }
                     // UserTypes not supported in Launcher are deemed to be the current
                     // Foreground User.
                     int userType = switch (launcherUserInfo.getUserType()) {
@@ -129,8 +132,10 @@ public class ApiWrapper {
     public static Intent getAppMarketActivityIntent(Context context, String packageName,
             UserHandle user) {
         LauncherApps launcherApps = context.getSystemService(LauncherApps.class);
-        if (android.os.Flags.allowPrivateProfile() && Flags.enablePrivateSpace()
-                && Flags.privateSpaceAppInstallerButton()) {
+        if (android.os.Flags.allowPrivateProfile()
+                && Flags.enablePrivateSpace()
+                && (Flags.privateSpaceAppInstallerButton()
+                        || Flags.enablePrivateSpaceInstallShortcut())) {
             StartActivityParams params = new StartActivityParams((PendingIntent) null, 0);
             params.intentSender = launcherApps.getAppMarketActivityIntent(packageName, user);
             return ProxyActivityStarter.getLaunchIntent(context, params);

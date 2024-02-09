@@ -23,6 +23,7 @@ import static android.view.MotionEvent.ACTION_POINTER_DOWN;
 import static android.view.MotionEvent.ACTION_POINTER_UP;
 import static android.view.MotionEvent.ACTION_UP;
 
+import static com.android.launcher3.Flags.enableCursorHoverStates;
 import static com.android.launcher3.Launcher.INTENT_ACTION_ALL_APPS_TOGGLE;
 import static com.android.launcher3.LauncherPrefs.backedUpItem;
 import static com.android.launcher3.MotionEventsUtils.isTrackpadMotionEvent;
@@ -86,7 +87,6 @@ import androidx.annotation.UiThread;
 
 import com.android.launcher3.BaseDraggingActivity;
 import com.android.launcher3.ConstantItem;
-import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.EncryptionType;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
@@ -306,6 +306,10 @@ public class TouchInteractionService extends Service {
         @Override
         public void onNavigationBarSurface(SurfaceControl surface) {
             // TODO: implement
+            if (surface != null) {
+                surface.release();
+                surface = null;
+            }
         }
 
         @BinderThread
@@ -367,6 +371,12 @@ public class TouchInteractionService extends Service {
         public void onNavButtonsDarkIntensityChanged(float darkIntensity) {
             executeForTaskbarManager(taskbarManager ->
                     taskbarManager.onNavButtonsDarkIntensityChanged(darkIntensity));
+        }
+
+        @Override
+        public void onNavigationBarLumaSamplingEnabled(int displayId, boolean enable) {
+            executeForTaskbarManager(taskbarManager ->
+                    taskbarManager.onNavigationBarLumaSamplingEnabled(displayId, enable));
         }
 
         private void executeForTouchInteractionService(
@@ -725,8 +735,8 @@ public class TouchInteractionService extends Service {
         final int action = event.getActionMasked();
         // Note this will create a new consumer every mouse click, as after ACTION_UP from the click
         // an ACTION_HOVER_ENTER will fire as well.
-        boolean isHoverActionWithoutConsumer =
-                event.isHoverEvent() && (mUncheckedConsumer.getType() & TYPE_CURSOR_HOVER) == 0;
+        boolean isHoverActionWithoutConsumer = enableCursorHoverStates()
+                && isHoverActionWithoutConsumer(event);
         CompoundString reasonString = action == ACTION_DOWN
                 ? new CompoundString("onMotionEvent: ") : CompoundString.NO_OP;
         if (action == ACTION_DOWN || isHoverActionWithoutConsumer) {
@@ -844,6 +854,15 @@ public class TouchInteractionService extends Service {
             reset();
         }
         traceToken.close();
+    }
+
+    private boolean isHoverActionWithoutConsumer(MotionEvent event) {
+        // Only process these events when taskbar is present.
+        TaskbarActivityContext tac = mTaskbarManager.getCurrentActivityContext();
+        boolean isTaskbarPresent = tac != null && tac.getDeviceProfile().isTaskbarPresent
+                && !tac.isPhoneMode();
+        return event.isHoverEvent() && (mUncheckedConsumer.getType() & TYPE_CURSOR_HOVER) == 0
+                && isTaskbarPresent;
     }
 
     // Talkback generates hover events on touch, which we do not want to consume.
@@ -986,14 +1005,22 @@ public class TouchInteractionService extends Service {
                     base = new TaskbarUnstashInputConsumer(this, base, mInputMonitorCompat, tac,
                             mOverviewCommandHelper);
                 }
-            } else if (canStartSystemGesture && !previousGestureState.isRecentsAnimationRunning()) {
+            }
+
+            NavHandle navHandle = tac != null ? tac.getNavHandle()
+                    : SystemUiProxy.INSTANCE.get(this);
+            if (canStartSystemGesture && !previousGestureState.isRecentsAnimationRunning()
+                    && navHandle.canNavHandleBeLongPressed()) {
                 reasonString.append(NEWLINE_PREFIX)
                         .append(reasonPrefix)
                         .append(SUBSTRING_PREFIX)
-                        .append("Not running recents animation, ")
-                        .append("using NavHandleLongPressInputConsumer");
+                        .append("Not running recents animation, ");
+                if (tac != null && tac.getNavHandle().canNavHandleBeLongPressed()) {
+                    reasonString.append("stashed handle is long-pressable, ");
+                }
+                reasonString.append("using NavHandleLongPressInputConsumer");
                 base = new NavHandleLongPressInputConsumer(this, base, mInputMonitorCompat,
-                        mDeviceState);
+                        mDeviceState, navHandle);
             }
 
             if (mDeviceState.isBubblesExpanded()) {

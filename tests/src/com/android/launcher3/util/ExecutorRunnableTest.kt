@@ -16,7 +16,7 @@
 
 package com.android.launcher3.util
 
-import android.testing.AndroidTestingRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.launcher3.util.rule.TestStabilityRule
 import java.util.concurrent.ExecutorService
@@ -30,7 +30,7 @@ import org.junit.runner.RunWith
 
 /** Unit test for [ExecutorRunnable] */
 @SmallTest
-@RunWith(AndroidTestingRunner::class)
+@RunWith(AndroidJUnit4::class)
 class ExecutorRunnableTest {
 
     private lateinit var underTest: ExecutorRunnable<Int>
@@ -63,8 +63,8 @@ class ExecutorRunnableTest {
     fun run_and_complete() {
         awaitAllExecutorCompleted()
 
-        assertTrue(isTaskExecuted)
-        assertTrue(isCallbackExecuted)
+        assertTrue("task should be executed", isTaskExecuted)
+        assertTrue("callback should be executed", isCallbackExecuted)
         assertEquals(2, result)
     }
 
@@ -76,7 +76,7 @@ class ExecutorRunnableTest {
         underTest.cancel(false)
         awaitAllExecutorCompleted()
 
-        assertFalse(isCallbackExecuted)
+        assertFalse("callback should not be executed.", isCallbackExecuted)
         assertEquals(0, result)
     }
 
@@ -86,8 +86,8 @@ class ExecutorRunnableTest {
 
         underTest.cancel(false)
 
-        assertTrue(isTaskExecuted)
-        assertTrue(isCallbackExecuted)
+        assertTrue("task should be executed", isTaskExecuted)
+        assertTrue("callback should be executed", isCallbackExecuted)
         assertEquals(2, result)
     }
 

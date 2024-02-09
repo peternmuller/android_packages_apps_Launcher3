@@ -38,6 +38,7 @@ import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCH
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_ONRESUME;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_QUICKSWITCH_LEFT;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_QUICKSWITCH_RIGHT;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_DONT_SUGGEST_APP_TAP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_LAUNCH_SWIPE_DOWN;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_LAUNCH_TAP;
 import static com.android.launcher3.model.PredictionHelper.isTrackedForHotseatPrediction;
@@ -72,12 +73,13 @@ import com.android.launcher3.logger.LauncherAtom.WorkspaceContainer;
 import com.android.launcher3.logging.StatsLogManager.EventEnum;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.shortcuts.ShortcutRequest;
+import com.android.launcher3.util.UserIconInfo;
 import com.android.quickstep.logging.StatsLogCompatManager.StatsLogConsumer;
+import com.android.systemui.shared.system.SysUiStatsLog;
 
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.ObjIntConsumer;
-import java.util.function.Predicate;
 
 /**
  * Utility class to track stats log and emit corresponding app events
@@ -136,7 +138,8 @@ public class AppEventProducer implements StatsLogConsumer {
                 || event == LAUNCHER_QUICKSWITCH_LEFT
                 || event == LAUNCHER_APP_LAUNCH_DRAGDROP) {
             sendEvent(atomInfo, ACTION_LAUNCH, CONTAINER_PREDICTION);
-        } else if (event == LAUNCHER_ITEM_DROPPED_ON_DONT_SUGGEST) {
+        } else if (event == LAUNCHER_ITEM_DROPPED_ON_DONT_SUGGEST
+                || event == LAUNCHER_SYSTEM_SHORTCUT_DONT_SUGGEST_APP_TAP) {
             sendEvent(atomInfo, ACTION_DISMISS, CONTAINER_PREDICTION);
         } else if (event == LAUNCHER_ITEM_DRAG_STARTED) {
             mLastDragItem = atomInfo;
@@ -188,14 +191,13 @@ public class AppEventProducer implements StatsLogConsumer {
     }
 
     @Nullable
-    private AppTarget toAppTarget(LauncherAtom.ItemInfo info) {
-        UserHandle userHandle = Process.myUserHandle();
-        if (info.getIsWork()) {
-            userHandle = UserCache.INSTANCE.get(mContext).getUserProfiles().stream()
-                    .filter(((Predicate<UserHandle>) userHandle::equals).negate())
-                    .findAny()
-                    .orElse(null);
-        }
+    AppTarget toAppTarget(LauncherAtom.ItemInfo info) {
+        int iconInfoType = getIconInfoTypeFromItemInfo(info);
+        UserCache userCache = UserCache.INSTANCE.get(mContext);
+        UserHandle userHandle = userCache.getUserProfiles().stream()
+                .filter(user -> userCache.getUserInfo(user).type == iconInfoType)
+                .findFirst()
+                .orElse(null);
         if (userHandle == null) {
             return null;
         }
@@ -327,5 +329,17 @@ public class AppEventProducer implements StatsLogConsumer {
     private static ComponentName parseNullable(String componentNameString) {
         return TextUtils.isEmpty(componentNameString)
                 ? null : ComponentName.unflattenFromString(componentNameString);
+    }
+
+    private int getIconInfoTypeFromItemInfo(LauncherAtom.ItemInfo info) {
+        int userType = info.getUserType();
+        return switch (userType) {
+            case SysUiStatsLog.LAUNCHER_UICHANGED__USER_TYPE__TYPE_WORK -> UserIconInfo.TYPE_WORK;
+            case SysUiStatsLog.LAUNCHER_UICHANGED__USER_TYPE__TYPE_CLONED ->
+                    UserIconInfo.TYPE_CLONED;
+            case SysUiStatsLog.LAUNCHER_UICHANGED__USER_TYPE__TYPE_PRIVATE ->
+                    UserIconInfo.TYPE_PRIVATE;
+            default -> UserIconInfo.TYPE_MAIN;
+        };
     }
 }

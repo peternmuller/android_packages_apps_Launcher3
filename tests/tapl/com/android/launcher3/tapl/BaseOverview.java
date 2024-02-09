@@ -16,7 +16,10 @@
 
 package com.android.launcher3.tapl;
 
+import static android.view.KeyEvent.KEYCODE_ESCAPE;
+
 import static com.android.launcher3.tapl.LauncherInstrumentation.TASKBAR_RES_ID;
+import static com.android.launcher3.testing.shared.TestProtocol.NORMAL_STATE_ORDINAL;
 
 import android.graphics.Rect;
 
@@ -27,15 +30,24 @@ import androidx.test.uiautomator.BySelector;
 import androidx.test.uiautomator.Direction;
 import androidx.test.uiautomator.UiObject2;
 
+import com.android.launcher3.testing.shared.TestProtocol;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
  * Common overview panel for both Launcher and fallback recents
  */
 public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
+
+    private static final Pattern EVENT_ALT_ESC_DOWN = Pattern.compile(
+            "Key event: KeyEvent.*?action=ACTION_DOWN.*?keyCode=KEYCODE_ESCAPE.*?metaState=0");
+    private static final Pattern EVENT_ALT_ESC_UP = Pattern.compile(
+            "Key event: KeyEvent.*?action=ACTION_UP.*?keyCode=KEYCODE_ESCAPE.*?metaState=0");
+
     private static final int FLINGS_FOR_DISMISS_LIMIT = 40;
 
     BaseOverview(LauncherInstrumentation launcher) {
@@ -128,8 +140,19 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
                 flingForwardImpl();
             }
 
-            mLauncher.clickLauncherObject(
-                    mLauncher.waitForObjectInContainer(verifyActiveContainer(), clearAllSelector));
+            final Runnable clickClearAll = () -> mLauncher.clickLauncherObject(
+                    mLauncher.waitForObjectInContainer(verifyActiveContainer(),
+                            clearAllSelector));
+            if (mLauncher.is3PLauncher()) {
+                mLauncher.executeAndWaitForLauncherStop(
+                        clickClearAll,
+                        "clicking 'Clear All'");
+            } else {
+                mLauncher.runToState(
+                        clickClearAll,
+                        NORMAL_STATE_ORDINAL,
+                        "clicking 'Clear All'");
+            }
 
             mLauncher.waitUntilLauncherObjectGone(clearAllSelector);
         }
@@ -150,9 +173,12 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
 
             OverviewTask currentTask = flingToFirstTask();
 
-            mLauncher.touchOutsideContainer(currentTask.getUiObject(),
-                    /* tapRight= */ true,
-                    /* halfwayToEdge= */ false);
+            mLauncher.runToState(
+                    () -> mLauncher.touchOutsideContainer(currentTask.getUiObject(),
+                            /* tapRight= */ true,
+                            /* halfwayToEdge= */ false),
+                    NORMAL_STATE_ORDINAL,
+                    "touching outside of first task");
 
             return new Workspace(mLauncher);
         }
@@ -185,11 +211,15 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
     public void touchTaskbarBottomCorner(boolean tapRight) {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
             Taskbar taskbar = new Taskbar(mLauncher);
-            taskbar.touchBottomCorner(tapRight);
             if (mLauncher.isTransientTaskbar()) {
+                mLauncher.runToState(
+                        () -> taskbar.touchBottomCorner(tapRight),
+                        NORMAL_STATE_ORDINAL,
+                        "touching taskbar");
                 // Tapping outside Transient Taskbar returns to Workspace, wait for that state.
                 new Workspace(mLauncher);
             } else {
+                taskbar.touchBottomCorner(tapRight);
                 // Should stay in Overview.
                 verifyActiveContainer();
                 verifyActionsViewVisibility();
@@ -365,6 +395,23 @@ public class BaseOverview extends LauncherInstrumentation.VisibleContainer {
         }
         // Overview actions aren't visible for split screen tasks.
         return !task.isTaskSplit();
+    }
+
+    /**
+     * Presses the esc key to dismiss Overview.
+     */
+    public Workspace dismissByEscKey() {
+        try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
+            mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN, EVENT_ALT_ESC_DOWN);
+            mLauncher.expectEvent(TestProtocol.SEQUENCE_MAIN, EVENT_ALT_ESC_UP);
+            mLauncher.runToState(
+                    () -> mLauncher.getDevice().pressKeyCode(KEYCODE_ESCAPE),
+                    NORMAL_STATE_ORDINAL, "pressing esc key");
+            try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
+                    "pressed esc key")) {
+                return mLauncher.getWorkspace();
+            }
+        }
     }
 
     private void verifyActionsViewVisibility() {

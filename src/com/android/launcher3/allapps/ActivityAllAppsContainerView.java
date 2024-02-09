@@ -260,7 +260,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         mMainAdapterProvider = mSearchUiDelegate.createMainAdapterProvider();
         if (Flags.enablePrivateSpace()) {
             mPrivateSpaceHeaderViewController =
-                    new PrivateSpaceHeaderViewController(mPrivateProfileManager);
+                    new PrivateSpaceHeaderViewController(this, mPrivateProfileManager);
         }
 
         mAH.set(AdapterHolder.MAIN, new AdapterHolder(AdapterHolder.MAIN,
@@ -980,6 +980,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         return mWorkManager;
     }
 
+    /** Returns whether Private Profile has been setup. */
+    public boolean hasPrivateProfile() {
+        return mHasPrivateApps;
+    }
+
     @Override
     public void onDeviceProfileChanged(DeviceProfile dp) {
         for (AdapterHolder holder : mAH) {
@@ -1150,14 +1155,15 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
         applyAdapterSideAndBottomPaddings(grid);
 
-        MarginLayoutParams mlp = (MarginLayoutParams) getLayoutParams();
-        mlp.leftMargin = insets.left;
-        mlp.rightMargin = insets.right;
-        setLayoutParams(mlp);
+        // Ignore left/right insets on tablet because we are already centered in-screen.
+        if (grid.isPhone) {
+            MarginLayoutParams mlp = (MarginLayoutParams) getLayoutParams();
+            mlp.leftMargin = insets.left;
+            mlp.rightMargin = insets.right;
+            setLayoutParams(mlp);
+        }
 
-        if (grid.isVerticalBarLayout() && !FeatureFlags.enableResponsiveWorkspace()) {
-            setPadding(grid.workspacePadding.left, 0, grid.workspacePadding.right, 0);
-        } else {
+        if (!grid.isVerticalBarLayout() || FeatureFlags.enableResponsiveWorkspace()) {
             int topPadding = grid.allAppsPadding.top;
             if (isSearchBarFloating() && !grid.isTablet) {
                 topPadding += getResources().getDimensionPixelSize(
@@ -1312,6 +1318,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         return isSearching()
                 ? SEARCH
                 : mViewPager == null ? AdapterHolder.MAIN : mViewPager.getNextPage();
+    }
+
+    public PrivateProfileManager getPrivateProfileManager() {
+        return mPrivateProfileManager;
     }
 
     /**

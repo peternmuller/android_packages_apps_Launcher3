@@ -201,7 +201,6 @@
 
     <!-- Swipe back to home related -->
     <dimen name="swipe_back_window_scale_x_margin">10dp</dimen>
-    <dimen name="swipe_back_window_max_delta_y">160dp</dimen>
     <dimen name="swipe_back_window_corner_radius">40dp</dimen>
 
     <!-- The duration of the bottom sheet opening and closing animation -->
@@ -254,4 +253,10 @@
 
     <!--  Used for custom widgets  -->
     <array name="custom_widget_providers"/>
+
+
+    <!-- Skip "Install to private" long-press shortcut packages name -->
+    <string-array name="skip_private_profile_shortcut_packages" translatable="false">
+        <item>com.android.settings</item>
+    </string-array>
 </resources>

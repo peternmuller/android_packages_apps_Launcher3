@@ -1,13 +1,17 @@
 package com.android.launcher3.popup;
 
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_PRIVATE_SPACE_INSTALL_SYSTEM_SHORTCUT_TAP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_APP_INFO_TAP;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_DONT_SUGGEST_APP_TAP;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_WIDGETS_TAP;
 
 import android.app.ActivityOptions;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Process;
+import android.os.UserHandle;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
@@ -20,16 +24,19 @@ import com.android.launcher3.BaseDraggingActivity;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
+import com.android.launcher3.allapps.PrivateProfileManager;
 import com.android.launcher3.model.WidgetItem;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.uioverrides.ApiWrapper;
+import com.android.launcher3.util.ComponentKey;
 import com.android.launcher3.util.InstantAppResolver;
 import com.android.launcher3.util.PackageManagerHelper;
 import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.widget.WidgetsBottomSheet;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -212,6 +219,77 @@ public abstract class SystemShortcut<T extends Context & ActivityContext> extend
         }
     }
 
+    public static final Factory<Launcher> PRIVATE_PROFILE_INSTALL =
+            (launcher, itemInfo, originalView) -> {
+                if (itemInfo.getTargetComponent() == null
+                        || !(itemInfo instanceof com.android.launcher3.model.data.AppInfo)
+                        || !itemInfo.getContainerInfo().hasAllAppsContainer()
+                        || !Process.myUserHandle().equals(itemInfo.user)) {
+                    return null;
+                }
+
+                PrivateProfileManager privateProfileManager =
+                        launcher.getAppsView().getPrivateProfileManager();
+                if (privateProfileManager == null || !privateProfileManager.isEnabled()) {
+                    return null;
+                }
+
+                UserHandle privateProfileUser = privateProfileManager.getProfileUser();
+                if (privateProfileUser == null) {
+                    return null;
+                }
+                // Do not show shortcut if an app is already installed to the space
+                ComponentName targetComponent = itemInfo.getTargetComponent();
+                if (launcher.getAppsView()
+                                .getAppsStore()
+                                .getApp(new ComponentKey(targetComponent, privateProfileUser))
+                        != null) {
+                    return null;
+                }
+
+                // Do not show shortcut for settings
+                String[] packagesToSkip =
+                        launcher.getResources()
+                                .getStringArray(R.array.skip_private_profile_shortcut_packages);
+                if (Arrays.asList(packagesToSkip).contains(targetComponent.getPackageName())) {
+                    return null;
+                }
+
+                return new InstallToPrivateProfile(
+                        launcher, itemInfo, originalView, privateProfileUser);
+            };
+
+    static class InstallToPrivateProfile extends SystemShortcut<Launcher> {
+        UserHandle mSpaceUser;
+
+        InstallToPrivateProfile(
+                Launcher target, ItemInfo itemInfo, View originalView, UserHandle spaceUser) {
+            // TODO(b/302666597): update icon once available
+            super(
+                    R.drawable.ic_install_to_private,
+                    R.string.install_private_system_shortcut_label,
+                    target,
+                    itemInfo,
+                    originalView);
+            mSpaceUser = spaceUser;
+        }
+
+        @Override
+        public void onClick(View view) {
+            Intent intent =
+                    ApiWrapper.getAppMarketActivityIntent(
+                            view.getContext(),
+                            mItemInfo.getTargetComponent().getPackageName(),
+                            mSpaceUser);
+            mTarget.startActivitySafely(view, intent, mItemInfo);
+            AbstractFloatingView.closeAllOpenViews(mTarget);
+            mTarget.getStatsLogManager()
+                    .logger()
+                    .withItemInfo(mItemInfo)
+                    .log(LAUNCHER_PRIVATE_SPACE_INSTALL_SYSTEM_SHORTCUT_TAP);
+        }
+    }
+
     public static final Factory<BaseDraggingActivity> INSTALL =
             (activity, itemInfo, originalView) -> {
                 boolean supportsWebUI = (itemInfo instanceof WorkspaceItemInfo)
@@ -244,6 +322,34 @@ public abstract class SystemShortcut<T extends Context & ActivityContext> extend
                     Process.myUserHandle());
             mTarget.startActivitySafely(view, intent, mItemInfo);
             AbstractFloatingView.closeAllOpenViews(mTarget);
+        }
+    }
+
+    public static final Factory<Launcher> DONT_SUGGEST_APP = new Factory<Launcher>() {
+        @Nullable
+        @Override
+        public SystemShortcut<Launcher> getShortcut(Launcher activity, ItemInfo itemInfo,
+                View originalView) {
+            if (!itemInfo.isPredictedItem()) {
+                return null;
+            }
+            return new DontSuggestApp(activity, itemInfo, originalView);
+        }
+    };
+
+    private static class DontSuggestApp extends SystemShortcut<Launcher> {
+        DontSuggestApp(Launcher target, ItemInfo itemInfo,
+                View originalView) {
+            super(R.drawable.ic_block_no_shadow, R.string.dismiss_prediction_label, target,
+                    itemInfo, originalView);
+        }
+
+        @Override
+        public void onClick(View view) {
+            dismissTaskMenuView(mTarget);
+            mTarget.getStatsLogManager().logger()
+                    .withItemInfo(mItemInfo)
+                    .log(LAUNCHER_SYSTEM_SHORTCUT_DONT_SUGGEST_APP_TAP);
         }
     }
 

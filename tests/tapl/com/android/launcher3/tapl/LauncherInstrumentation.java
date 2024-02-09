@@ -21,6 +21,7 @@ import static android.content.pm.PackageManager.DONT_KILL_APP;
 import static android.content.pm.PackageManager.MATCH_ALL;
 import static android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS;
 import static android.view.KeyEvent.ACTION_DOWN;
+import static android.view.MotionEvent.ACTION_SCROLL;
 import static android.view.MotionEvent.ACTION_UP;
 import static android.view.MotionEvent.AXIS_GESTURE_SWIPE_FINGER_COUNT;
 
@@ -277,20 +278,34 @@ public final class LauncherInstrumentation {
         assertNotNull("Cannot find content provider for " + testProviderAuthority, pi);
         ComponentName cn = new ComponentName(pi.packageName, pi.name);
 
+        final int iterations = isLauncherTest ? 300 : 100;
+
         if (pm.getComponentEnabledSetting(cn) != COMPONENT_ENABLED_STATE_ENABLED) {
             if (TestHelpers.isInLauncherProcess()) {
                 pm.setComponentEnabledSetting(cn, COMPONENT_ENABLED_STATE_ENABLED, DONT_KILL_APP);
             } else {
                 try {
                     final int userId = getContext().getUserId();
+                    final String launcherPidCommand = "pidof " + pi.packageName;
+                    final String initialPid = mDevice.executeShellCommand(launcherPidCommand);
+
                     mDevice.executeShellCommand(
                             "pm enable --user " + userId + " " + cn.flattenToString());
+
+                    // Wait for Launcher restart after enabling test provider.
+                    for (int i = 0; i < iterations; ++i) {
+                        final String currentPid = mDevice.executeShellCommand(launcherPidCommand)
+                                .replaceAll("\\s", "");
+                        if (!currentPid.isEmpty() && !currentPid.equals(initialPid)) break;
+                        if (i == iterations - 1) {
+                            fail("Launcher didn't restart after enabling test provider");
+                        }
+                        SystemClock.sleep(100);
+                    }
                 } catch (IOException e) {
                     fail(e.toString());
                 }
             }
-
-            final int iterations = isLauncherTest ? 300 : 100;
 
             // Wait for Launcher content provider to become enabled.
             for (int i = 0; i < iterations; ++i) {
@@ -370,8 +385,8 @@ public final class LauncherInstrumentation {
                 .getParcelable(TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
 
-    Insets getImeInsets() {
-        return getTestInfo(TestProtocol.REQUEST_IME_INSETS)
+    Insets getSystemGestureRegion() {
+        return getTestInfo(TestProtocol.REQUEST_SYSTEM_GESTURE_REGION)
                 .getParcelable(TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
 
@@ -402,6 +417,11 @@ public final class LauncherInstrumentation {
 
     int getOverviewPageSpacing() {
         return getTestInfo(TestProtocol.REQUEST_GET_OVERVIEW_PAGE_SPACING)
+                .getInt(TestProtocol.TEST_INFO_RESPONSE_FIELD);
+    }
+
+    public int getOverviewCurrentPageIndex() {
+        return getTestInfo(TestProtocol.REQUEST_GET_OVERVIEW_CURRENT_PAGE_INDEX)
                 .getInt(TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
 
@@ -1007,17 +1027,25 @@ public final class LauncherInstrumentation {
             return;
         }
 
-        linearGesture(
-                displaySize.x / 2, displaySize.y - 1,
-                displaySize.x / 2, 0,
-                ZERO_BUTTON_STEPS_FROM_BACKGROUND_TO_HOME,
-                false, GestureScope.EXPECT_PILFER);
+        if (isLauncher3()) {
+            gestureToDismissPopup(displaySize);
+        } else {
+            runToState(() -> gestureToDismissPopup(displaySize), NORMAL_STATE_ORDINAL, "swiping");
+        }
 
         try (LauncherInstrumentation.Closable c1 = addContextLayer(
                 String.format("Swiped up from floating view %s to home", floatingRes.get()))) {
             waitUntilLauncherObjectGone(floatingRes.get());
             waitForLauncherObject(getAnyObjectSelector());
         }
+    }
+
+    private void gestureToDismissPopup(Point displaySize) {
+        linearGesture(
+                displaySize.x / 2, displaySize.y - 1,
+                displaySize.x / 2, 0,
+                ZERO_BUTTON_STEPS_FROM_BACKGROUND_TO_HOME,
+                false, GestureScope.EXPECT_PILFER);
     }
 
     /**
@@ -1529,7 +1557,8 @@ public final class LauncherInstrumentation {
         }
     }
 
-    void runToState(Runnable command, int expectedState, String actionName) {
+    /** Run an action and wait for the specified Launcher state. */
+    public void runToState(Runnable command, int expectedState, String actionName) {
         final List<Integer> actualEvents = new ArrayList<>();
         executeAndWaitForLauncherEvent(
                 command,
@@ -1702,6 +1731,16 @@ public final class LauncherInstrumentation {
                 "scrolling");
     }
 
+    void pointerScroll(float pointerX, float pointerY, Direction direction) {
+        executeAndWaitForLauncherEvent(
+                () -> injectEvent(getPointerMotionEvent(
+                        ACTION_SCROLL, pointerX, pointerY, direction)),
+                event -> TestProtocol.SCROLL_FINISHED_MESSAGE.equals(event.getClassName()),
+                () -> "Didn't receive a scroll end message: " + direction + " scroll from ("
+                        + pointerX + ", " + pointerY + ")",
+                "scrolling");
+    }
+
     // Inject a swipe gesture. Inject exactly 'steps' motion points, incrementing event time by a
     // fixed interval each time.
     public void linearGesture(int startX, int startY, int endX, int endY, int steps,
@@ -1710,32 +1749,38 @@ public final class LauncherInstrumentation {
         final long downTime = SystemClock.uptimeMillis();
         final Point start = new Point(startX, startY);
         final Point end = new Point(endX, endY);
+        long endTime = downTime;
         sendPointer(downTime, downTime, MotionEvent.ACTION_DOWN, start, gestureScope);
-        if (mTrackpadGestureType != TrackpadGestureType.NONE) {
-            sendPointer(downTime, downTime, getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 1),
-                    start, gestureScope);
-            if (mTrackpadGestureType == TrackpadGestureType.THREE_FINGER
-                    || mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
+        try {
+
+            if (mTrackpadGestureType != TrackpadGestureType.NONE) {
                 sendPointer(downTime, downTime,
-                        getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 2),
+                        getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 1),
                         start, gestureScope);
-                if (mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
+                if (mTrackpadGestureType == TrackpadGestureType.THREE_FINGER
+                        || mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
                     sendPointer(downTime, downTime,
-                            getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 3),
+                            getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 2),
+                            start, gestureScope);
+                    if (mTrackpadGestureType == TrackpadGestureType.FOUR_FINGER) {
+                        sendPointer(downTime, downTime,
+                                getPointerAction(MotionEvent.ACTION_POINTER_DOWN, 3),
+                                start, gestureScope);
+                    }
+                }
+            }
+            endTime = movePointer(
+                    start, end, steps, false, downTime, downTime, slowDown, gestureScope);
+            if (mTrackpadGestureType != TrackpadGestureType.NONE) {
+                for (int i = mPointerCount; i >= 2; i--) {
+                    sendPointer(downTime, downTime,
+                            getPointerAction(MotionEvent.ACTION_POINTER_UP, i - 1),
                             start, gestureScope);
                 }
             }
+        } finally {
+            sendPointer(downTime, endTime, MotionEvent.ACTION_UP, end, gestureScope);
         }
-        final long endTime = movePointer(
-                start, end, steps, false, downTime, downTime, slowDown, gestureScope);
-        if (mTrackpadGestureType != TrackpadGestureType.NONE) {
-            for (int i = mPointerCount; i >= 2; i--) {
-                sendPointer(downTime, downTime,
-                        getPointerAction(MotionEvent.ACTION_POINTER_UP, i - 1),
-                        start, gestureScope);
-            }
-        }
-        sendPointer(downTime, endTime, MotionEvent.ACTION_UP, end, gestureScope);
     }
 
     private static int getPointerAction(int action, int index) {
@@ -1763,6 +1808,41 @@ public final class LauncherInstrumentation {
 
     public Resources getResources() {
         return getContext().getResources();
+    }
+
+    private static MotionEvent getPointerMotionEvent(
+            int action, float x, float y, Direction direction) {
+        MotionEvent.PointerCoords[] coordinates = new MotionEvent.PointerCoords[1];
+        coordinates[0] = new MotionEvent.PointerCoords();
+        coordinates[0].x = x;
+        coordinates[0].y = y;
+        boolean isVertical = direction == Direction.UP || direction == Direction.DOWN;
+        boolean isForward = direction == Direction.RIGHT || direction == Direction.DOWN;
+        coordinates[0].setAxisValue(
+                isVertical ? MotionEvent.AXIS_VSCROLL : MotionEvent.AXIS_HSCROLL,
+                isForward ? 1f : -1f);
+
+        MotionEvent.PointerProperties[] properties = new MotionEvent.PointerProperties[1];
+        properties[0] = new MotionEvent.PointerProperties();
+        properties[0].id = 0;
+        properties[0].toolType = MotionEvent.TOOL_TYPE_MOUSE;
+
+        final long downTime = SystemClock.uptimeMillis();
+        return MotionEvent.obtain(
+                downTime,
+                downTime,
+                action,
+                /* pointerCount= */ 1,
+                properties,
+                coordinates,
+                /* metaState= */ 0,
+                /* buttonState= */ 0,
+                /* xPrecision= */ 1f,
+                /* yPrecision= */ 1f,
+                /* deviceId= */ 0,
+                /* edgeFlags= */ 0,
+                InputDevice.SOURCE_CLASS_POINTER,
+                /* flags= */ 0);
     }
 
     private static MotionEvent getTrackpadMotionEvent(long downTime, long eventTime,
@@ -2094,6 +2174,11 @@ public final class LauncherInstrumentation {
         getTestInfo(TestProtocol.REQUEST_UNSTASH_TASKBAR_IF_STASHED);
     }
 
+    /** Shows the bubble bar if it is stashed, otherwise this does nothing. */
+    public void showBubbleBarIfHidden() {
+        getTestInfo(TestProtocol.REQUEST_UNSTASH_BUBBLE_BAR_IF_STASHED);
+    }
+
     /** Blocks the taskbar from automatically stashing based on time. */
     public void enableBlockTimeout(boolean enable) {
         getTestInfo(enable
@@ -2287,12 +2372,13 @@ public final class LauncherInstrumentation {
                         : containerBounds.left - 1;
             }
             // If IME is visible and overlaps the container bounds, touch above it.
+            final Insets systemGestureRegion = getSystemGestureRegion();
             int bottomBound = Math.min(
                     containerBounds.bottom,
-                    getRealDisplaySize().y - getImeInsets().bottom);
+                    getRealDisplaySize().y - systemGestureRegion.bottom);
             int y = (bottomBound - containerBounds.top) / 2;
             // Do not tap in the status bar.
-            y = Math.max(y, getWindowInsets().top);
+            y = Math.max(y, systemGestureRegion.top);
 
             final long downTime = SystemClock.uptimeMillis();
             final Point tapTarget = new Point(x, y);

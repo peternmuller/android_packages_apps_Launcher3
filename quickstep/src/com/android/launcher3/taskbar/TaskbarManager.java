@@ -25,6 +25,9 @@ import static com.android.launcher3.BaseActivity.EVENT_DESTROYED;
 import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
 import static com.android.launcher3.config.FeatureFlags.enableTaskbarNoRecreate;
+import static com.android.launcher3.util.DisplayController.CHANGE_DENSITY;
+import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
+import static com.android.launcher3.util.DisplayController.CHANGE_TASKBAR_PINNING;
 import static com.android.launcher3.util.DisplayController.TASKBAR_NOT_DESTROYED_TAG;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.launcher3.util.FlagDebugUtils.formatFlagChange;
@@ -55,7 +58,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.DeviceProfile;
-import com.android.launcher3.InvariantDeviceProfile.OnIDPChangeListener;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.statemanager.StatefulActivity;
@@ -71,7 +73,6 @@ import com.android.quickstep.util.AssistUtils;
 import com.android.systemui.shared.system.QuickStepContract;
 import com.android.systemui.unfold.UnfoldTransitionProgressProvider;
 import com.android.systemui.unfold.util.ScopedUnfoldTransitionProgressProvider;
-import com.android.wm.shell.Flags;
 
 import java.io.PrintWriter;
 import java.util.StringJoiner;
@@ -135,7 +136,17 @@ public class TaskbarManager {
      * We use WindowManager's ComponentCallbacks() for internal UI changes (similar to an Activity)
      * which comes via a different channel
      */
-    private final OnIDPChangeListener mIdpChangeListener = c -> recreateTaskbar();
+    private final RecreationListener mRecreationListener = new RecreationListener();
+
+    private class RecreationListener implements DisplayController.DisplayInfoChangeListener {
+        @Override
+        public void onDisplayInfoChanged(Context context, DisplayController.Info info, int flags) {
+            if ((flags & (CHANGE_DENSITY | CHANGE_NAVIGATION_MODE
+                    | CHANGE_TASKBAR_PINNING)) != 0) {
+                recreateTaskbar();
+            }
+        }
+    }
     private final SettingsCache.OnChangeListener mOnSettingsChangeListener = c -> recreateTaskbar();
 
     private boolean mUserUnlocked = false;
@@ -329,7 +340,10 @@ public class TaskbarManager {
             return;
         }
 
-        if (mActivity != null && mActivity.isResumed() && !mActivity.isInState(OVERVIEW)) {
+        if (mActivity != null
+                && mActivity.isResumed()
+                && !mActivity.isInState(OVERVIEW)
+                && !(mActivity instanceof QuickstepLauncher l && l.areFreeformTasksVisible())) {
             mContext.startActivity(homeAllAppsIntent);
             return;
         }
@@ -353,7 +367,7 @@ public class TaskbarManager {
      */
     public void onUserUnlocked() {
         mUserUnlocked = true;
-        LauncherAppState.getIDP(mContext).addOnChangeListener(mIdpChangeListener);
+        DisplayController.INSTANCE.get(mContext).addChangeListener(mRecreationListener);
         recreateTaskbar();
         addTaskbarRootViewToWindow();
     }
@@ -526,6 +540,14 @@ public class TaskbarManager {
         }
     }
 
+    public void onNavigationBarLumaSamplingEnabled(int displayId, boolean enable) {
+        mSharedState.mLumaSamplingDisplayId = displayId;
+        mSharedState.mIsLumaSamplingEnabled = enable;
+        if (mTaskbarActivityContext != null) {
+            mTaskbarActivityContext.onNavigationBarLumaSamplingEnabled(displayId, enable);
+        }
+    }
+
     private void removeActivityCallbacksAndListeners() {
         if (mActivity != null) {
             mActivity.removeOnDeviceProfileChangeListener(mDebugActivityDeviceProfileChanged);
@@ -550,8 +572,9 @@ public class TaskbarManager {
         UI_HELPER_EXECUTOR.execute(
                 () -> mTaskbarBroadcastReceiver.unregisterReceiverSafely(mContext));
         destroyExistingTaskbar();
+        removeTaskbarRootViewFromWindow();
         if (mUserUnlocked) {
-            LauncherAppState.getIDP(mContext).removeOnChangeListener(mIdpChangeListener);
+            DisplayController.INSTANCE.get(mContext).removeChangeListener(mRecreationListener);
         }
         SettingsCache.INSTANCE.get(mContext)
                 .unregister(USER_SETUP_COMPLETE_URI, mOnSettingsChangeListener);

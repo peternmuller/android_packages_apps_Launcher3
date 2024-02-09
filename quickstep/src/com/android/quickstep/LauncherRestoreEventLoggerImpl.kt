@@ -5,7 +5,7 @@ import android.app.backup.BackupRestoreEventLogger
 import android.app.backup.BackupRestoreEventLogger.BackupRestoreDataType
 import android.app.backup.BackupRestoreEventLogger.BackupRestoreError
 import android.content.Context
-import com.android.launcher3.Flags
+import com.android.launcher3.Flags.enableLauncherBrMetricsFixed
 import com.android.launcher3.LauncherSettings.Favorites
 import com.android.launcher3.backuprestore.LauncherRestoreEventLogger
 
@@ -44,7 +44,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
         count: Int,
         @BackupRestoreError error: String?
     ) {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             restoreEventLogger.logItemsRestoreFailed(dataType, count, error)
         }
     }
@@ -56,7 +56,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
      * @param count the number of data items restored.
      */
     override fun logLauncherItemsRestored(@BackupRestoreDataType dataType: String, count: Int) {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             restoreEventLogger.logItemsRestored(dataType, count)
         }
     }
@@ -67,7 +67,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
      * @param favoritesId The id of the item type from [Favorites] that was restored.
      */
     override fun logSingleFavoritesItemRestored(favoritesId: Int) {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             restoreEventLogger.logItemsRestored(favoritesIdToDataType(favoritesId), 1)
         }
     }
@@ -79,7 +79,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
      * @param count number of items that restored.
      */
     override fun logFavoritesItemsRestored(favoritesId: Int, count: Int) {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             restoreEventLogger.logItemsRestored(favoritesIdToDataType(favoritesId), count)
         }
     }
@@ -94,7 +94,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
         favoritesId: Int,
         @BackupRestoreError error: String?
     ) {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             restoreEventLogger.logItemsRestoreFailed(favoritesIdToDataType(favoritesId), 1, error)
         }
     }
@@ -111,7 +111,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
         count: Int,
         @BackupRestoreError error: String?
     ) {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             restoreEventLogger.logItemsRestoreFailed(
                 favoritesIdToDataType(favoritesId),
                 count,
@@ -125,7 +125,7 @@ class LauncherRestoreEventLoggerImpl(val context: Context) : LauncherRestoreEven
      * done restoring items for Launcher.
      */
     override fun reportLauncherRestoreResults() {
-        if (Flags.enableLauncherBrMetrics()) {
+        if (enableLauncherBrMetricsFixed()) {
             BackupManager(context).reportDelayedRestoreResult(restoreEventLogger)
         }
     }

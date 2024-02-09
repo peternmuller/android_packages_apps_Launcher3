@@ -42,7 +42,9 @@ import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_V
 
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
+import android.app.ActivityManager.RunningTaskInfo;
 import android.app.ActivityOptions;
+import android.app.ActivityTaskManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -121,6 +123,7 @@ import com.android.launcher3.util.TraceHelper;
 import com.android.launcher3.util.VibratorWrapper;
 import com.android.launcher3.util.ViewCache;
 import com.android.launcher3.views.ActivityContext;
+import com.android.quickstep.NavHandle;
 import com.android.quickstep.views.RecentsView;
 import com.android.quickstep.views.TaskView;
 import com.android.systemui.shared.recents.model.Task;
@@ -130,10 +133,13 @@ import com.android.systemui.unfold.updates.RotationChangeProvider;
 import com.android.systemui.unfold.util.ScopedUnfoldTransitionProgressProvider;
 
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * The {@link ActivityContext} with which we inflate Taskbar-related Views. This allows UI elements
@@ -372,6 +378,8 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         onSystemBarAttributesChanged(sharedState.systemBarAttrsDisplayId,
                 sharedState.systemBarAttrsBehavior);
         onNavButtonsDarkIntensityChanged(sharedState.navButtonsDarkIntensity);
+        onNavigationBarLumaSamplingEnabled(sharedState.mLumaSamplingDisplayId,
+                sharedState.mIsLumaSamplingEnabled);
 
         if (ENABLE_TASKBAR_NAVBAR_UNIFICATION) {
             // W/ the flag not set this entire class gets re-created, which resets the value of
@@ -449,6 +457,10 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
      */
     public Rect getTransientTaskbarBounds() {
         return mTransientTaskbarBounds;
+    }
+
+    protected float getCurrentTaskbarWidth() {
+        return mControllers.taskbarViewController.getCurrentVisualTaskbarWidth();
     }
 
     @Override
@@ -598,6 +610,11 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     @Nullable
     public BubbleControllers getBubbleControllers() {
         return mControllers.bubbleControllers.orElse(null);
+    }
+
+    @NonNull
+    public NavHandle getNavHandle() {
+        return mControllers.stashedHandleViewController;
     }
 
     @Override
@@ -834,6 +851,11 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     public void onNavButtonsDarkIntensityChanged(float darkIntensity) {
         mControllers.navbarButtonsViewController.getTaskbarNavButtonDarkIntensity()
                 .updateValue(darkIntensity);
+    }
+
+    public void onNavigationBarLumaSamplingEnabled(int displayId, boolean enable) {
+        mControllers.stashedHandleViewController.onNavigationBarLumaSamplingEnabled(displayId,
+                enable);
     }
 
     /**
@@ -1147,15 +1169,25 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                     @Nullable Task foundTask = foundTasks[0];
                     if (foundTask != null) {
                         TaskView foundTaskView = recents.getTaskViewByTaskId(foundTask.key.id);
-                        if (foundTaskView != null
-                                && foundTaskView.isVisibleToUser()) {
-                            TestLogging.recordEvent(
-                                    TestProtocol.SEQUENCE_MAIN, "start: taskbarAppIcon");
-                            foundTaskView.launchTasks();
-                            return;
+                        if (foundTaskView != null) {
+                            // The foundTaskView contains the 1-2 taskIds we are looking for.
+                            // If we are already in-app and running the correct tasks, no need
+                            // to do anything.
+                            if (FeatureFlags.enableAppPairs()
+                                    && isAlreadyInApp(foundTaskView.getTaskIds())) {
+                                return;
+                            }
+                            // If we are in Overview and the TaskView tile is visible, expand that
+                            // tile.
+                            if (foundTaskView.isVisibleToUser()) {
+                                TestLogging.recordEvent(
+                                        TestProtocol.SEQUENCE_MAIN, "start: taskbarAppIcon");
+                                foundTaskView.launchTasks();
+                                return;
+                            }
                         }
                     }
-
+                    // If none of the above cases apply, launch a new app or app pair.
                     if (findExactPairMatch) {
                         // We did not find the app pair we were looking for, so launch one.
                         recents.getSplitSelectController().getAppPairsController().launchAppPair(
@@ -1165,6 +1197,27 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                     }
                 }
         );
+    }
+
+    /**
+     * Checks if a given list of taskIds are all already running in-app.
+     */
+    private boolean isAlreadyInApp(int[] ids) {
+        if (mControllers.uiController.isInOverview()) {
+            return false;
+        }
+
+        RunningTaskInfo[] currentlyRunningTasks = ActivityManagerWrapper.getInstance()
+                .getRunningTasks(false /* filterOnlyVisibleRecents */);
+        Set<Integer> currentlyRunningIds = Arrays.stream(currentlyRunningTasks)
+                .map(task -> task.taskId).collect(Collectors.toSet());
+
+        for (int id : ids) {
+            if (id != ActivityTaskManager.INVALID_TASK_ID && !currentlyRunningIds.contains(id)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void startItemInfoActivity(ItemInfo info) {
@@ -1303,6 +1356,16 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         if (DisplayController.isTransientTaskbar(this)) {
             mControllers.taskbarStashController.updateAndAnimateTransientTaskbar(false);
         }
+    }
+
+    /** Unstashes the Bubble Bar if it is stashed. */
+    @VisibleForTesting
+    public void unstashBubbleBarIfStashed() {
+        mControllers.bubbleControllers.ifPresent(bubbleControllers -> {
+            if (bubbleControllers.bubbleStashController.isStashed()) {
+                bubbleControllers.bubbleStashController.showBubbleBar(false);
+            }
+        });
     }
 
     protected boolean isUserSetupComplete() {

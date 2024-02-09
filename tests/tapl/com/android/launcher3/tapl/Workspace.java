@@ -121,7 +121,10 @@ public final class Workspace extends Home {
              LauncherInstrumentation.Closable c =
                      mLauncher.addContextLayer("want to open all apps search")) {
             verifyActiveContainer();
-            mLauncher.getDevice().pressKeyCode(KEYCODE_META_RIGHT);
+            mLauncher.runToState(
+                    () -> mLauncher.getDevice().pressKeyCode(KEYCODE_META_RIGHT),
+                    ALL_APPS_STATE_ORDINAL,
+                    "pressing keyboard shortcut");
             try (LauncherInstrumentation.Closable c1 = mLauncher.addContextLayer(
                     "pressed meta key")) {
                 return new HomeAllApps(mLauncher);
@@ -192,16 +195,24 @@ public final class Workspace extends Home {
     }
 
     /**
-     * Ensures that workspace is scrollable. If it's not, drags an icon icons from hotseat to the
-     * second screen.
+     * Ensures that workspace is scrollable. If it's not, drags a chrome app icon from hotseat
+     * to the second screen.
      */
     public void ensureWorkspaceIsScrollable() {
+        ensureWorkspaceIsScrollable("Chrome");
+    }
+
+    /**
+     * Ensures that workspace is scrollable. If it's not, drags an icon of a given app name from
+     * hotseat to the second screen.
+     */
+    public void ensureWorkspaceIsScrollable(String appName) {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
             final UiObject2 workspace = verifyActiveContainer();
             if (!isWorkspaceScrollable(workspace)) {
                 try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                         "dragging icon to a second page of workspace to make it scrollable")) {
-                    dragIcon(workspace, getHotseatAppIcon("Chrome"), pagesPerScreen());
+                    dragIcon(workspace, getHotseatAppIcon(appName), pagesPerScreen());
                     verifyActiveContainer();
                 }
             }
@@ -450,7 +461,12 @@ public final class Workspace extends Home {
     }
 
     /** Returns the index of the current page */
-    private static int geCurrentPage(LauncherInstrumentation launcher) {
+    public int getCurrentPage() {
+        return getCurrentPage(mLauncher);
+    }
+
+    /** Returns the index of the current page */
+    private static int getCurrentPage(LauncherInstrumentation launcher) {
         return launcher.getTestInfo(TestProtocol.REQUEST_WORKSPACE_CURRENT_PAGE_INDEX).getInt(
                 TestProtocol.TEST_INFO_RESPONSE_FIELD);
     }
@@ -637,7 +653,7 @@ public final class Workspace extends Home {
             Point currentPosition, int destinationWorkspaceIndex, int y) {
         final long downTime = SystemClock.uptimeMillis();
         int displayX = launcher.getRealDisplaySize().x;
-        int currentPage = Workspace.geCurrentPage(launcher);
+        int currentPage = Workspace.getCurrentPage(launcher);
         int counter = 0;
         while (currentPage != destinationWorkspaceIndex) {
             counter++;
@@ -656,7 +672,7 @@ public final class Workspace extends Home {
                     () -> launcher.movePointer(finalDragStart, screenEdge, DEFAULT_DRAG_STEPS,
                             true, downTime, downTime, true,
                             LauncherInstrumentation.GestureScope.DONT_EXPECT_PILFER));
-            currentPage = Workspace.geCurrentPage(launcher);
+            currentPage = Workspace.getCurrentPage(launcher);
             currentPosition = screenEdge;
         }
         return currentPosition;
@@ -695,10 +711,9 @@ public final class Workspace extends Home {
      */
     public void flingForward() {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
-            final UiObject2 workspace = verifyActiveContainer();
-            mLauncher.scroll(workspace, Direction.RIGHT,
-                    new Rect(0, 0, mLauncher.getEdgeSensitivityWidth() + 1, 0),
-                    FLING_STEPS, false);
+            Rect workspaceBounds = mLauncher.getVisibleBounds(verifyActiveContainer());
+            mLauncher.pointerScroll(
+                    workspaceBounds.centerX(), workspaceBounds.centerY(), Direction.RIGHT);
             verifyActiveContainer();
         }
     }
@@ -709,10 +724,9 @@ public final class Workspace extends Home {
      */
     public void flingBackward() {
         try (LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
-            final UiObject2 workspace = verifyActiveContainer();
-            mLauncher.scroll(workspace, Direction.LEFT,
-                    new Rect(mLauncher.getEdgeSensitivityWidth() + 1, 0, 0, 0),
-                    FLING_STEPS, false);
+            Rect workspaceBounds = mLauncher.getVisibleBounds(verifyActiveContainer());
+            mLauncher.pointerScroll(
+                    workspaceBounds.centerX(), workspaceBounds.centerY(), Direction.LEFT);
             verifyActiveContainer();
         }
     }

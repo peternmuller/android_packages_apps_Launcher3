@@ -223,7 +223,7 @@ public final class FeatureFlags {
                 // Task bar pinning and task bar nav bar unification are both dependent on
                 // ENABLE_TASKBAR_NO_RECREATION. We want to turn ENABLE_TASKBAR_NO_RECREATION on
                 // when either of the dependent features is turned on.
-                || ENABLE_TASKBAR_PINNING.get() || ENABLE_TASKBAR_NAVBAR_UNIFICATION;
+                || enableTaskbarPinning() || ENABLE_TASKBAR_NAVBAR_UNIFICATION;
     }
 
     // TODO(Block 16): Clean up flags
@@ -305,21 +305,13 @@ public final class FeatureFlags {
 
     // TODO(Block 17): Clean up flags
     // Aconfig migration complete for ENABLE_TASKBAR_PINNING.
-    private static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(270396583,
+    private static final BooleanFlag ENABLE_TASKBAR_PINNING = getDebugFlag(296231746,
             "ENABLE_TASKBAR_PINNING", TEAMFOOD,
             "Enables taskbar pinning to allow user to switch between transient and persistent "
                     + "taskbar flavors");
 
     public static boolean enableTaskbarPinning() {
         return ENABLE_TASKBAR_PINNING.get() || Flags.enableTaskbarPinning();
-    }
-
-    /**
-     * Use a static boolean to gate the taskbar pinning education step
-     */
-    public static boolean enableTaskbarPinningEdu() {
-        boolean enableTaskbarPinningEdu = false;
-        return enableTaskbarPinning() && enableTaskbarPinningEdu;
     }
 
     public static final BooleanFlag MOVE_STARTUP_DATA_TO_DEVICE_PROTECTED_STORAGE = getDebugFlag(
@@ -386,10 +378,6 @@ public final class FeatureFlags {
     public static final BooleanFlag ENABLE_NEW_MIGRATION_LOGIC = getDebugFlag(270393455,
             "ENABLE_NEW_MIGRATION_LOGIC", ENABLED,
             "Enable the new grid migration logic, keeping pages when src < dest");
-
-    public static final BooleanFlag ENABLE_CACHED_WIDGET = getDebugFlag(270395008,
-            "ENABLE_CACHED_WIDGET", ENABLED,
-            "Show previously cached widgets as opposed to deferred widget where available");
 
     // TODO(Block 25): Clean up flags
     public static final BooleanFlag ENABLE_NEW_GESTURE_NAV_TUTORIAL = getDebugFlag(270396257,
@@ -476,10 +464,10 @@ public final class FeatureFlags {
 
     // TODO(Block 33): Clean up flags
     public static final BooleanFlag ENABLE_ALL_APPS_RV_PREINFLATION = getDebugFlag(288161355,
-            "ENABLE_ALL_APPS_RV_PREINFLATION", TEAMFOOD,
+            "ENABLE_ALL_APPS_RV_PREINFLATION", ENABLED,
             "Enables preinflating all apps icons to avoid scrolling jank.");
     public static final BooleanFlag ALL_APPS_GONE_VISIBILITY = getDebugFlag(291651514,
-            "ALL_APPS_GONE_VISIBILITY", TEAMFOOD,
+            "ALL_APPS_GONE_VISIBILITY", ENABLED,
             "Set all apps container view's hidden visibility to GONE instead of INVISIBLE.");
 
     // TODO(Block 34): Empty block

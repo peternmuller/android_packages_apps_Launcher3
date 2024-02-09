@@ -322,7 +322,6 @@
 
     <!-- Taskbar -->
     <dimen name="taskbar_size">@*android:dimen/taskbar_frame_height</dimen>
-    <dimen name="taskbar_phone_size">@*android:dimen/navigation_bar_frame_height</dimen>
     <dimen name="taskbar_ime_size">48dp</dimen>
     <dimen name="taskbar_icon_min_touch_size">48dp</dimen>
     <!-- Note that this applies to both sides of all icons, so visible space is double this. -->
@@ -401,6 +400,7 @@
     <dimen name="taskbar_edu_features_lottie_width">170dp</dimen>
     <dimen name="taskbar_edu_features_lottie_height">106dp</dimen>
     <dimen name="taskbar_edu_features_horizontal_spacing">24dp</dimen>
+    <dimen name="taskbar_edu_features_tooltip_width_with_one_feature">412dp</dimen>
     <dimen name="taskbar_edu_features_tooltip_width_with_two_features">428dp</dimen>
     <dimen name="taskbar_edu_features_tooltip_width_with_three_features">624dp</dimen>
 
