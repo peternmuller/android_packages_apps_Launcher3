@@ -150,6 +150,7 @@ public final class TestProtocol {
     public static final String REQUEST_GET_OVERVIEW_PAGE_SPACING = "get-overview-page-spacing";
     public static final String REQUEST_GET_OVERVIEW_CURRENT_PAGE_INDEX =
             "get-overview-current-page-index";
+    public static final String REQUEST_GET_SPLIT_SELECTION_ACTIVE = "get-split-selection-active";
     public static final String REQUEST_ENABLE_ROTATION = "enable_rotation";
     public static final String REQUEST_ENABLE_SUGGESTION = "enable-suggestion";
     public static final String REQUEST_MODEL_QUEUE_CLEARED = "model-queue-cleared";
@@ -177,9 +178,6 @@ public final class TestProtocol {
 
     public static final String REQUEST_UNSTASH_BUBBLE_BAR_IF_STASHED =
             "unstash-bubble-bar-if-stashed";
-
-    public static final String REQUEST_GET_AND_RESET_ACTIVITY_STOP_COUNT =
-            "get-and-reset-activity-stops";
 
     /** Logs {@link Log#d(String, String)} if {@link #sDebugTracing} is true. */
     public static void testLogD(String tag, String message) {
