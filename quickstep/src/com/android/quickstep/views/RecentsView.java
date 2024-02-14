@@ -759,6 +759,9 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
     private RunnableList mSideTaskLaunchCallback;
     @Nullable
     private TaskLaunchListener mTaskLaunchListener;
+    @Nullable
+    private Runnable mOnTaskLaunchCancelledRunnable;
+
 
     // keeps track of the state of the filter for tasks in recents view
     private final RecentsFilterState mFilterState = new RecentsFilterState();
@@ -1192,6 +1195,21 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         if (mTaskLaunchListener != null) {
             mTaskLaunchListener.onTaskLaunched();
             mTaskLaunchListener = null;
+        }
+    }
+
+    /**
+     * This is a one-time callback when touching in live tile mode. It's reset to null right
+     * after it's called.
+     */
+    public void setTaskLaunchCancelledRunnable(Runnable onTaskLaunchCancelledRunnable) {
+        mOnTaskLaunchCancelledRunnable = onTaskLaunchCancelledRunnable;
+    }
+
+    public void onTaskLaunchedInLiveTileModeCancelled() {
+        if (mOnTaskLaunchCancelledRunnable != null) {
+            mOnTaskLaunchCancelledRunnable.run();
+            mOnTaskLaunchCancelledRunnable = null;
         }
     }
 
@@ -1811,9 +1829,7 @@ public abstract class RecentsView<ACTIVITY_TYPE extends StatefulActivity<STATE_T
         mFocusedTaskViewId = newFocusedTaskView != null && !enableGridOnlyOverview()
                 ? newFocusedTaskView.getTaskViewId() : INVALID_TASK_ID;
         updateTaskSize();
-        if (newFocusedTaskView != null) {
-            newFocusedTaskView.setOrientationState(mOrientationState);
-        }
+        updateChildTaskOrientations();
 
         TaskView newRunningTaskView = null;
         if (hasAnyValidTaskIds(runningTaskId)) {
