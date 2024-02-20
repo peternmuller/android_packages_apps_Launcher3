@@ -274,21 +274,12 @@ public class LandscapePagedViewHandler implements RecentsPagedOrientationHandler
     @Override
     public float getTaskMenuX(float x, View thumbnailView,
             DeviceProfile deviceProfile, float taskInsetMargin, View taskViewIcon) {
-        if (enableOverviewIconMenu()) {
-            return x + (taskInsetMargin / 2f);
-        }
         return thumbnailView.getMeasuredWidth() + x - taskInsetMargin;
     }
 
     @Override
     public float getTaskMenuY(float y, View thumbnailView, int stagePosition,
             View taskMenuView, float taskInsetMargin, View taskViewIcon) {
-        if (enableOverviewIconMenu()) {
-            return y - (thumbnailView.getLayoutDirection() == LAYOUT_DIRECTION_RTL
-                    ? taskMenuView.getMeasuredHeight() * 2 - (taskInsetMargin / 2f)
-                    : taskMenuView.getMeasuredHeight());
-
-        }
         BaseDragLayer.LayoutParams lp = (BaseDragLayer.LayoutParams) taskMenuView.getLayoutParams();
         int taskMenuWidth = lp.width;
         if (stagePosition == STAGE_POSITION_UNDEFINED) {
@@ -304,7 +295,7 @@ public class LandscapePagedViewHandler implements RecentsPagedOrientationHandler
             @StagePosition int stagePosition) {
         if (enableOverviewIconMenu()) {
             return thumbnailView.getResources().getDimensionPixelSize(
-                    R.dimen.task_thumbnail_icon_menu_max_width);
+                    R.dimen.task_thumbnail_icon_menu_expanded_width);
         }
         if (stagePosition == SplitConfigurationOptions.STAGE_POSITION_UNDEFINED) {
             return thumbnailView.getMeasuredWidth();
@@ -582,16 +573,19 @@ public class LandscapePagedViewHandler implements RecentsPagedOrientationHandler
     @Override
     public void setTaskIconParams(FrameLayout.LayoutParams iconParams, int taskIconMargin,
             int taskIconHeight, int thumbnailTopMargin, boolean isRtl) {
-        if (enableOverviewIconMenu()) {
-            iconParams.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
-            iconParams.topMargin = 0;
-            return;
-        }
         iconParams.gravity = (isRtl ? START : END) | CENTER_VERTICAL;
         iconParams.rightMargin = -taskIconHeight - taskIconMargin / 2;
         iconParams.leftMargin = 0;
         iconParams.topMargin = thumbnailTopMargin / 2;
         iconParams.bottomMargin = 0;
+    }
+
+    @Override
+    public void setIconAppChipChildrenParams(FrameLayout.LayoutParams iconParams,
+            int chipChildMarginStart) {
+        iconParams.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
+        iconParams.setMarginStart(chipChildMarginStart);
+        iconParams.topMargin = 0;
     }
 
     @Override
@@ -608,7 +602,7 @@ public class LandscapePagedViewHandler implements RecentsPagedOrientationHandler
                 : iconMenuParams.width / 2f);
         iconAppChipView.setPivotY(
                 isRtl ? (iconMenuParams.height / 2f) : iconMenuParams.width / 2f);
-        iconAppChipView.setTranslationY(0);
+        iconAppChipView.setSplitTranslationY(0);
         iconAppChipView.setRotation(getDegreesRotated());
     }
 
@@ -647,12 +641,14 @@ public class LandscapePagedViewHandler implements RecentsPagedOrientationHandler
         primaryIconView.setTranslationX(0);
         secondaryIconView.setTranslationX(0);
         if (enableOverviewIconMenu()) {
+            IconAppChipView primaryAppChipView = (IconAppChipView) primaryIconView;
+            IconAppChipView secondaryAppChipView = (IconAppChipView) secondaryIconView;
             if (primaryIconView.getLayoutDirection() == LAYOUT_DIRECTION_RTL) {
-                secondaryIconView.setTranslationY(-primarySnapshotHeight);
-                primaryIconView.setTranslationY(0);
+                secondaryAppChipView.setSplitTranslationY(-primarySnapshotHeight);
+                primaryAppChipView.setSplitTranslationY(0);
             } else {
                 int secondarySnapshotHeight = groupedTaskViewHeight - primarySnapshotHeight;
-                primaryIconView.setTranslationY(secondarySnapshotHeight);
+                primaryAppChipView.setSplitTranslationY(secondarySnapshotHeight);
             }
         } else if (splitConfig.initiatedFromSeascape) {
             // if the split was initiated from seascape,

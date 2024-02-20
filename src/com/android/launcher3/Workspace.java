@@ -125,8 +125,8 @@ import com.android.launcher3.widget.PendingAppWidgetHostView;
 import com.android.launcher3.widget.WidgetManagerHelper;
 import com.android.launcher3.widget.dragndrop.AppWidgetHostViewDragListener;
 import com.android.launcher3.widget.util.WidgetSizes;
-import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlay;
 import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayCallbacks;
+import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayTouchProxy;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -1237,7 +1237,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         mLauncher.onPageEndTransition();
     }
 
-    public void setLauncherOverlay(LauncherOverlay overlay) {
+    public void setLauncherOverlay(LauncherOverlayTouchProxy overlay) {
         final EdgeEffectCompat newEffect;
         if (overlay == null) {
             newEffect = new EdgeEffectCompat(getContext());
@@ -1636,9 +1636,15 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             mDragController.addDragListener(
                     new AccessibleDragListenerAdapter(this, WorkspaceAccessibilityHelper::new) {
                         @Override
-                        protected void enableAccessibleDrag(boolean enable) {
-                            super.enableAccessibleDrag(enable);
+                        protected void enableAccessibleDrag(boolean enable,
+                                @Nullable DragObject dragObject) {
+                            super.enableAccessibleDrag(enable, dragObject);
                             setEnableForLayout(mLauncher.getHotseat(), enable);
+                            if (enable && dragObject != null
+                                    && dragObject.dragInfo instanceof LauncherAppWidgetInfo) {
+                                mLauncher.getHotseat().setImportantForAccessibility(
+                                        IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+                            }
                         }
                     });
         }
