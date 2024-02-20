@@ -36,12 +36,14 @@ import static com.android.launcher3.config.FeatureFlags.enableTaskbarPinning;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_FOLDER_OPEN;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_DRAGGING;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_FULLSCREEN;
+import static com.android.launcher3.taskbar.TaskbarDragLayerController.TASKBAR_REAPPEAR_DELAY_MS;
 import static com.android.launcher3.testing.shared.ResourceUtils.getBoolByName;
 import static com.android.quickstep.util.AnimUtils.completeRunnableListCallback;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_VISIBLE;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_VOICE_INTERACTION_WINDOW_SHOWING;
 
 import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.ActivityOptions;
 import android.content.ActivityNotFoundException;
@@ -77,6 +79,7 @@ import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.config.FeatureFlags;
@@ -1063,7 +1066,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                         Toast.LENGTH_SHORT).show();
             } else {
                 // Else launch the selected app pair
-                launchFromTaskbarPreservingSplitIfVisible(recents, view, fi.contents);
+                launchFromTaskbar(recents, view, fi.contents);
                 mControllers.uiController.onTaskbarIconLaunched(fi);
                 mControllers.taskbarStashController.updateAndAnimateTransientTaskbar(true);
             }
@@ -1097,8 +1100,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                             getSystemService(LauncherApps.class)
                                     .startShortcut(packageName, id, null, null, info.user);
                         } else {
-                            launchFromTaskbarPreservingSplitIfVisible(
-                                    recents, view, Collections.singletonList(info));
+                            launchFromTaskbar(recents, view, Collections.singletonList(info));
                         }
 
                     } catch (NullPointerException
@@ -1136,8 +1138,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 // If we are selecting a second app for split, launch the split tasks
                 taskbarUIController.triggerSecondAppForSplit(info, info.intent, view);
             } else {
-                launchFromTaskbarPreservingSplitIfVisible(
-                        recents, view, Collections.singletonList(info));
+                launchFromTaskbar(recents, view, Collections.singletonList(info));
             }
             mControllers.uiController.onTaskbarIconLaunched(info);
             mControllers.taskbarStashController.updateAndAnimateTransientTaskbar(true);
@@ -1153,12 +1154,48 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     }
 
     /**
+     * Runs when the user taps a Taskbar icon in TaskbarActivityContext (Overview or inside an app),
+     * and calls the appropriate method to animate and launch.
+     */
+    private void launchFromTaskbar(@Nullable RecentsView recents, @Nullable View launchingIconView,
+            List<? extends ItemInfo> itemInfos) {
+        if (isInApp()) {
+            launchFromInAppTaskbar(recents, launchingIconView, itemInfos);
+        } else {
+            launchFromOverviewTaskbar(recents, launchingIconView, itemInfos);
+        }
+    }
+
+    /**
+     * Runs when the user taps a Taskbar icon while inside an app.
+     */
+    private void launchFromInAppTaskbar(@Nullable RecentsView recents,
+            @Nullable View launchingIconView, List<? extends ItemInfo> itemInfos) {
+        if (recents == null) {
+            return;
+        }
+
+        boolean tappedAppPair = itemInfos.size() == 2;
+
+        if (tappedAppPair) {
+            // If the icon is an app pair, the logic gets a bit complicated because we play
+            // different animations depending on which app (or app pair) is currently running on
+            // screen, so delegate logic to appPairsController.
+            recents.getSplitSelectController().getAppPairsController()
+                    .handleAppPairLaunchInApp((AppPairIcon) launchingIconView, itemInfos);
+        } else {
+            // Tapped a single app, nothing complicated here.
+            startItemInfoActivity(itemInfos.get(0));
+        }
+    }
+
+    /**
      * Run when the user taps a Taskbar icon while in Overview. If the tapped app is currently
      * visible to the user in Overview, or is part of a visible split pair, we expand the TaskView
      * as if the user tapped on it (preserving the split pair). Otherwise, launch it normally
      * (potentially breaking a split pair).
      */
-    private void launchFromTaskbarPreservingSplitIfVisible(@Nullable RecentsView recents,
+    private void launchFromOverviewTaskbar(@Nullable RecentsView recents,
             @Nullable View launchingIconView, List<? extends ItemInfo> itemInfos) {
         if (recents == null) {
             return;
@@ -1341,6 +1378,23 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 bubbleControllers.bubbleStashController.showBubbleBar(false);
             }
         });
+    }
+
+    public void hideTaskbarWhenFolding() {
+        AnimatedFloat alphaAnim = mControllers.taskbarDragLayerController.getTaskbarAlpha();
+        alphaAnim.cancelAnimation();
+        alphaAnim.updateValue(0);
+        ObjectAnimator animator = alphaAnim.animateToValue(1).setDuration(0);
+        animator.setStartDelay(TASKBAR_REAPPEAR_DELAY_MS);
+        animator.start();
+    }
+
+    public void cancelHideTaskbarWhenFolding() {
+        mControllers.taskbarDragLayerController.getTaskbarAlpha().cancelAnimation();
+    }
+
+    public void resetHideTaskbarWhenUnfolding() {
+        mControllers.taskbarDragLayerController.getTaskbarAlpha().updateValue(1);
     }
 
     protected boolean isUserSetupComplete() {

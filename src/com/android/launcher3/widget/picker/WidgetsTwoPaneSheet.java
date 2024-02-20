@@ -18,7 +18,6 @@ package com.android.launcher3.widget.picker;
 import static com.android.launcher3.Flags.enableUnfoldedTwoPanePicker;
 
 import android.content.Context;
-import android.content.res.Configuration;
 import android.graphics.Outline;
 import android.graphics.Rect;
 import android.os.Process;
@@ -127,10 +126,6 @@ public class WidgetsTwoPaneSheet extends WidgetsFullSheet {
         mFastScroller.setVisibility(GONE);
     }
 
-    /** Overrides onConfigurationChanged method from WidgetsFullSheet. Needed for b/319150904 */
-    @Override
-    protected void onConfigurationChanged(Configuration newConfig) {}
-
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
@@ -200,10 +195,14 @@ public class WidgetsTwoPaneSheet extends WidgetsFullSheet {
                 return false;
             }
         };
-        packageItemInfo.title = getContext().getString(R.string.suggested_widgets_header_title);
+        String suggestionsHeaderTitle = getContext().getString(
+                R.string.suggested_widgets_header_title);
+        String suggestionsRightPaneTitle = getContext().getString(
+                R.string.widget_picker_right_pane_accessibility_title, suggestionsHeaderTitle);
+        packageItemInfo.title = suggestionsHeaderTitle;
         WidgetsListHeaderEntry widgetsListHeaderEntry = WidgetsListHeaderEntry.create(
                         packageItemInfo,
-                        getContext().getString(R.string.suggested_widgets_header_title),
+                        suggestionsHeaderTitle,
                         mActivityContext.getPopupDataProvider().getRecommendedWidgets())
                 .withWidgetListShown();
 
@@ -216,10 +215,12 @@ public class WidgetsTwoPaneSheet extends WidgetsFullSheet {
             mRightPane.removeAllViews();
             mRightPane.addView(mRecommendedWidgetsTable);
             mRightPaneScrollView.setScrollY(0);
+            mRightPane.setAccessibilityPaneTitle(suggestionsRightPaneTitle);
             mSuggestedWidgetsPackageUserKey = PackageUserKey.fromPackageItemInfo(packageItemInfo);
             mSelectedHeader = mSuggestedWidgetsPackageUserKey;
         });
         mSuggestedWidgetsContainer.addView(mSuggestedWidgetsHeader);
+        mRightPane.setAccessibilityPaneTitle(suggestionsRightPaneTitle);
     }
 
     @Override
@@ -322,6 +323,10 @@ public class WidgetsTwoPaneSheet extends WidgetsFullSheet {
                 mRightPane.removeAllViews();
                 mRightPane.addView(widgetsRowViewHolder.itemView);
                 mRightPaneScrollView.setScrollY(0);
+                mRightPane.setAccessibilityPaneTitle(
+                        getContext().getString(
+                                R.string.widget_picker_right_pane_accessibility_title,
+                                contentEntry.mPkgItem.title));
             }
         };
     }
