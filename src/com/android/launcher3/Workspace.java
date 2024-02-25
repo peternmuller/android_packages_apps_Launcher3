@@ -2226,8 +2226,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     private Runnable getWidgetResizeFrameRunnable(DragOptions options,
             LauncherAppWidgetHostView hostView, CellLayout cellLayout) {
         AppWidgetProviderInfo pInfo = hostView.getAppWidgetInfo();
-        if (pInfo != null && pInfo.resizeMode != AppWidgetProviderInfo.RESIZE_NONE
-                && !options.isAccessibleDrag) {
+        if (pInfo != null && pInfo.resizeMode != AppWidgetProviderInfo.RESIZE_NONE) {
             return () -> {
                 if (!isPageInTransition()) {
                     AppWidgetResizeFrame.showForWidget(hostView, cellLayout);
@@ -2988,7 +2987,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     }
 
     public void animateWidgetDrop(ItemInfo info, CellLayout cellLayout, final DragView dragView,
-            final Runnable onCompleteRunnable, int animationType, final View finalView,
+            final Runnable onCompleteRunnable, int animationType, @Nullable final View finalView,
             boolean external) {
         int[] finalPos = new int[2];
         float scaleXY[] = new float[2];

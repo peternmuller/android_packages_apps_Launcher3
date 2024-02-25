@@ -21,6 +21,7 @@ import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_OPTIMIZE_MEAS
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED;
 
 import static com.android.app.animation.Interpolators.EMPHASIZED;
+import static com.android.launcher3.Flags.enablePredictiveBackGesture;
 import static com.android.launcher3.Flags.enableUnfoldStateAnimation;
 import static com.android.launcher3.LauncherConstants.SavedInstanceKeys.PENDING_SPLIT_SELECT_INFO;
 import static com.android.launcher3.LauncherConstants.SavedInstanceKeys.RUNTIME_STATE;
@@ -37,6 +38,8 @@ import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
 import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.sendCustomAccessibilityEvent;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_APP_LAUNCH_TAP;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_INTERRUPTED;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_HOME;
 import static com.android.launcher3.model.data.ItemInfo.NO_MATCHING_ID;
 import static com.android.launcher3.popup.QuickstepSystemShortcut.getSplitSelectShortcutByPosition;
 import static com.android.launcher3.popup.SystemShortcut.APP_INFO;
@@ -60,7 +63,6 @@ import static com.android.quickstep.util.SplitAnimationTimings.TABLET_HOME_TO_SP
 import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 import static com.android.systemui.shared.system.ActivityManagerWrapper.CLOSE_SYSTEM_WINDOWS_REASON_HOME_KEY;
 import static com.android.wm.shell.common.split.SplitScreenConstants.SNAP_TO_50_50;
-import static com.android.launcher3.Flags.enablePredictiveBackGesture;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -595,7 +597,7 @@ public class QuickstepLauncher extends Launcher {
         list.add(getDragController());
         Consumer<AnimatorSet> splitAnimator = animatorSet ->
                 animatorSet.play(mSplitSelectStateController.getSplitAnimationController()
-                        .createPlaceholderDismissAnim(this));
+                        .createPlaceholderDismissAnim(this, LAUNCHER_SPLIT_SELECTION_EXIT_HOME));
         switch (mode) {
             case NO_BUTTON:
                 list.add(new NoButtonQuickSwitchTouchController(this));
@@ -766,8 +768,10 @@ public class QuickstepLauncher extends Launcher {
             // If Launcher pauses before both split apps are selected, exit split screen.
             if (!mSplitSelectStateController.isBothSplitAppsConfirmed() &&
                     !mSplitSelectStateController.isLaunchingFirstAppFullscreen()) {
+                mSplitSelectStateController
+                        .logExitReason(LAUNCHER_SPLIT_SELECTION_EXIT_INTERRUPTED);
                 mSplitSelectStateController.getSplitAnimationController()
-                        .playPlaceholderDismissAnim(this);
+                        .playPlaceholderDismissAnim(this, LAUNCHER_SPLIT_SELECTION_EXIT_INTERRUPTED);
             }
         }
     }
@@ -1041,17 +1045,17 @@ public class QuickstepLauncher extends Launcher {
     }
 
     @Override
-    protected void handleSplitAnimationGoingToHome() {
-        super.handleSplitAnimationGoingToHome();
+    protected void handleSplitAnimationGoingToHome(StatsLogManager.EventEnum splitDismissReason) {
+        super.handleSplitAnimationGoingToHome(splitDismissReason);
         mSplitSelectStateController.getSplitAnimationController()
-                .playPlaceholderDismissAnim(this);
+                .playPlaceholderDismissAnim(this, splitDismissReason);
     }
 
     @Override
-    public void dismissSplitSelection() {
-        super.dismissSplitSelection();
+    public void dismissSplitSelection(StatsLogManager.LauncherEvent splitDismissEvent) {
+        super.dismissSplitSelection(splitDismissEvent);
         mSplitSelectStateController.getSplitAnimationController()
-                .playPlaceholderDismissAnim(this);
+                .playPlaceholderDismissAnim(this, splitDismissEvent);
     }
 
     public <T extends OverviewActionsView> T getActionsView() {
@@ -1102,21 +1106,11 @@ public class QuickstepLauncher extends Launcher {
         // populating workspace.
         // TODO: Find a better place for this
         WellbeingModel.INSTANCE.get(this);
-    }
 
-    @Override
-    public void onInitialBindComplete(IntSet boundPages, RunnableList pendingTasks,
-            int workspaceItemCount, boolean isBindSync) {
-        pendingTasks.add(() -> {
-            // This is added in pending task as we need to wait for views to be positioned
-            // correctly before registering them for the animation.
-            if (mLauncherUnfoldAnimationController != null) {
-                // This is needed in case items are rebound while the unfold animation is in
-                // progress.
-                mLauncherUnfoldAnimationController.updateRegisteredViewsIfNeeded();
-            }
-        });
-        super.onInitialBindComplete(boundPages, pendingTasks, workspaceItemCount, isBindSync);
+        if (mLauncherUnfoldAnimationController != null) {
+            // This is needed in case items are rebound while the unfold animation is in progress.
+            mLauncherUnfoldAnimationController.updateRegisteredViewsIfNeeded();
+        }
     }
 
     @Override
