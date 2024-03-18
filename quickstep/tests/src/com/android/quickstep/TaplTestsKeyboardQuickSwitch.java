@@ -22,7 +22,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.launcher3.tapl.KeyboardQuickSwitch;
-import com.android.launcher3.ui.AbstractLauncherUiTest;
+import com.android.launcher3.taskbar.KeyboardQuickSwitchController;
 
 import org.junit.Assume;
 import org.junit.Test;
@@ -49,7 +49,7 @@ public class TaplTestsKeyboardQuickSwitch extends AbstractQuickStepTest {
         DISMISS(0),
         LAUNCH_LAST_APP(0),
         LAUNCH_SELECTED_APP(1),
-        LAUNCH_OVERVIEW(5);
+        LAUNCH_OVERVIEW(KeyboardQuickSwitchController.MAX_TASKS - 1);
 
         private final int mNumAdditionalRunningTasks;
 
@@ -65,7 +65,6 @@ public class TaplTestsKeyboardQuickSwitch extends AbstractQuickStepTest {
     public void setUp() throws Exception {
         Assume.assumeTrue(mLauncher.isTablet());
         super.setUp();
-        AbstractLauncherUiTest.initialize(this);
         startAppFast(CALCULATOR_APP_PACKAGE);
         startTestActivity(2);
     }
@@ -196,7 +195,9 @@ public class TaplTestsKeyboardQuickSwitch extends AbstractQuickStepTest {
                 if (!testSurface.mInitialFocusAtZero) {
                     kqs.moveFocusBackward();
                 }
-                kqs.launchFocusedOverviewTask();
+                kqs.launchFocusedOverviewTask()
+                        // Check that the correct task was focused
+                        .launchFocusedTaskByEnterKey(CALCULATOR_APP_PACKAGE);
                 break;
             default:
                 throw new IllegalStateException("Cannot run test case: " + testCase);

@@ -16,6 +16,7 @@
 package com.android.launcher3.taskbar;
 
 import static com.android.launcher3.QuickstepTransitionManager.TRANSIENT_TASKBAR_TRANSITION_DURATION;
+import static com.android.launcher3.config.FeatureFlags.enableSplitContextually;
 import static com.android.launcher3.statemanager.BaseState.FLAG_NON_INTERACTIVE;
 import static com.android.launcher3.taskbar.TaskbarEduTooltipControllerKt.TOOLTIP_STEP_FEATURES;
 import static com.android.launcher3.taskbar.TaskbarLauncherStateController.FLAG_VISIBLE;
@@ -175,6 +176,7 @@ public class LauncherTaskbarUIController extends TaskbarUIController {
     /**
      * Should be called from onResume() and onPause(), and animates the Taskbar accordingly.
      */
+    @Override
     public void onLauncherVisibilityChanged(boolean isVisible) {
         onLauncherVisibilityChanged(isVisible, false /* fromInit */);
     }
@@ -214,7 +216,14 @@ public class LauncherTaskbarUIController extends TaskbarUIController {
         }
 
         mTaskbarLauncherStateController.updateStateForFlag(FLAG_VISIBLE, isVisible);
-        return mTaskbarLauncherStateController.applyState(fromInit ? 0 : duration, startAnimation);
+        // TODO(b/308851855): Skip animation for launching split from home, will refine later
+        boolean skipAnimForSplit = enableSplitContextually() &&
+                mLauncher.areBothSplitAppsConfirmed() &&
+                mLauncher.getStateManager().getState() == LauncherState.NORMAL;
+        if (skipAnimForSplit || fromInit) {
+            duration = 0;
+        }
+        return mTaskbarLauncherStateController.applyState(duration, startAnimation);
     }
 
     @Override
@@ -243,6 +252,11 @@ public class LauncherTaskbarUIController extends TaskbarUIController {
     public Animator createAnimToLauncher(@NonNull LauncherState toState,
             @NonNull RecentsAnimationCallbacks callbacks, long duration) {
         return mTaskbarLauncherStateController.createAnimToLauncher(toState, callbacks, duration);
+    }
+
+    public void updateTaskbarLauncherStateGoingHome() {
+        mTaskbarLauncherStateController.updateStateForFlag(FLAG_VISIBLE, true);
+        mTaskbarLauncherStateController.applyState();
     }
 
     public boolean isDraggingItem() {

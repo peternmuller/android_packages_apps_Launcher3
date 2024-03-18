@@ -30,6 +30,7 @@ import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_BA
 import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_HOME;
 import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_IME_SWITCH;
 import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_RECENTS;
+import static com.android.launcher3.taskbar.TaskbarNavButtonController.BUTTON_SPACE;
 import static com.android.launcher3.taskbar.TaskbarViewController.ALPHA_INDEX_KEYGUARD;
 import static com.android.launcher3.taskbar.TaskbarViewController.ALPHA_INDEX_SMALL_SCREEN;
 import static com.android.launcher3.util.FlagDebugUtils.appendFlag;
@@ -79,6 +80,7 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Space;
 
 import androidx.annotation.Nullable;
 
@@ -91,6 +93,7 @@ import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.taskbar.TaskbarNavButtonController.TaskbarButton;
 import com.android.launcher3.taskbar.navbutton.NavButtonLayoutFactory;
 import com.android.launcher3.taskbar.navbutton.NavButtonLayoutFactory.NavButtonLayoutter;
+import com.android.launcher3.taskbar.navbutton.NearestTouchFrame;
 import com.android.launcher3.util.DimensionUtils;
 import com.android.launcher3.util.MultiPropertyFactory.MultiProperty;
 import com.android.launcher3.util.MultiValueAlpha;
@@ -151,7 +154,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
     private final TaskbarActivityContext mContext;
     private final @Nullable Context mNavigationBarPanelContext;
     private final WindowManagerProxy mWindowManagerProxy;
-    private final FrameLayout mNavButtonsView;
+    private final NearestTouchFrame mNavButtonsView;
     private final LinearLayout mNavButtonContainer;
     // Used for IME+A11Y buttons
     private final ViewGroup mEndContextualContainer;
@@ -206,9 +209,10 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
             this::onComputeInsetsForSeparateWindow;
     private final RecentsHitboxExtender mHitboxExtender = new RecentsHitboxExtender();
     private ImageView mRecentsButton;
+    private Space mSpace;
 
     public NavbarButtonsViewController(TaskbarActivityContext context,
-            @Nullable Context navigationBarPanelContext, FrameLayout navButtonsView) {
+            @Nullable Context navigationBarPanelContext, NearestTouchFrame navButtonsView) {
         mContext = context;
         mNavigationBarPanelContext = navigationBarPanelContext;
         mWindowManagerProxy = WindowManagerProxy.INSTANCE.get(mContext);
@@ -237,7 +241,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
         DeviceProfile deviceProfile = mContext.getDeviceProfile();
         Resources resources = mContext.getResources();
         Point p = !mContext.isUserSetupComplete()
-                ? new Point(0, mControllers.taskbarActivityContext.getSetupWindowHeight())
+                ? new Point(0, mControllers.taskbarActivityContext.getSetupWindowSize())
                 : DimensionUtils.getTaskbarPhoneDimensions(deviceProfile, resources,
                         mContext.isPhoneMode());
         mNavButtonsView.getLayoutParams().height = p.y;
@@ -431,6 +435,11 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
         mPropertyHolders.add(new StatePropertyHolder(mA11yButton,
                 flags -> (flags & FLAG_A11Y_VISIBLE) != 0
                         && (flags & FLAG_ROTATION_BUTTON_VISIBLE) == 0));
+
+        mSpace = new Space(mNavButtonsView.getContext());
+        mSpace.setOnClickListener(view -> navButtonController.onButtonClick(BUTTON_SPACE, view));
+        mSpace.setOnLongClickListener(view ->
+                navButtonController.onButtonLongClick(BUTTON_SPACE, view));
     }
 
     private void parseSystemUiFlags(int sysUiStateFlags) {
@@ -515,6 +524,10 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
      */
     public boolean isImeVisible() {
         return (mState & FLAG_IME_VISIBLE) != 0;
+    }
+
+    public boolean isImeRenderingNavButtons() {
+        return mIsImeRenderingNavButtons;
     }
 
     /**
@@ -733,7 +746,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
         navButtonsLayoutParams.setMarginEnd(0);
         navButtonsLayoutParams.gravity = Gravity.START;
         mNavButtonsView.getLayoutParams().height =
-                mControllers.taskbarActivityContext.getSetupWindowHeight();
+                mControllers.taskbarActivityContext.getSetupWindowSize();
         mNavButtonContainer.setLayoutParams(navButtonsLayoutParams);
     }
 
@@ -755,7 +768,7 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
                     NavButtonLayoutFactory.Companion.getUiLayoutter(
                             dp, mNavButtonsView, mImeSwitcherButton,
                             mControllers.rotationButtonController.getRotationButton(),
-                            mA11yButton, res, isInKidsMode, isInSetup, isThreeButtonNav,
+                            mA11yButton, mSpace, res, isInKidsMode, isInSetup, isThreeButtonNav,
                             mContext.isPhoneMode(), mWindowManagerProxy.getRotation(mContext));
             navButtonLayoutter.layoutButtons(mContext, isA11yButtonPersistent());
             updateButtonsBackground();
@@ -767,9 +780,11 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
             handleSetupUi();
 
             // Hide back button in SUW if keyboard is showing (IME draws its own back).
-            mPropertyHolders.add(new StatePropertyHolder(
-                    mBackButtonAlpha.get(ALPHA_INDEX_SUW),
-                    flags -> (flags & FLAG_IME_VISIBLE) == 0));
+            if (mIsImeRenderingNavButtons) {
+                mPropertyHolders.add(new StatePropertyHolder(
+                        mBackButtonAlpha.get(ALPHA_INDEX_SUW),
+                        flags -> (flags & FLAG_IME_VISIBLE) == 0));
+            }
         } else if (isInKidsMode) {
             int iconSize = res.getDimensionPixelSize(
                     R.dimen.taskbar_icon_size_kids);
@@ -1003,6 +1018,8 @@ public class NavbarButtonsViewController implements TaskbarControllers.LoggableT
                 + mOnTaskbarBackgroundNavButtonColorOverride.value);
         pw.println(prefix + "\t\tmOnBackgroundNavButtonColorOverrideMultiplier="
                 + mOnBackgroundNavButtonColorOverrideMultiplier.value);
+
+        mNavButtonsView.dumpLogs(prefix + "\t", pw);
     }
 
     private static String getStateString(int flags) {

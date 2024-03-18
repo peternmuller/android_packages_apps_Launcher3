@@ -56,7 +56,7 @@
     <!-- App Widget resize frame -->
     <dimen name="widget_handle_margin">13dp</dimen>
     <dimen name="resize_frame_background_padding">24dp</dimen>
-    <dimen name="resize_frame_margin">22dp</dimen>
+    <dimen name="resize_frame_margin">23dp</dimen>
     <dimen name="resize_frame_invalid_drag_across_two_panel_opacity_margin">24dp</dimen>
 
     <!-- App widget reconfigure button -->
@@ -182,9 +182,8 @@
     <dimen name="widget_apps_tabs_vertical_padding">6dp</dimen>
     <dimen name="widget_picker_landscape_tablet_left_right_margin">117dp</dimen>
     <dimen name="widget_picker_two_panels_left_right_margin">0dp</dimen>
-
-    <dimen name="recommended_widgets_table_vertical_padding">8dp</dimen>
-
+    <dimen name="widget_recommendations_table_vertical_padding">8dp</dimen>
+    <dimen name="widget_recommendations_table_horizontal_padding">16dp</dimen>
     <!-- Bottom margin for the search and recommended widgets container without work profile -->
     <dimen name="search_and_recommended_widgets_container_bottom_margin">16dp</dimen>
     <!-- Bottom margin for the search and recommended widgets container with work profile -->
@@ -196,6 +195,8 @@
     <dimen name="widget_list_header_view_vertical_padding">20dp</dimen>
     <dimen name="widget_list_entry_spacing">2dp</dimen>
     <dimen name="widget_list_horizontal_margin">16dp</dimen>
+    <!-- Margin applied to the recycler view with search bar & the list of widget apps below it. -->
+    <dimen name="widget_list_left_pane_horizontal_margin">0dp</dimen>
     <dimen name="widget_list_horizontal_margin_two_pane">24dp</dimen>
 
     <dimen name="widget_preview_shadow_blur">0.5dp</dimen>
@@ -412,11 +413,6 @@
     <dimen name="task_thumbnail_icon_size">0dp</dimen>
     <dimen name="task_thumbnail_icon_drawable_size">0dp</dimen>
     <dimen name="task_thumbnail_icon_drawable_size_grid">0dp</dimen>
-    <dimen name="task_thumbnail_icon_menu_max_width">0dp</dimen>
-    <dimen name="task_thumbnail_icon_menu_start_margin">0dp</dimen>
-    <dimen name="task_thumbnail_icon_menu_background_max_width">0dp</dimen>
-    <dimen name="task_thumbnail_icon_menu_corner_radius">0dp</dimen>
-    <dimen name="task_thumbnail_icon_menu_drawable_size">0dp</dimen>
     <dimen name="task_thumbnail_icon_menu_drawable_touch_size">0dp</dimen>
     <dimen name="task_menu_edge_padding">0dp</dimen>
     <dimen name="overview_task_margin">0dp</dimen>
@@ -457,7 +453,6 @@
     <dimen name="padded_rounded_button_padding">8dp</dimen>
 
     <!-- Bottom sheet related parameters -->
-    <dimen name="bottom_sheet_extra_top_padding">0dp</dimen>
     <dimen name="bottom_sheet_handle_area_height">36dp</dimen>
     <dimen name="bottom_sheet_handle_width">32dp</dimen>
     <dimen name="bottom_sheet_handle_height">4dp</dimen>
@@ -479,12 +474,23 @@
     <dimen name="ps_container_corner_radius">24dp</dimen>
     <dimen name="ps_header_height">64dp</dimen>
     <dimen name="ps_header_relative_layout_height">48dp</dimen>
-    <dimen name="ps_header_image_height">36dp</dimen>
+    <dimen name="ps_header_image_height">48dp</dimen>
     <dimen name="ps_header_text_height">24dp</dimen>
     <dimen name="ps_header_layout_margin">16dp</dimen>
     <dimen name="ps_header_settings_icon_margin_end">8dp</dimen>
     <dimen name="ps_header_text_size">16sp</dimen>
-    <dimen name="ps_button_height">36dp</dimen>
-    <dimen name="ps_button_width">36dp</dimen>
+    <dimen name="ps_button_height">40dp</dimen>
+    <dimen name="ps_button_width">40dp</dimen>
     <dimen name="ps_lock_button_width">89dp</dimen>
+    <dimen name="ps_app_divider_padding">16dp</dimen>
+    <dimen name="ps_lock_corner_radius">20dp</dimen>
+    <dimen name="ps_lock_icon_size">20dp</dimen>
+    <dimen name="ps_lock_icon_margin_top">10dp</dimen>
+    <dimen name="ps_lock_icon_margin_bottom">10dp</dimen>
+    <dimen name="ps_lock_icon_text_margin_start_expanded">8dp</dimen>
+    <dimen name="ps_lock_icon_text_margin_end_expanded">6dp</dimen>
+    <dimen name="ps_lock_button_background_padding">10dp</dimen>
+
+    <!-- WindowManagerProxy -->
+    <dimen name="max_width_and_height_of_small_display_cutout">136px</dimen>
 </resources>

@@ -15,10 +15,10 @@
  */
 package com.android.launcher3.touch;
 
-import static com.android.launcher3.Flags.enableSupportForArchiving;
 import static com.android.launcher3.LauncherConstants.ActivityCodes.REQUEST_BIND_PENDING_APPWIDGET;
 import static com.android.launcher3.LauncherConstants.ActivityCodes.REQUEST_RECONFIGURE_APPWIDGET;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_FOLDER_OPEN;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_PRIVATE_SPACE_INSTALL_APP_BUTTON_TAP;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_DISABLED_BY_PUBLISHER;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_DISABLED_LOCKED_USER;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_DISABLED_QUIET_USER;
@@ -40,6 +40,7 @@ import android.view.View.OnClickListener;
 import android.widget.Toast;
 
 import com.android.launcher3.BubbleTextView;
+import com.android.launcher3.BuildConfig;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.R;
@@ -148,7 +149,20 @@ public class ItemClickHandler {
     private static void onClickAppPairIcon(View v) {
         Launcher launcher = Launcher.getLauncher(v.getContext());
         AppPairIcon appPairIcon = (AppPairIcon) v;
-        launcher.launchAppPair(appPairIcon);
+        if (appPairIcon.getInfo().isDisabled()) {
+            WorkspaceItemInfo app1 = appPairIcon.getInfo().contents.get(0);
+            WorkspaceItemInfo app2 = appPairIcon.getInfo().contents.get(1);
+            // Show the user why the app pair is disabled.
+            if (app1.isDisabled() && !handleDisabledItemClicked(app1, launcher)) {
+                // If handleDisabledItemClicked() did not handle the error message, we initiate an
+                // app launch so Framework can tell the user why the app is suspended.
+                onClickAppShortcut(v, app1, launcher);
+            } else if (app2.isDisabled() && !handleDisabledItemClicked(app2, launcher)) {
+                onClickAppShortcut(v, app2, launcher);
+            }
+        } else {
+            launcher.launchAppPair(appPairIcon);
+        }
     }
 
     /**
@@ -189,16 +203,12 @@ public class ItemClickHandler {
             boolean downloadStarted) {
         ItemInfo item = (ItemInfo) v.getTag();
         CompletableFuture<SessionInfo> siFuture;
-        if (Utilities.ATLEAST_Q) {
-            siFuture = CompletableFuture.supplyAsync(() ->
-                    InstallSessionHelper.INSTANCE.get(launcher)
-                            .getActiveSessionInfo(item.user, packageName),
-                    UI_HELPER_EXECUTOR);
-        } else {
-            siFuture = CompletableFuture.completedFuture(null);
-        }
+        siFuture = CompletableFuture.supplyAsync(() ->
+                        InstallSessionHelper.INSTANCE.get(launcher)
+                                .getActiveSessionInfo(item.user, packageName),
+                UI_HELPER_EXECUTOR);
         Consumer<SessionInfo> marketLaunchAction = sessionInfo -> {
-            if (sessionInfo != null && Utilities.ATLEAST_Q) {
+            if (sessionInfo != null) {
                 LauncherApps launcherApps = launcher.getSystemService(LauncherApps.class);
                 try {
                     launcherApps.startPackageInstallerSessionDetailsActivity(sessionInfo, null,
@@ -321,7 +331,7 @@ public class ItemClickHandler {
 
         // Check for abandoned promise
         if ((v instanceof BubbleTextView) && shortcut.hasPromiseIconUi()
-                && (!enableSupportForArchiving() || !shortcut.isArchived())) {
+                && (!Utilities.enableSupportForArchiving() || !shortcut.isArchived())) {
             String packageName = shortcut.getIntent().getComponent() != null
                     ? shortcut.getIntent().getComponent().getPackageName()
                     : shortcut.getIntent().getPackage();
@@ -343,15 +353,21 @@ public class ItemClickHandler {
     private static void startAppShortcutOrInfoActivity(View v, ItemInfo item, Launcher launcher) {
         TestLogging.recordEvent(
                 TestProtocol.SEQUENCE_MAIN, "start: startAppShortcutOrInfoActivity");
-        Intent intent;
-        if (item instanceof ItemInfoWithIcon
-                && (((ItemInfoWithIcon) item).runtimeStatusFlags
-                & ItemInfoWithIcon.FLAG_INSTALL_SESSION_ACTIVE) != 0) {
-            ItemInfoWithIcon appInfo = (ItemInfoWithIcon) item;
-            intent = ApiWrapper.getAppMarketActivityIntent(launcher,
-                    appInfo.getTargetComponent().getPackageName(), Process.myUserHandle());
-        } else {
-            intent = item.getIntent();
+        Intent intent = item.getIntent();
+        if (item instanceof ItemInfoWithIcon itemInfoWithIcon) {
+            if ((itemInfoWithIcon.runtimeStatusFlags
+                    & ItemInfoWithIcon.FLAG_INSTALL_SESSION_ACTIVE) != 0) {
+                intent = ApiWrapper.getAppMarketActivityIntent(launcher,
+                        itemInfoWithIcon.getTargetComponent().getPackageName(),
+                        Process.myUserHandle());
+            } else if ((itemInfoWithIcon.runtimeStatusFlags
+                    & ItemInfoWithIcon.FLAG_PRIVATE_SPACE_INSTALL_APP) != 0) {
+                intent = ApiWrapper.getAppMarketActivityIntent(launcher,
+                        BuildConfig.APPLICATION_ID,
+                        launcher.getAppsView().getPrivateProfileManager().getProfileUser());
+                launcher.getStatsLogManager().logger().log(
+                        LAUNCHER_PRIVATE_SPACE_INSTALL_APP_BUTTON_TAP);
+            }
         }
         if (intent == null) {
             throw new IllegalArgumentException("Input must have a valid intent");

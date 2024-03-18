@@ -35,16 +35,15 @@ import androidx.test.runner.AndroidJUnit4;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.Until;
 
+import com.android.launcher3.Flags;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherState;
-import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.tapl.LaunchedAppState;
 import com.android.launcher3.tapl.LauncherInstrumentation.NavigationModel;
 import com.android.launcher3.tapl.Overview;
 import com.android.launcher3.tapl.OverviewActions;
 import com.android.launcher3.tapl.OverviewTask;
 import com.android.launcher3.tapl.SelectModeButtons;
-import com.android.launcher3.ui.AbstractLauncherUiTest;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
@@ -55,7 +54,6 @@ import com.android.quickstep.views.RecentsView;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -71,7 +69,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        AbstractLauncherUiTest.initialize(this);
         executeOnLauncher(launcher -> {
             RecentsView recentsView = launcher.getOverviewPanel();
             recentsView.getPagedViewOrientedState().forceAllowRotationForTesting(true);
@@ -305,6 +302,8 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @Test
     @NavigationModeSwitch
     @PortraitLandscape
+    @ScreenRecord // b/313464374
+    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/325659406
     public void testQuickSwitchFromApp() throws Exception {
         startTestActivity(2);
         startTestActivity(3);
@@ -334,9 +333,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
 
     @Test
     @TaskbarModeSwitch
-    @ScreenRecord // b/314873201
-    // Staging; will be promoted to presubmit if stable
-    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT)
     public void testQuickSwitchToPreviousAppForTablet() throws Exception {
         assumeTrue(mLauncher.isTablet());
         startTestActivity(2);
@@ -398,7 +394,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
                 READ_DEVICE_CONFIG_PERMISSION);
         // Debug if we need to goHome to prevent wrong previous state b/315525621
         mLauncher.goHome();
-        assumeFalse(FeatureFlags.ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION.get());
+        assumeFalse(Flags.enablePredictiveBackGesture());
         mLauncher.getWorkspace().switchToAllApps().pressBackToWorkspace();
         waitForState("Launcher internal state didn't switch to Home", () -> LauncherState.NORMAL);
 

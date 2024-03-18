@@ -36,13 +36,13 @@ import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.anim.PendingAnimation;
 import com.android.launcher3.touch.BaseSwipeDetector;
-import com.android.launcher3.touch.PagedOrientationHandler;
 import com.android.launcher3.touch.SingleAxisSwipeDetector;
 import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.FlingBlockCheck;
 import com.android.launcher3.util.TouchController;
 import com.android.launcher3.util.VibratorWrapper;
 import com.android.launcher3.views.BaseDragLayer;
+import com.android.quickstep.orientation.RecentsPagedOrientationHandler;
 import com.android.quickstep.util.VibrationConstants;
 import com.android.quickstep.views.RecentsView;
 import com.android.quickstep.views.TaskView;
@@ -59,7 +59,7 @@ public abstract class TaskViewTouchController<T extends BaseDraggingActivity>
     private static final long MAX_TASK_DISMISS_ANIMATION_DURATION = 600;
 
     public static final int TASK_DISMISS_VIBRATION_PRIMITIVE =
-            Utilities.ATLEAST_R ? VibrationEffect.Composition.PRIMITIVE_TICK : -1;
+            VibrationEffect.Composition.PRIMITIVE_TICK;
     public static final float TASK_DISMISS_VIBRATION_PRIMITIVE_SCALE = 1f;
     public static final VibrationEffect TASK_DISMISS_VIBRATION_FALLBACK =
             VibrationConstants.EFFECT_TEXTURE_TICK;
@@ -225,7 +225,8 @@ public abstract class TaskViewTouchController<T extends BaseDraggingActivity>
             mCurrentAnimation.dispatchOnCancel();
         }
 
-        PagedOrientationHandler orientationHandler = mRecentsView.getPagedOrientationHandler();
+        RecentsPagedOrientationHandler orientationHandler =
+                mRecentsView.getPagedOrientationHandler();
         mCurrentAnimationIsGoingUp = goingUp;
         BaseDragLayer dl = mActivity.getDragLayer();
         final int secondaryLayerDimension = orientationHandler.getSecondaryDimension(dl);
@@ -269,7 +270,8 @@ public abstract class TaskViewTouchController<T extends BaseDraggingActivity>
 
     @Override
     public void onDragStart(boolean start, float startDisplacement) {
-        PagedOrientationHandler orientationHandler = mRecentsView.getPagedOrientationHandler();
+        RecentsPagedOrientationHandler orientationHandler =
+                mRecentsView.getPagedOrientationHandler();
         if (mCurrentAnimation == null) {
             reInitAnimationController(orientationHandler.isGoingUp(startDisplacement, mIsRtl));
             mDisplacementShift = 0;
@@ -283,7 +285,8 @@ public abstract class TaskViewTouchController<T extends BaseDraggingActivity>
 
     @Override
     public boolean onDrag(float displacement) {
-        PagedOrientationHandler orientationHandler = mRecentsView.getPagedOrientationHandler();
+        RecentsPagedOrientationHandler orientationHandler =
+                mRecentsView.getPagedOrientationHandler();
         float totalDisplacement = displacement + mDisplacementShift;
         boolean isGoingUp = totalDisplacement == 0 ? mCurrentAnimationIsGoingUp :
                 orientationHandler.isGoingUp(totalDisplacement, mIsRtl);
@@ -346,7 +349,8 @@ public abstract class TaskViewTouchController<T extends BaseDraggingActivity>
         if (blockedFling) {
             fling = false;
         }
-        PagedOrientationHandler orientationHandler = mRecentsView.getPagedOrientationHandler();
+        RecentsPagedOrientationHandler orientationHandler =
+                mRecentsView.getPagedOrientationHandler();
         boolean goingUp = orientationHandler.isGoingUp(velocity, mIsRtl);
         float progress = mCurrentAnimation.getProgressFraction();
         float interpolatedProgress = mCurrentAnimation.getInterpolatedProgress();

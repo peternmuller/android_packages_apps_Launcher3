@@ -16,6 +16,8 @@
 
 package com.android.launcher3.widget;
 
+import static android.appwidget.AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN;
+
 import static com.android.launcher3.LauncherSettings.Favorites.CONTAINER_WIDGETS_TRAY;
 import static com.android.launcher3.widget.LauncherAppWidgetProviderInfo.fromProviderInfo;
 import static com.android.launcher3.widget.util.WidgetSizes.getWidgetItemSizePx;
@@ -44,12 +46,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.launcher3.CheckLongPressHelper;
+import com.android.launcher3.Flags;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.R;
 import com.android.launcher3.icons.FastBitmapDrawable;
 import com.android.launcher3.icons.RoundDrawableWrapper;
-import com.android.launcher3.icons.cache.HandlerRunnable;
 import com.android.launcher3.model.WidgetItem;
+import com.android.launcher3.util.CancellableTask;
 import com.android.launcher3.views.ActivityContext;
 
 import java.util.function.Consumer;
@@ -87,7 +90,7 @@ public class WidgetCell extends LinearLayout {
 
     private final DatabaseWidgetPreviewLoader mWidgetPreviewLoader;
 
-    protected HandlerRunnable mActiveRequest;
+    protected CancellableTask mActiveRequest;
     private boolean mAnimatePreview = true;
 
     protected final ActivityContext mActivity;
@@ -241,6 +244,11 @@ public class WidgetCell extends LinearLayout {
             mAppWidgetHostViewPreview = createAppWidgetHostView(context);
             setAppWidgetHostViewPreview(mAppWidgetHostViewPreview, item.widgetInfo,
                     mRemoteViewsPreview);
+        } else if (Flags.enableGeneratedPreviews()
+                && item.hasGeneratedPreview(WIDGET_CATEGORY_HOME_SCREEN)) {
+            mAppWidgetHostViewPreview = createAppWidgetHostView(context);
+            setAppWidgetHostViewPreview(mAppWidgetHostViewPreview, item.widgetInfo,
+                    item.generatedPreviews.get(WIDGET_CATEGORY_HOME_SCREEN));
         } else if (item.hasPreviewLayout()) {
             // If the context is a Launcher activity, DragView will show mAppWidgetHostViewPreview
             // as a preview during drag & drop. And thus, we should use LauncherAppWidgetHostView,
@@ -357,6 +365,16 @@ public class WidgetCell extends LinearLayout {
             mWidgetBadge.setVisibility(View.VISIBLE);
             mWidgetBadge.setImageResource(R.drawable.ic_work_app_badge);
         }
+    }
+
+    /**
+     * Shows or hides the long description displayed below each widget.
+     *
+     * @param show a flag that shows the long description of the widget if {@code true}, hides it if
+     *             {@code false}.
+     */
+    public void showDescription(boolean show) {
+        mWidgetDescription.setVisibility(show ? VISIBLE : GONE);
     }
 
     @Override

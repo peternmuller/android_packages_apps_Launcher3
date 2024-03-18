@@ -26,8 +26,6 @@ import android.graphics.Point
 import android.text.TextUtils
 import android.util.Log
 import android.util.LongSparseArray
-import androidx.annotation.VisibleForTesting
-import com.android.launcher3.Flags
 import com.android.launcher3.InvariantDeviceProfile
 import com.android.launcher3.LauncherAppState
 import com.android.launcher3.LauncherSettings.Favorites
@@ -89,7 +87,10 @@ class WorkspaceItemProcessor(
         try {
             if (c.user == null) {
                 // User has been deleted, remove the item.
-                c.markDeleted("User has been deleted", RestoreError.PROFILE_DELETED)
+                c.markDeleted(
+                    "User has been deleted for item id=${c.id}",
+                    RestoreError.PROFILE_DELETED
+                )
                 return
             }
             when (c.itemType) {
@@ -127,29 +128,24 @@ class WorkspaceItemProcessor(
      * data model to be bound to the launcher’s data model.
      */
     @SuppressLint("NewApi")
-    @VisibleForTesting
-    fun processAppOrDeepShortcut() {
+    private fun processAppOrDeepShortcut() {
         var allowMissingTarget = false
         var intent = c.parseIntent()
         if (intent == null) {
-            c.markDeleted("Invalid or null intent", RestoreError.MISSING_INFO)
+            c.markDeleted("Null intent from db for item id=${c.id}", RestoreError.MISSING_INFO)
             return
         }
         var disabledState =
             if (userManagerState.isUserQuiet(c.serialNumber))
                 WorkspaceItemInfo.FLAG_DISABLED_QUIET_USER
             else 0
-        var cn = intent.component
-        val targetPkg = if (cn == null) intent.getPackage() else cn.packageName
-        if (TextUtils.isEmpty(targetPkg)) {
-            c.markDeleted("Shortcuts can't have null package", RestoreError.MISSING_INFO)
+        val cn = intent.component
+        val targetPkg = cn?.packageName ?: intent.getPackage()
+        if (targetPkg.isNullOrEmpty()) {
+            c.markDeleted("No target package for item id=${c.id}", RestoreError.MISSING_INFO)
             return
         }
-
-        // If there is no target package, it's an implicit intent
-        // (legacy shortcut) which is always valid
-        var validTarget =
-            (TextUtils.isEmpty(targetPkg) || launcherApps.isPackageEnabled(targetPkg, c.user))
+        var validTarget = launcherApps.isPackageEnabled(targetPkg, c.user)
 
         // If it's a deep shortcut, we'll use pinned shortcuts to restore it
         if (cn != null && validTarget && (c.itemType != Favorites.ITEM_TYPE_DEEP_SHORTCUT)) {
@@ -161,13 +157,19 @@ class WorkspaceItemProcessor(
                 c.markRestored()
             } else {
                 // Gracefully try to find a fallback activity.
+                FileLog.d(
+                    TAG,
+                    "Activity not enabled for id=${c.id}, component=$cn, user=${c.user}." +
+                        " Will attempt to find fallback Activity for targetPkg=$targetPkg."
+                )
                 intent = pmHelper.getAppLaunchIntent(targetPkg, c.user)
                 if (intent != null) {
                     c.restoreFlag = 0
                     c.updater().put(Favorites.INTENT, intent.toUri(0)).commit()
                 } else {
                     c.markDeleted(
-                        "Intent null, unable to find a launch target",
+                        "No Activities found for id=${c.id}, targetPkg=$targetPkg, component=$cn." +
+                            " Unable to create launch Intent.",
                         RestoreError.MISSING_INFO
                     )
                     return
@@ -206,7 +208,7 @@ class WorkspaceItemProcessor(
                             }
                         }
                     }
-                    pmHelper.isAppOnSdcard(targetPkg!!, c.user) -> {
+                    pmHelper.isAppOnSdcard(targetPkg, c.user) -> {
                         // Package is present but not available.
                         disabledState =
                             disabledState or WorkspaceItemInfo.FLAG_DISABLED_NOT_AVAILABLE
@@ -282,7 +284,7 @@ class WorkspaceItemProcessor(
                 info = c.loadSimpleWorkspaceItem()
 
                 // Shortcuts are only available on the primary profile
-                if (!TextUtils.isEmpty(targetPkg) && pmHelper.isAppSuspended(targetPkg!!, c.user)) {
+                if (!TextUtils.isEmpty(targetPkg) && pmHelper.isAppSuspended(targetPkg, c.user)) {
                     disabledState = disabledState or ItemInfoWithIcon.FLAG_DISABLED_SUSPENDED
                 }
                 info.options = c.options
@@ -326,7 +328,7 @@ class WorkspaceItemProcessor(
             }
             if (
                 (c.restoreFlag != 0 ||
-                    Flags.enableSupportForArchiving() &&
+                    Utilities.enableSupportForArchiving() &&
                         activityInfo != null &&
                         activityInfo.applicationInfo.isArchived) && !TextUtils.isEmpty(targetPkg)
             ) {
@@ -337,13 +339,12 @@ class WorkspaceItemProcessor(
                         info.runtimeStatusFlags and
                             ItemInfoWithIcon.FLAG_INSTALL_SESSION_ACTIVE.inv()
                 } else if (
-                    activityInfo ==
-                        null // For archived apps, include progress info in case there is
-                    // a pending install session post restart of device.
-                    ||
-                        (Flags.enableSupportForArchiving() &&
+                    activityInfo == null ||
+                        (Utilities.enableSupportForArchiving() &&
                             activityInfo.applicationInfo.isArchived)
                 ) {
+                    // For archived apps, include progress info in case there is
+                    // a pending install session post restart of device.
                     val installProgress = (si.getProgress() * 100).toInt()
                     info.setProgressLevel(installProgress, PackageInstallInfo.STATUS_INSTALLING)
                 }
@@ -359,8 +360,7 @@ class WorkspaceItemProcessor(
      * processing for folder content items is done in LoaderTask after all the items in the
      * workspace have been loaded. The loaded FolderInfos are stored in the BgDataModel.
      */
-    @VisibleForTesting
-    fun processFolderOrAppPair() {
+    private fun processFolderOrAppPair() {
         val folderInfo =
             bgDataModel.findOrMakeFolder(c.id).apply {
                 c.applyCommonProperties(this)
@@ -394,8 +394,7 @@ class WorkspaceItemProcessor(
      * depending on the type of widget. Custom widgets are treated differently than non-custom
      * widgets, installing / restoring widgets are treated differently, etc.
      */
-    @VisibleForTesting
-    fun processWidget() {
+    private fun processWidget() {
         val component = ComponentName.unflattenFromString(c.appWidgetProvider)!!
         val appWidgetInfo = LauncherAppWidgetInfo(c.appWidgetId, component)
         c.applyCommonProperties(appWidgetInfo)
@@ -439,7 +438,9 @@ class WorkspaceItemProcessor(
                     !c.hasRestoreFlag(LauncherAppWidgetInfo.FLAG_RESTORE_STARTED) &&
                         !isSafeMode &&
                         (si == null) &&
-                        (lapi == null)
+                        (lapi == null) &&
+                        !(Utilities.enableSupportForArchiving() &&
+                            pmHelper.isAppArchived(component.packageName))
                 ) {
                     // Restore never started
                     c.markDeleted(
@@ -496,6 +497,7 @@ class WorkspaceItemProcessor(
 
     companion object {
         private const val TAG = "WorkspaceItemProcessor"
+
         private fun logWidgetInfo(
             idp: InvariantDeviceProfile,
             widgetProviderInfo: LauncherAppWidgetProviderInfo

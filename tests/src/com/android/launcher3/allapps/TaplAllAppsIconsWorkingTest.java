@@ -15,8 +15,6 @@
  */
 package com.android.launcher3.allapps;
 
-import static com.android.launcher3.ui.AbstractLauncherUiTest.initialize;
-
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -26,7 +24,6 @@ import com.android.launcher3.tapl.HomeAllApps;
 import com.android.launcher3.ui.AbstractLauncherUiTest;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -34,12 +31,6 @@ import org.junit.Test;
  * Makes sure the basic behaviors of Icons on AllApps are working.
  */
 public class TaplAllAppsIconsWorkingTest extends AbstractLauncherUiTest {
-
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        initialize(this);
-    }
 
     /**
      * Makes sure we can launch an icon from All apps
@@ -62,5 +53,6 @@ public class TaplAllAppsIconsWorkingTest extends AbstractLauncherUiTest {
         } finally {
             allApps.unfreeze();
         }
+        mLauncher.goHome();
     }
 }

@@ -18,7 +18,6 @@ package com.android.launcher3.model;
 
 import static com.android.launcher3.BuildConfig.WIDGET_ON_FIRST_SCREEN;
 import static com.android.launcher3.Flags.enableLauncherBrMetricsFixed;
-import static com.android.launcher3.Flags.enableSupportForArchiving;
 import static com.android.launcher3.LauncherPrefs.IS_FIRST_LOAD_AFTER_RESTORE;
 import static com.android.launcher3.LauncherPrefs.SHOULD_SHOW_SMARTSPACE;
 import static com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APP_PAIR;
@@ -421,7 +420,7 @@ public class LoaderTask implements Runnable {
 
             final HashMap<PackageUserKey, SessionInfo> installingPkgs =
                     mSessionHelper.getActiveSessions();
-            if (enableSupportForArchiving()) {
+            if (Utilities.enableSupportForArchiving()) {
                 mInstallingPkgsCached = installingPkgs;
             }
             installingPkgs.forEach(mApp.getIconCache()::updateSessionCache);
@@ -655,8 +654,8 @@ public class LoaderTask implements Runnable {
             // Create the ApplicationInfos
             for (int i = 0; i < apps.size(); i++) {
                 LauncherActivityInfo app = apps.get(i);
-                AppInfo appInfo = new AppInfo(app, user, quietMode);
-                if (enableSupportForArchiving() && app.getApplicationInfo().isArchived) {
+                AppInfo appInfo = new AppInfo(app, mUserCache.getUserInfo(user), quietMode);
+                if (Utilities.enableSupportForArchiving() && app.getApplicationInfo().isArchived) {
                     // For archived apps, include progress info in case there is a pending
                     // install session post restart of device.
                     String appPackageName = app.getApplicationInfo().packageName;

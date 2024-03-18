@@ -16,7 +16,6 @@
 package com.android.launcher3.allapps;
 
 import static com.android.launcher3.util.TestUtil.expectFail;
-import static com.android.launcher3.ui.AbstractLauncherUiTest.initialize;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -30,13 +29,13 @@ import android.platform.test.annotations.PlatinumTest;
 import androidx.test.filters.FlakyTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.launcher3.Flags;
 import com.android.launcher3.LauncherState;
-import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.tapl.AllApps;
 import com.android.launcher3.ui.AbstractLauncherUiTest;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
+import com.android.launcher3.util.rule.ScreenRecordRule;
 
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -47,15 +46,6 @@ public class TaplOpenCloseAllAppsTest extends AbstractLauncherUiTest {
 
     public static final String READ_DEVICE_CONFIG_PERMISSION =
             "android.permission.READ_DEVICE_CONFIG";
-
-    /**
-     * Calls static method initialize
-     */
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        initialize(this);
-    }
 
     /**
      * Make sure we can go home after pressing the context menu on an Icon on the AllApps.
@@ -131,6 +121,7 @@ public class TaplOpenCloseAllAppsTest extends AbstractLauncherUiTest {
     @Test
     @PortraitLandscape
     @PlatinumTest(focusArea = "launcher")
+    @ScreenRecordRule.ScreenRecord // b/322228038
     public void testAllAppsFromHome() {
         // Test opening all apps
         assertNotNull("switchToAllApps() returned null",
@@ -208,7 +199,7 @@ public class TaplOpenCloseAllAppsTest extends AbstractLauncherUiTest {
     public void testPressBackFromAllAppsToHome() {
         InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
                 READ_DEVICE_CONFIG_PERMISSION);
-        assumeFalse(FeatureFlags.ENABLE_BACK_SWIPE_LAUNCHER_ANIMATION.get());
+        assumeFalse(Flags.enablePredictiveBackGesture());
         mLauncher
                 .getWorkspace()
                 .switchToAllApps()

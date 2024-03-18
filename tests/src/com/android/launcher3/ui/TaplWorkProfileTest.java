@@ -32,6 +32,8 @@ import android.util.Log;
 import android.view.View;
 
 import androidx.recyclerview.widget.RecyclerView.ViewHolder;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.LargeTest;
 
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
@@ -42,16 +44,20 @@ import com.android.launcher3.allapps.WorkPausedCard;
 import com.android.launcher3.allapps.WorkProfileManager;
 import com.android.launcher3.tapl.LauncherInstrumentation;
 import com.android.launcher3.util.TestUtil;
-import com.android.launcher3.util.rule.TestStabilityRule;
+import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
+import com.android.launcher3.util.rule.TestStabilityRule.Stability;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.util.Objects;
 import java.util.function.Predicate;
 
+@LargeTest
+@RunWith(AndroidJUnit4.class)
 public class TaplWorkProfileTest extends AbstractLauncherUiTest {
 
     private static final int WORK_PAGE = ActivityAllAppsContainerView.AdapterHolder.WORK;
@@ -64,6 +70,7 @@ public class TaplWorkProfileTest extends AbstractLauncherUiTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        initialize(this);
         String output =
                 mDevice.executeShellCommand(
                         "pm create-user --profileOf 0 --managed TestProfile");
@@ -138,8 +145,8 @@ public class TaplWorkProfileTest extends AbstractLauncherUiTest {
     }
 
     // Staging; will be promoted to presubmit if stable
-    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT)
-
+    @Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT)
+    @ScreenRecord
     @Test
     public void toggleWorks() {
         assumeTrue(mWorkProfileSetupSuccessful);

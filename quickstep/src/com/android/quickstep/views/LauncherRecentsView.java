@@ -25,13 +25,13 @@ import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
 import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
 import static com.android.launcher3.LauncherState.SPRING_LOADED;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_HOME;
 import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 
 import androidx.annotation.Nullable;
@@ -45,7 +45,6 @@ import com.android.launcher3.statehandlers.DepthController;
 import com.android.launcher3.statehandlers.DesktopVisibilityController;
 import com.android.launcher3.statemanager.StateManager;
 import com.android.launcher3.statemanager.StateManager.StateListener;
-import com.android.launcher3.testing.shared.TestProtocol;
 import com.android.launcher3.uioverrides.QuickstepLauncher;
 import com.android.launcher3.util.PendingSplitSelectInfo;
 import com.android.launcher3.util.SplitConfigurationOptions;
@@ -92,7 +91,7 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
         stateManager.goToState(NORMAL, animated);
         if (FeatureFlags.enableSplitContextually()) {
             mSplitSelectStateController.getSplitAnimationController()
-                    .playPlaceholderDismissAnim(mActivity);
+                    .playPlaceholderDismissAnim(mActivity, LAUNCHER_SPLIT_SELECTION_EXIT_HOME);
         }
         AbstractFloatingView.closeAllOpenViews(mActivity, animated);
     }
@@ -187,8 +186,6 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
     @Override
     public void setOverviewStateEnabled(boolean enabled) {
         super.setOverviewStateEnabled(enabled);
-        Log.d(TestProtocol.OVERVIEW_OVER_HOME, "overview state enabled state has changed: "
-                + enabled);
         if (enabled) {
             LauncherState state = mActivity.getStateManager().getState();
             boolean hasClearAllButton = (state.getVisibleElements(mActivity)

@@ -16,6 +16,10 @@
 
 package com.android.quickstep.views;
 
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_CANCEL_BUTTON;
+
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -26,11 +30,18 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.dynamicanimation.animation.DynamicAnimation;
+import androidx.dynamicanimation.animation.SpringAnimation;
+import androidx.dynamicanimation.animation.SpringForce;
 
+import com.android.app.animation.Interpolators;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.R;
+import com.android.launcher3.Utilities;
+import com.android.launcher3.anim.PendingAnimation;
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.statemanager.StatefulActivity;
+import com.android.quickstep.util.SplitSelectStateController;
 
 /**
  * A rounded rectangular component containing a single TextView.
@@ -40,7 +51,11 @@ import com.android.launcher3.statemanager.StatefulActivity;
  * Appears and disappears concurrently with a FloatingTaskView.
  */
 public class SplitInstructionsView extends LinearLayout {
+    private static final int BOUNCE_DURATION = 250;
+    private static final float BOUNCE_HEIGHT = 20;
+
     private final StatefulActivity mLauncher;
+    public boolean mIsCurrentlyAnimating = false;
 
     public static final FloatProperty<SplitInstructionsView> UNFOLD =
             new FloatProperty<>("SplitInstructionsUnfold") {
@@ -52,6 +67,19 @@ public class SplitInstructionsView extends LinearLayout {
                 @Override
                 public Float get(SplitInstructionsView splitInstructionsView) {
                     return splitInstructionsView.getScaleY();
+                }
+            };
+
+    public static final FloatProperty<SplitInstructionsView> TRANSLATE_Y =
+            new FloatProperty<>("SplitInstructionsTranslateY") {
+                @Override
+                public void setValue(SplitInstructionsView splitInstructionsView, float v) {
+                    splitInstructionsView.setTranslationY(v);
+                }
+
+                @Override
+                public Float get(SplitInstructionsView splitInstructionsView) {
+                    return splitInstructionsView.getTranslationY();
                 }
             };
 
@@ -95,16 +123,21 @@ public class SplitInstructionsView extends LinearLayout {
 
     private void init() {
         TextView cancelTextView = findViewById(R.id.split_instructions_text_cancel);
+        TextView instructionTextView = findViewById(R.id.split_instructions_text);
 
         if (FeatureFlags.enableSplitContextually()) {
             cancelTextView.setVisibility(VISIBLE);
             cancelTextView.setOnClickListener((v) -> exitSplitSelection());
+            instructionTextView.setText(R.string.toast_contextual_split_select_app);
         }
     }
 
     private void exitSplitSelection() {
-        ((RecentsView) mLauncher.getOverviewPanel()).getSplitSelectController()
-                .getSplitAnimationController().playPlaceholderDismissAnim(mLauncher);
+        SplitSelectStateController splitSelectController =
+                ((RecentsView) mLauncher.getOverviewPanel()).getSplitSelectController();
+
+        splitSelectController.getSplitAnimationController().playPlaceholderDismissAnim(mLauncher,
+                LAUNCHER_SPLIT_SELECTION_EXIT_CANCEL_BUTTON);
         mLauncher.getStateManager().goToState(LauncherState.NORMAL);
     }
 
@@ -142,5 +175,43 @@ public class SplitInstructionsView extends LinearLayout {
                         getMeasuredHeight(),
                         getMeasuredWidth()
                 );
+    }
+
+    /**
+     * Draws attention to the split instructions view by bouncing it up and down.
+     */
+    public void goBoing() {
+        if (mIsCurrentlyAnimating) {
+            return;
+        }
+
+        float restingY = getTranslationY();
+        float bounceToY = restingY - Utilities.dpToPx(BOUNCE_HEIGHT);
+        PendingAnimation anim = new PendingAnimation(BOUNCE_DURATION);
+        // Animate the view lifting up to a higher position
+        anim.addFloat(this, TRANSLATE_Y, restingY, bounceToY, Interpolators.STANDARD);
+
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+                mIsCurrentlyAnimating = true;
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                // Create a low stiffness, medium bounce spring centering at the rest position
+                SpringForce spring = new SpringForce(restingY)
+                        .setDampingRatio(SpringForce.DAMPING_RATIO_MEDIUM_BOUNCY)
+                        .setStiffness(SpringForce.STIFFNESS_LOW);
+                // Animate the view getting pulled back to rest position by the spring
+                SpringAnimation springAnim = new SpringAnimation(SplitInstructionsView.this,
+                        DynamicAnimation.TRANSLATION_Y).setSpring(spring).setStartValue(bounceToY);
+
+                springAnim.addEndListener((a, b, c, d) -> mIsCurrentlyAnimating = false);
+                springAnim.start();
+            }
+        });
+
+        anim.buildAnim().start();
     }
 }

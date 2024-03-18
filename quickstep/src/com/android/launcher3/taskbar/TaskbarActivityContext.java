@@ -36,25 +36,26 @@ import static com.android.launcher3.config.FeatureFlags.enableTaskbarPinning;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_FOLDER_OPEN;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_DRAGGING;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_FULLSCREEN;
+import static com.android.launcher3.taskbar.TaskbarDragLayerController.TASKBAR_REAPPEAR_DELAY_MS;
 import static com.android.launcher3.testing.shared.ResourceUtils.getBoolByName;
+import static com.android.quickstep.util.AnimUtils.completeRunnableListCallback;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_VISIBLE;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_VOICE_INTERACTION_WINDOW_SHOWING;
 
 import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.app.ActivityManager.RunningTaskInfo;
 import android.app.ActivityOptions;
-import android.app.ActivityTaskManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo.Config;
 import android.content.pm.LauncherApps;
 import android.content.res.Resources;
-import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
+import android.os.IRemoteCallback;
 import android.os.Process;
 import android.os.Trace;
 import android.provider.Settings;
@@ -66,7 +67,6 @@ import android.view.Surface;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -79,6 +79,7 @@ import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.R;
+import com.android.launcher3.anim.AnimatedFloat;
 import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.apppairs.AppPairIcon;
 import com.android.launcher3.config.FeatureFlags;
@@ -104,6 +105,7 @@ import com.android.launcher3.taskbar.bubbles.BubbleDismissController;
 import com.android.launcher3.taskbar.bubbles.BubbleDragController;
 import com.android.launcher3.taskbar.bubbles.BubbleStashController;
 import com.android.launcher3.taskbar.bubbles.BubbleStashedHandleViewController;
+import com.android.launcher3.taskbar.navbutton.NearestTouchFrame;
 import com.android.launcher3.taskbar.overlay.TaskbarOverlayController;
 import com.android.launcher3.testing.TestLogging;
 import com.android.launcher3.testing.shared.TestProtocol;
@@ -133,13 +135,10 @@ import com.android.systemui.unfold.updates.RotationChangeProvider;
 import com.android.systemui.unfold.util.ScopedUnfoldTransitionProgressProvider;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * The {@link ActivityContext} with which we inflate Taskbar-related Views. This allows UI elements
@@ -165,7 +164,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     private WindowManager.LayoutParams mWindowLayoutParams;
     private boolean mIsFullscreen;
     // The size we should return to when we call setTaskbarWindowFullscreen(false)
-    private int mLastRequestedNonFullscreenHeight;
+    private int mLastRequestedNonFullscreenSize;
 
     private NavigationMode mNavMode;
     private boolean mImeDrawsImeNavBar;
@@ -236,7 +235,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         mDragLayer = (TaskbarDragLayer) mLayoutInflater.inflate(taskbarLayout, null, false);
         TaskbarView taskbarView = mDragLayer.findViewById(R.id.taskbar_view);
         TaskbarScrimView taskbarScrimView = mDragLayer.findViewById(R.id.taskbar_scrim);
-        FrameLayout navButtonsView = mDragLayer.findViewById(R.id.navbuttons_view);
+        NearestTouchFrame navButtonsView = mDragLayer.findViewById(R.id.navbuttons_view);
         StashedHandleView stashedHandleView = mDragLayer.findViewById(R.id.stashed_handle);
         BubbleBarView bubbleBarView = mDragLayer.findViewById(R.id.taskbar_bubbles);
         StashedHandleView bubbleHandleView = mDragLayer.findViewById(R.id.stashed_bubble_handle);
@@ -333,7 +332,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
             // Update icon size
             deviceProfile.iconSizePx = deviceProfile.taskbarIconSize;
-            deviceProfile.updateIconSize(1f, getResources());
+            deviceProfile.updateIconSize(1f, this);
         };
         mDeviceProfile = originDeviceProfile.toBuilder(this)
                 .withDimensionsOverride(overrideProvider).build();
@@ -364,7 +363,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
     public void init(@NonNull TaskbarSharedState sharedState) {
         mImeDrawsImeNavBar = getBoolByName(IME_DRAWS_IME_NAV_BAR_RES_NAME, getResources(), false);
-        mLastRequestedNonFullscreenHeight = getDefaultTaskbarWindowHeight();
+        mLastRequestedNonFullscreenSize = getDefaultTaskbarWindowSize();
         mWindowLayoutParams = createAllWindowParams();
 
         // Initialize controllers after all are constructed.
@@ -485,7 +484,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         }
         WindowManager.LayoutParams windowLayoutParams = new WindowManager.LayoutParams(
                 MATCH_PARENT,
-                mLastRequestedNonFullscreenHeight,
+                mLastRequestedNonFullscreenSize,
                 type,
                 windowFlags,
                 PixelFormat.TRANSLUCENT);
@@ -530,16 +529,16 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 case Surface.ROTATION_0, Surface.ROTATION_180 -> {
                     // Defaults are fine
                     width = WindowManager.LayoutParams.MATCH_PARENT;
-                    height = mLastRequestedNonFullscreenHeight;
+                    height = mLastRequestedNonFullscreenSize;
                     gravity = Gravity.BOTTOM;
                 }
                 case Surface.ROTATION_90 -> {
-                    width = mLastRequestedNonFullscreenHeight;
+                    width = mLastRequestedNonFullscreenSize;
                     height = WindowManager.LayoutParams.MATCH_PARENT;
                     gravity = Gravity.END;
                 }
                 case Surface.ROTATION_270 -> {
-                    width = mLastRequestedNonFullscreenHeight;
+                    width = mLastRequestedNonFullscreenSize;
                     height = WindowManager.LayoutParams.MATCH_PARENT;
                     gravity = Gravity.START;
                 }
@@ -564,7 +563,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     public void onConfigurationChanged(@Config int configChanges) {
         mControllers.onConfigurationChanged(configChanges);
         if (!mIsUserSetupComplete) {
-            setTaskbarWindowHeight(getSetupWindowHeight());
+            setTaskbarWindowSize(getSetupWindowSize());
         }
     }
 
@@ -743,13 +742,14 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     @Override
     public ActivityOptionsWrapper makeDefaultActivityOptions(int splashScreenStyle) {
         RunnableList callbacks = new RunnableList();
-        ActivityOptions options = ActivityOptions.makeCustomAnimation(
-                this, 0, 0, Color.TRANSPARENT,
-                Executors.MAIN_EXECUTOR.getHandler(), null,
-                elapsedRealTime -> callbacks.executeAllAndDestroy());
+        ActivityOptions options = ActivityOptions.makeCustomAnimation(this, 0, 0);
         options.setSplashScreenStyle(splashScreenStyle);
         options.setPendingIntentBackgroundActivityStartMode(
                 ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+        IRemoteCallback endCallback = completeRunnableListCallback(callbacks);
+        options.setOnAnimationAbortListener(endCallback);
+        options.setOnAnimationFinishedListener(endCallback);
+
         return new ActivityOptionsWrapper(options, callbacks);
     }
 
@@ -871,7 +871,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     public void setTaskbarWindowFullscreen(boolean fullscreen) {
         setAutohideSuspendFlag(FLAG_AUTOHIDE_SUSPEND_FULLSCREEN, fullscreen);
         mIsFullscreen = fullscreen;
-        setTaskbarWindowHeight(fullscreen ? MATCH_PARENT : mLastRequestedNonFullscreenHeight);
+        setTaskbarWindowSize(fullscreen ? MATCH_PARENT : mLastRequestedNonFullscreenSize);
     }
 
     /**
@@ -896,16 +896,20 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     }
 
     /**
-     * Updates the TaskbarContainer height (pass {@link #getDefaultTaskbarWindowHeight()} to reset).
+     * Updates the TaskbarContainer size (pass {@link #getDefaultTaskbarWindowSize()} to reset).
      */
-    public void setTaskbarWindowHeight(int height) {
-        if (mWindowLayoutParams.height == height || mIsDestroyed) {
+    public void setTaskbarWindowSize(int size) {
+        // In landscape phone button nav mode, we should set the task bar width instead of height
+        // because this is the only case in which the nav bar is not on the display bottom.
+        boolean landscapePhoneButtonNav = isPhoneButtonNavMode() && mDeviceProfile.isLandscape;
+        if ((landscapePhoneButtonNav ? mWindowLayoutParams.width : mWindowLayoutParams.height)
+                == size || mIsDestroyed) {
             return;
         }
-        if (height == MATCH_PARENT) {
-            height = mDeviceProfile.heightPx;
+        if (size == MATCH_PARENT) {
+            size = mDeviceProfile.heightPx;
         } else {
-            mLastRequestedNonFullscreenHeight = height;
+            mLastRequestedNonFullscreenSize = size;
             if (mIsFullscreen) {
                 // We still need to be fullscreen, so defer any change to our height until we call
                 // setTaskbarWindowFullscreen(false). For example, this could happen when dragging
@@ -914,15 +918,20 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 return;
             }
         }
-        mWindowLayoutParams.height = height;
+        if (landscapePhoneButtonNav) {
+            mWindowLayoutParams.width = size;
+        } else {
+            mWindowLayoutParams.height = size;
+        }
         mControllers.taskbarInsetsController.onTaskbarOrBubblebarWindowHeightOrInsetsChanged();
         notifyUpdateLayoutParams();
     }
 
     /**
-     * Returns the default height of the window, including the static corner radii above taskbar.
+     * Returns the default size (in most cases height, but in 3-button phone mode, width) of the
+     * window, including the static corner radii above taskbar.
      */
-    public int getDefaultTaskbarWindowHeight() {
+    public int getDefaultTaskbarWindowSize() {
         Resources resources = getResources();
 
         if (ENABLE_TASKBAR_NAVBAR_UNIFICATION && mDeviceProfile.isPhone) {
@@ -932,7 +941,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         }
 
         if (!isUserSetupComplete()) {
-            return getSetupWindowHeight();
+            return getSetupWindowSize();
         }
 
         boolean shouldTreatAsTransient = DisplayController.isTransientTaskbar(this)
@@ -963,7 +972,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 + extraHeightForTaskbarTooltips;
     }
 
-    public int getSetupWindowHeight() {
+    public int getSetupWindowSize() {
         return getResources().getDimensionPixelSize(R.dimen.taskbar_suw_frame);
     }
 
@@ -1057,7 +1066,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                         Toast.LENGTH_SHORT).show();
             } else {
                 // Else launch the selected app pair
-                launchFromTaskbarPreservingSplitIfVisible(recents, view, fi.contents);
+                launchFromTaskbar(recents, view, fi.contents);
                 mControllers.uiController.onTaskbarIconLaunched(fi);
                 mControllers.taskbarStashController.updateAndAnimateTransientTaskbar(true);
             }
@@ -1091,8 +1100,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                             getSystemService(LauncherApps.class)
                                     .startShortcut(packageName, id, null, null, info.user);
                         } else {
-                            launchFromTaskbarPreservingSplitIfVisible(
-                                    recents, view, Collections.singletonList(info));
+                            launchFromTaskbar(recents, view, Collections.singletonList(info));
                         }
 
                     } catch (NullPointerException
@@ -1130,8 +1138,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 // If we are selecting a second app for split, launch the split tasks
                 taskbarUIController.triggerSecondAppForSplit(info, info.intent, view);
             } else {
-                launchFromTaskbarPreservingSplitIfVisible(
-                        recents, view, Collections.singletonList(info));
+                launchFromTaskbar(recents, view, Collections.singletonList(info));
             }
             mControllers.uiController.onTaskbarIconLaunched(info);
             mControllers.taskbarStashController.updateAndAnimateTransientTaskbar(true);
@@ -1147,12 +1154,48 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     }
 
     /**
+     * Runs when the user taps a Taskbar icon in TaskbarActivityContext (Overview or inside an app),
+     * and calls the appropriate method to animate and launch.
+     */
+    private void launchFromTaskbar(@Nullable RecentsView recents, @Nullable View launchingIconView,
+            List<? extends ItemInfo> itemInfos) {
+        if (isInApp()) {
+            launchFromInAppTaskbar(recents, launchingIconView, itemInfos);
+        } else {
+            launchFromOverviewTaskbar(recents, launchingIconView, itemInfos);
+        }
+    }
+
+    /**
+     * Runs when the user taps a Taskbar icon while inside an app.
+     */
+    private void launchFromInAppTaskbar(@Nullable RecentsView recents,
+            @Nullable View launchingIconView, List<? extends ItemInfo> itemInfos) {
+        if (recents == null) {
+            return;
+        }
+
+        boolean tappedAppPair = itemInfos.size() == 2;
+
+        if (tappedAppPair) {
+            // If the icon is an app pair, the logic gets a bit complicated because we play
+            // different animations depending on which app (or app pair) is currently running on
+            // screen, so delegate logic to appPairsController.
+            recents.getSplitSelectController().getAppPairsController()
+                    .handleAppPairLaunchInApp((AppPairIcon) launchingIconView, itemInfos);
+        } else {
+            // Tapped a single app, nothing complicated here.
+            startItemInfoActivity(itemInfos.get(0));
+        }
+    }
+
+    /**
      * Run when the user taps a Taskbar icon while in Overview. If the tapped app is currently
      * visible to the user in Overview, or is part of a visible split pair, we expand the TaskView
      * as if the user tapped on it (preserving the split pair). Otherwise, launch it normally
      * (potentially breaking a split pair).
      */
-    private void launchFromTaskbarPreservingSplitIfVisible(@Nullable RecentsView recents,
+    private void launchFromOverviewTaskbar(@Nullable RecentsView recents,
             @Nullable View launchingIconView, List<? extends ItemInfo> itemInfos) {
         if (recents == null) {
             return;
@@ -1169,25 +1212,15 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                     @Nullable Task foundTask = foundTasks[0];
                     if (foundTask != null) {
                         TaskView foundTaskView = recents.getTaskViewByTaskId(foundTask.key.id);
-                        if (foundTaskView != null) {
-                            // The foundTaskView contains the 1-2 taskIds we are looking for.
-                            // If we are already in-app and running the correct tasks, no need
-                            // to do anything.
-                            if (FeatureFlags.enableAppPairs()
-                                    && isAlreadyInApp(foundTaskView.getTaskIds())) {
-                                return;
-                            }
-                            // If we are in Overview and the TaskView tile is visible, expand that
-                            // tile.
-                            if (foundTaskView.isVisibleToUser()) {
-                                TestLogging.recordEvent(
-                                        TestProtocol.SEQUENCE_MAIN, "start: taskbarAppIcon");
-                                foundTaskView.launchTasks();
-                                return;
-                            }
+                        if (foundTaskView != null
+                                && foundTaskView.isVisibleToUser()) {
+                            TestLogging.recordEvent(
+                                    TestProtocol.SEQUENCE_MAIN, "start: taskbarAppIcon");
+                            foundTaskView.launchTasks();
+                            return;
                         }
                     }
-                    // If none of the above cases apply, launch a new app or app pair.
+
                     if (findExactPairMatch) {
                         // We did not find the app pair we were looking for, so launch one.
                         recents.getSplitSelectController().getAppPairsController().launchAppPair(
@@ -1197,27 +1230,6 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                     }
                 }
         );
-    }
-
-    /**
-     * Checks if a given list of taskIds are all already running in-app.
-     */
-    private boolean isAlreadyInApp(int[] ids) {
-        if (mControllers.uiController.isInOverview()) {
-            return false;
-        }
-
-        RunningTaskInfo[] currentlyRunningTasks = ActivityManagerWrapper.getInstance()
-                .getRunningTasks(false /* filterOnlyVisibleRecents */);
-        Set<Integer> currentlyRunningIds = Arrays.stream(currentlyRunningTasks)
-                .map(task -> task.taskId).collect(Collectors.toSet());
-
-        for (int id : ids) {
-            if (id != ActivityTaskManager.INVALID_TASK_ID && !currentlyRunningIds.contains(id)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private void startItemInfoActivity(ItemInfo info) {
@@ -1366,6 +1378,23 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 bubbleControllers.bubbleStashController.showBubbleBar(false);
             }
         });
+    }
+
+    public void hideTaskbarWhenFolding() {
+        AnimatedFloat alphaAnim = mControllers.taskbarDragLayerController.getTaskbarAlpha();
+        alphaAnim.cancelAnimation();
+        alphaAnim.updateValue(0);
+        ObjectAnimator animator = alphaAnim.animateToValue(1).setDuration(0);
+        animator.setStartDelay(TASKBAR_REAPPEAR_DELAY_MS);
+        animator.start();
+    }
+
+    public void cancelHideTaskbarWhenFolding() {
+        mControllers.taskbarDragLayerController.getTaskbarAlpha().cancelAnimation();
+    }
+
+    public void resetHideTaskbarWhenUnfolding() {
+        mControllers.taskbarDragLayerController.getTaskbarAlpha().updateValue(1);
     }
 
     protected boolean isUserSetupComplete() {

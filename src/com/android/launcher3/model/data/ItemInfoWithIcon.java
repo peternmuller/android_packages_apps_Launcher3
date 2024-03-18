@@ -16,14 +16,13 @@
 
 package com.android.launcher3.model.data;
 
-import static com.android.launcher3.Flags.enableSupportForArchiving;
-
 import android.content.Context;
 import android.content.Intent;
 import android.os.Process;
 
 import androidx.annotation.Nullable;
 
+import com.android.launcher3.Utilities;
 import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.BitmapInfo.DrawableCreationFlags;
 import com.android.launcher3.icons.FastBitmapDrawable;
@@ -122,6 +121,11 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
     public static final int FLAG_ARCHIVED = 1 << 14;
 
     /**
+     * Flag indicating it's the Private Space Install App icon.
+     */
+    public static final int FLAG_PRIVATE_SPACE_INSTALL_APP = 1 << 15;
+
+    /**
      * Status associated with the system state of the underlying item. This is calculated every
      * time a new info is created and not persisted on the disk.
      */
@@ -135,7 +139,8 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
      */
     private int mProgressLevel = 100;
 
-    protected ItemInfoWithIcon() { }
+    protected ItemInfoWithIcon() {
+    }
 
     protected ItemInfoWithIcon(ItemInfoWithIcon info) {
         super(info);
@@ -151,9 +156,22 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
     }
 
     /**
-     * Returns true if the app corresponding to the item is archived. */
+     * @return {@code true} if the app is pending download (0 progress) or if the app is archived
+     * and its install session is active
+     */
+    public boolean isPendingDownload() {
+        if (isArchived()) {
+            return this.getProgressLevel() == 0
+                    && (this.runtimeStatusFlags & FLAG_INSTALL_SESSION_ACTIVE) != 0;
+        }
+        return getProgressLevel() == 0;
+    }
+
+    /**
+     * Returns true if the app corresponding to the item is archived.
+     */
     public boolean isArchived() {
-        if (!enableSupportForArchiving()) {
+        if (!Utilities.enableSupportForArchiving()) {
             return false;
         }
         return (runtimeStatusFlags & FLAG_ARCHIVED) != 0;
@@ -175,7 +193,7 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
     public boolean isAppStartable() {
         return ((runtimeStatusFlags & FLAG_INSTALL_SESSION_ACTIVE) == 0)
                 && (((runtimeStatusFlags & FLAG_INCREMENTAL_DOWNLOAD_ACTIVE) != 0)
-                    || mProgressLevel == 100 || isArchived());
+                || mProgressLevel == 100 || isArchived());
     }
 
     /**
@@ -238,7 +256,7 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
 
         return targetPackage != null
                 ? ApiWrapper.getAppMarketActivityIntent(
-                        context, targetPackage, Process.myUserHandle())
+                context, targetPackage, Process.myUserHandle())
                 : null;
     }
 

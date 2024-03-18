@@ -87,13 +87,21 @@ class AppPairIconGraphic @JvmOverloads constructor(context: Context, attrs: Attr
         appPairBackground = AppPairIconBackground(context, this)
         appPairBackground.setBounds(0, 0, backgroundSize.toInt(), backgroundSize.toInt())
         applyIcons(parentIcon.info.contents)
+
+        // Center the drawable area in the larger icon canvas
+        val lp: LayoutParams = layoutParams as LayoutParams
+        lp.gravity = Gravity.CENTER_HORIZONTAL
+        lp.topMargin = outerPadding.toInt()
+        lp.height = backgroundSize.toInt()
+        lp.width = backgroundSize.toInt()
+        layoutParams = lp
     }
 
     /** Sets up app pair member icons for drawing. */
     private fun applyIcons(contents: ArrayList<WorkspaceItemInfo>) {
         // App pair should always contain 2 members; if not 2, return to avoid a crash loop
         if (contents.size != 2) {
-            Log.w(TAG, "AppPair contents not 2, size: " + contents.size, Throwable())
+            Log.wtf(TAG, "AppPair contents not 2, size: " + contents.size, Throwable())
             return
         }
 
@@ -112,7 +120,6 @@ class AppPairIconGraphic @JvmOverloads constructor(context: Context, attrs: Attr
         appIcon2?.setBounds(0, 0, memberIconSize.toInt(), memberIconSize.toInt())
     }
 
-
     /** Gets this icon graphic's bounds, with respect to the parent icon's coordinate system. */
     fun getIconBounds(outBounds: Rect) {
         outBounds.set(0, 0, backgroundSize.toInt(), backgroundSize.toInt())
@@ -126,27 +133,11 @@ class AppPairIconGraphic @JvmOverloads constructor(context: Context, attrs: Attr
 
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-
-        // Center the drawable area in the larger icon canvas
-        val lp: LayoutParams = layoutParams as LayoutParams
-        lp.gravity = Gravity.CENTER_HORIZONTAL
-        lp.topMargin = outerPadding.toInt()
-        lp.height = backgroundSize.toInt()
-        lp.width = backgroundSize.toInt()
-        layoutParams = lp
-
         // Draw background
         appPairBackground.draw(canvas)
 
-        // Make sure icons are loaded
-        if (
-            appIcon1 == null ||
-                appIcon2 == null ||
-                appIcon1 is PlaceHolderIconDrawable ||
-                appIcon2 is PlaceHolderIconDrawable
-        ) {
-            applyIcons(parentIcon.info.contents)
-        }
+        // Make sure icons are loaded and fresh
+        applyIcons(parentIcon.info.contents)
 
         // Draw first icon
         canvas.save()

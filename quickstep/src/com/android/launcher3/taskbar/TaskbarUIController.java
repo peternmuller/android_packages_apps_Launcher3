@@ -93,6 +93,7 @@ public class TaskbarUIController {
     public void onTaskbarIconLaunched(ItemInfo item) {
         // When launching from Taskbar, e.g. from Overview, set FLAG_IN_APP immediately instead of
         // waiting for onPause, to reduce potential visual noise during the app open transition.
+        if (mControllers.taskbarStashController == null) return;
         mControllers.taskbarStashController.updateStateForFlag(FLAG_IN_APP, true);
         mControllers.taskbarStashController.applyState();
     }
@@ -259,7 +260,8 @@ public class TaskbarUIController {
                                     taskAttributes.getThumbnailView(),
                                     taskAttributes.getThumbnailView().getThumbnail(),
                                     null /* intent */,
-                                    null /* user */);
+                                    null /* user */,
+                                    info);
                             return;
                         }
                     }
@@ -272,7 +274,8 @@ public class TaskbarUIController {
                             startingView,
                             null /* thumbnail */,
                             intent,
-                            info.user);
+                            info.user,
+                            info);
                 }
         );
     }
@@ -357,4 +360,13 @@ public class TaskbarUIController {
 
     /** Adjusts the hotseat for the bubble bar. */
     public void adjustHotseatForBubbleBar(boolean isBubbleBarVisible) {}
+
+    /**
+     * Adjusts the taskbar based on the visibility of the launcher.
+     * @param isVisible True if launcher is visible, false otherwise.
+     */
+    public void onLauncherVisibilityChanged(boolean isVisible) {
+        mControllers.taskbarStashController.updateStateForFlag(FLAG_IN_APP, !isVisible);
+        mControllers.taskbarStashController.applyState();
+    }
 }

@@ -16,10 +16,8 @@
 
 package com.android.launcher3.appprediction;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,6 +31,7 @@ import com.android.launcher3.BubbleTextView;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.DeviceProfile.OnDeviceProfileChangeListener;
 import com.android.launcher3.Flags;
+import com.android.launcher3.LauncherPrefs;
 import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.allapps.FloatingHeaderRow;
@@ -50,7 +49,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@TargetApi(Build.VERSION_CODES.P)
 public class PredictionRowView<T extends Context & ActivityContext>
         extends LinearLayout implements OnDeviceProfileChangeListener, FloatingHeaderRow {
 
@@ -71,6 +69,8 @@ public class PredictionRowView<T extends Context & ActivityContext>
     private FloatingHeaderView mParent;
 
     private boolean mPredictionsEnabled = false;
+
+    private boolean mPredictionUiUpdatePaused = false;
 
     public PredictionRowView(@NonNull Context context) {
         this(context, null);
@@ -138,7 +138,9 @@ public class PredictionRowView<T extends Context & ActivityContext>
         int totalHeight = iconHeight + iconPadding + textHeight + mVerticalPadding * 2;
         // Prediction row height will be 4dp bigger than the regular apps in A-Z list when two line
         // is not enabled. Otherwise, the extra height will increase by just the textHeight.
-        int extraHeight = FeatureFlags.enableTwolineAllapps() ? textHeight : mTopRowExtraHeight;
+        int extraHeight = (FeatureFlags.enableTwolineAllapps() && (!Flags.enableTwolineToggle()
+                || (Flags.enableTwolineToggle() && LauncherPrefs.ENABLE_TWOLINE_ALLAPPS_TOGGLE.get(
+                        getContext())))) ? textHeight : mTopRowExtraHeight;
         totalHeight += extraHeight;
         return getVisibility() == GONE ? 0 : totalHeight + getPaddingTop() + getPaddingBottom();
     }
@@ -193,7 +195,18 @@ public class PredictionRowView<T extends Context & ActivityContext>
         applyPredictionApps();
     }
 
+    /** Pause the prediction row UI update */
+    public void setPredictionUiUpdatePaused(boolean predictionUiUpdatePaused) {
+        mPredictionUiUpdatePaused = predictionUiUpdatePaused;
+        if (!mPredictionUiUpdatePaused) {
+            applyPredictionApps();
+        }
+    }
+
     private void applyPredictionApps() {
+        if (mPredictionUiUpdatePaused) {
+            return;
+        }
         if (getChildCount() != mNumPredictedAppsPerRow) {
             while (getChildCount() > mNumPredictedAppsPerRow) {
                 removeViewAt(0);

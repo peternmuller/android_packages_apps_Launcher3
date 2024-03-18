@@ -22,6 +22,7 @@ import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR;
 import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR_PANEL;
 
 import static com.android.launcher3.BaseActivity.EVENT_DESTROYED;
+import static com.android.launcher3.Flags.enableUnfoldStateAnimation;
 import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.config.FeatureFlags.ENABLE_TASKBAR_NAVBAR_UNIFICATION;
 import static com.android.launcher3.config.FeatureFlags.enableTaskbarNoRecreate;
@@ -29,6 +30,7 @@ import static com.android.launcher3.util.DisplayController.CHANGE_DENSITY;
 import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MODE;
 import static com.android.launcher3.util.DisplayController.CHANGE_TASKBAR_PINNING;
 import static com.android.launcher3.util.DisplayController.TASKBAR_NOT_DESTROYED_TAG;
+import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.launcher3.util.FlagDebugUtils.formatFlagChange;
 import static com.android.quickstep.util.SystemActionConstants.ACTION_SHOW_TASKBAR;
@@ -42,6 +44,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Handler;
@@ -108,6 +111,7 @@ public class TaskbarManager {
 
     private final Context mContext;
     private final @Nullable Context mNavigationBarPanelContext;
+    private final DeviceStateManager mDeviceStateManager;
     private WindowManager mWindowManager;
     private FrameLayout mTaskbarRootLayout;
     private boolean mAddedWindow;
@@ -174,7 +178,8 @@ public class TaskbarManager {
         }
     };
 
-    UnfoldTransitionProgressProvider.TransitionProgressListener mUnfoldTransitionProgressListener =
+    private final UnfoldTransitionProgressProvider.TransitionProgressListener
+            mUnfoldTransitionProgressListener =
             new UnfoldTransitionProgressProvider.TransitionProgressListener() {
                 @Override
                 public void onTransitionStarted() {
@@ -203,6 +208,9 @@ public class TaskbarManager {
                 }
             };
 
+    private final DeviceStateManager.FoldStateListener mFoldStateListener;
+    private Boolean mFolded;
+
     @SuppressLint("WrongConstant")
     public TaskbarManager(TouchInteractionService service) {
         Display display =
@@ -228,6 +236,29 @@ public class TaskbarManager {
                 }
             };
         }
+        // Temporary solution to mitigate the visual jump from folding the device. Currently, the
+        // screen turns on much earlier than we receive the onConfigurationChanged callback or
+        // receiving the correct device profile. While the ideal the solution is to align turning
+        // the screen on after onConfigurationChanged (by either delaying turning on the screen or
+        // figuring out what is causing the delay in getting onConfigurationChanged callback), one
+        // easy temporary mitigation is to dimming the bar so that the visual jump isn't as glaring.
+        mFoldStateListener = new DeviceStateManager.FoldStateListener(mContext, folded -> {
+            boolean firstTime = mFolded == null;
+            if (mTaskbarActivityContext == null) {
+                return;
+            }
+            if (!firstTime && mFolded.booleanValue() != folded) {
+                mTaskbarActivityContext.cancelHideTaskbarWhenFolding();
+            }
+            mFolded = folded;
+            if (folded && !firstTime) {
+                mTaskbarActivityContext.hideTaskbarWhenFolding();
+            } else {
+                mTaskbarActivityContext.resetHideTaskbarWhenUnfolding();
+            }
+        });
+        mDeviceStateManager = mContext.getSystemService(DeviceStateManager.class);
+        mDeviceStateManager.registerCallback(MAIN_EXECUTOR, mFoldStateListener);
         mNavButtonController = new TaskbarNavButtonController(service,
                 SystemUiProxy.INSTANCE.get(mContext), new Handler(),
                 AssistUtils.newInstance(mContext));
@@ -405,8 +436,12 @@ public class TaskbarManager {
      */
     private UnfoldTransitionProgressProvider getUnfoldTransitionProgressProviderForActivity(
             StatefulActivity activity) {
-        if (activity instanceof QuickstepLauncher) {
-            return ((QuickstepLauncher) activity).getUnfoldTransitionProgressProvider();
+        if (!enableUnfoldStateAnimation()) {
+            if (activity instanceof QuickstepLauncher ql) {
+                return ql.getUnfoldTransitionProgressProvider();
+            }
+        } else {
+            return SystemUiProxy.INSTANCE.get(mContext).getUnfoldTransitionProvider();
         }
         return null;
     }
@@ -583,6 +618,7 @@ public class TaskbarManager {
         Log.d(TASKBAR_NOT_DESTROYED_TAG, "unregistering component callbacks from destroy().");
         mContext.unregisterComponentCallbacks(mComponentCallbacks);
         mContext.unregisterReceiver(mShutdownReceiver);
+        mDeviceStateManager.unregisterCallback(mFoldStateListener);
     }
 
     public @Nullable TaskbarActivityContext getCurrentActivityContext() {

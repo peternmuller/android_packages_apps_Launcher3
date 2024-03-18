@@ -34,6 +34,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.pm.LauncherApps;
+import android.content.pm.LauncherApps.ArchiveCompatibilityParams;
 import android.os.UserHandle;
 import android.util.Log;
 
@@ -89,6 +90,7 @@ public class LauncherAppState implements SafeCloseable {
         return mContext;
     }
 
+    @SuppressWarnings("NewApi")
     public LauncherAppState(Context context) {
         this(context, LauncherFiles.APP_ICONS_DB);
         Log.v(Launcher.TAG, "LauncherAppState initiated");
@@ -103,9 +105,16 @@ public class LauncherAppState implements SafeCloseable {
         });
 
         ModelLauncherCallbacks callbacks = mModel.newModelCallbacks();
-        mContext.getSystemService(LauncherApps.class).registerCallback(callbacks);
+        LauncherApps launcherApps = mContext.getSystemService(LauncherApps.class);
+        launcherApps.registerCallback(callbacks);
         mOnTerminateCallback.add(() ->
                 mContext.getSystemService(LauncherApps.class).unregisterCallback(callbacks));
+
+        if (Utilities.enableSupportForArchiving()) {
+            ArchiveCompatibilityParams params = new ArchiveCompatibilityParams();
+            params.setEnableUnarchivalConfirmation(false);
+            launcherApps.setArchiveCompatibility(params);
+        }
 
         SimpleBroadcastReceiver modelChangeReceiver =
                 new SimpleBroadcastReceiver(mModel::onBroadcastIntent);
