@@ -23,15 +23,12 @@ import static com.android.launcher3.allapps.BaseAllAppsAdapter.VIEW_TYPE_PRIVATE
 import static com.android.launcher3.allapps.SectionDecorationInfo.ROUND_NOTHING;
 import static com.android.launcher3.model.BgDataModel.Callbacks.FLAG_PRIVATE_PROFILE_QUIET_MODE_ENABLED;
 import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_NOT_PINNABLE;
-import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_PRIVATE_SPACE_INSTALL_APP;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.launcher3.util.SettingsCache.PRIVATE_SPACE_HIDE_WHEN_LOCKED_URI;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
 
@@ -43,6 +40,7 @@ import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.model.data.AppInfo;
+import com.android.launcher3.model.data.PrivateSpaceInstallAppButtonInfo;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.uioverrides.ApiWrapper;
 import com.android.launcher3.util.Preconditions;
@@ -60,9 +58,6 @@ import java.util.function.Predicate;
  */
 public class PrivateProfileManager extends UserProfileManager {
 
-    private static final String SAFETY_CENTER_INTENT = Intent.ACTION_SAFETY_CENTER;
-    private static final String PS_SETTINGS_FRAGMENT_KEY = ":settings:fragment_args_key";
-    private static final String PS_SETTINGS_FRAGMENT_VALUE = "AndroidPrivateSpace_personal";
     private final ActivityAllAppsContainerView<?> mAllApps;
     private final Predicate<UserHandle> mPrivateProfileMatcher;
     private Set<String> mPreInstalledSystemPackages = new HashSet<>();
@@ -104,13 +99,13 @@ public class PrivateProfileManager extends UserProfileManager {
                 context, com.android.launcher3.R.drawable.private_space_install_app_icon);
         BitmapInfo bitmapInfo = LauncherIcons.obtain(context).createIconBitmap(shortcut);
 
-        AppInfo itemInfo = new AppInfo();
+        PrivateSpaceInstallAppButtonInfo itemInfo = new PrivateSpaceInstallAppButtonInfo();
         itemInfo.title = context.getResources().getString(R.string.ps_add_button_label);
         itemInfo.intent = mAppInstallerIntent;
         itemInfo.bitmap = bitmapInfo;
         itemInfo.contentDescription = context.getResources().getString(
                 com.android.launcher3.R.string.ps_add_button_content_description);
-        itemInfo.runtimeStatusFlags |= FLAG_PRIVATE_SPACE_INSTALL_APP | FLAG_NOT_PINNABLE;
+        itemInfo.runtimeStatusFlags |= FLAG_NOT_PINNABLE;
 
         BaseAllAppsAdapter.AdapterItem item = new BaseAllAppsAdapter.AdapterItem(VIEW_TYPE_ICON);
         item.itemInfo = itemInfo;
@@ -158,16 +153,22 @@ public class PrivateProfileManager extends UserProfileManager {
         }
     }
 
-    /** Opens the Private Space Settings Entry Point. */
+    /** Opens the Private Space Settings Page. */
     public void openPrivateSpaceSettings() {
-        Intent psSettingsIntent = new Intent(SAFETY_CENTER_INTENT);
-        psSettingsIntent.putExtra(PS_SETTINGS_FRAGMENT_KEY, PS_SETTINGS_FRAGMENT_VALUE);
-        mAllApps.getContext().startActivity(psSettingsIntent);
+        if (mPrivateSpaceSettingsAvailable) {
+            mAllApps.getContext()
+                    .startActivity(ApiWrapper.getPrivateSpaceSettingsIntent(mAllApps.getContext()));
+        }
     }
 
-    /** Whether Private Space Settings Entry Point is available on the device. */
+    /** Returns whether or not Private Space Settings Page is available. */
     public boolean isPrivateSpaceSettingsAvailable() {
         return mPrivateSpaceSettingsAvailable;
+    }
+
+    /** Sets whether Private Space Settings Page is available. */
+    public boolean setPrivateSpaceSettingsAvailable(boolean value) {
+        return mPrivateSpaceSettingsAvailable = value;
     }
 
     /** Initializes binder call based properties in non-main thread.
@@ -183,19 +184,13 @@ public class PrivateProfileManager extends UserProfileManager {
         Preconditions.assertNonUiThread();
         setPreInstalledSystemPackages();
         setAppInstallerIntent();
-        setPrivateSpaceSettingsAvailable();
+        initializePrivateSpaceSettingsState();
     }
 
-    private void setPrivateSpaceSettingsAvailable() {
-        if (mPrivateSpaceSettingsAvailable) {
-            return;
-        }
+    private void initializePrivateSpaceSettingsState() {
         Preconditions.assertNonUiThread();
-        Intent psSettingsIntent = new Intent(SAFETY_CENTER_INTENT);
-        psSettingsIntent.putExtra(PS_SETTINGS_FRAGMENT_KEY, PS_SETTINGS_FRAGMENT_VALUE);
-        ResolveInfo resolveInfo = mAllApps.getContext().getPackageManager()
-                .resolveActivity(psSettingsIntent, PackageManager.MATCH_SYSTEM_ONLY);
-        mPrivateSpaceSettingsAvailable = resolveInfo != null;
+        Intent psSettingsIntent = ApiWrapper.getPrivateSpaceSettingsIntent(mAllApps.getContext());
+        setPrivateSpaceSettingsAvailable(psSettingsIntent != null);
     }
 
     private void setPreInstalledSystemPackages() {

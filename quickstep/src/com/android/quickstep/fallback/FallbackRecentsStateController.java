@@ -49,6 +49,7 @@ import com.android.launcher3.states.StateAnimationConfig;
 import com.android.launcher3.util.MultiPropertyFactory;
 import com.android.quickstep.RecentsActivity;
 import com.android.quickstep.views.ClearAllButton;
+import com.android.quickstep.views.RecentsView;
 
 /**
  * State controller for fallback recents activity
@@ -117,9 +118,7 @@ public class FallbackRecentsStateController implements StateHandler<RecentsState
 
         setter.setViewBackgroundColor(mActivity.getScrimView(), state.getScrimColor(mActivity),
                 config.getInterpolator(ANIM_SCRIM_FADE, LINEAR));
-
-        RecentsState currentState = mActivity.getStateManager().getState();
-        if (isSplitSelectionState(state) && !isSplitSelectionState(currentState)) {
+        if (isSplitSelectionState(state)) {
             int duration = state.getTransitionDuration(mActivity, true /* isToState */);
             // TODO (b/246851887): Pass in setter as a NO_ANIM PendingAnimation instead
             PendingAnimation pa = new PendingAnimation(duration);
@@ -127,7 +126,7 @@ public class FallbackRecentsStateController implements StateHandler<RecentsState
             setter.add(pa.buildAnim());
         }
 
-        Pair<FloatProperty, FloatProperty> taskViewsFloat =
+        Pair<FloatProperty<RecentsView>, FloatProperty<RecentsView>> taskViewsFloat =
                 mRecentsView.getPagedOrientationHandler().getSplitSelectTaskOffset(
                         TASK_PRIMARY_SPLIT_TRANSLATION, TASK_SECONDARY_SPLIT_TRANSLATION,
                         mActivity.getDeviceProfile());

@@ -157,11 +157,11 @@ class AppPairIconBackground extends Drawable {
 
     @Override
     public void setAlpha(int i) {
-        // Required by Drawable but not used.
+        mBackgroundPaint.setAlpha(i);
     }
 
     @Override
     public void setColorFilter(ColorFilter colorFilter) {
-        // Required by Drawable but not used.
+        mBackgroundPaint.setColorFilter(colorFilter);
     }
 }

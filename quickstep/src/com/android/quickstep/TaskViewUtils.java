@@ -37,7 +37,7 @@ import static com.android.launcher3.QuickstepTransitionManager.SPLIT_DIVIDER_ANI
 import static com.android.launcher3.QuickstepTransitionManager.SPLIT_LAUNCH_DURATION;
 import static com.android.launcher3.Utilities.getDescendantCoordRelativeToAncestor;
 import static com.android.launcher3.util.MultiPropertyFactory.MULTI_PROPERTY_VALUE;
-import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
+import static com.android.quickstep.util.AnimUtils.clampToDuration;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -82,9 +82,9 @@ import com.android.quickstep.views.GroupedTaskView;
 import com.android.quickstep.views.RecentsView;
 import com.android.quickstep.views.TaskThumbnailView;
 import com.android.quickstep.views.TaskView;
+import com.android.systemui.animation.RemoteAnimationTargetCompat;
 import com.android.systemui.shared.recents.model.Task;
 import com.android.systemui.shared.system.InteractionJankMonitorWrapper;
-import com.android.systemui.shared.system.RemoteAnimationTargetCompat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -182,7 +182,7 @@ public final class TaskViewUtils {
             // Re-use existing handles
             remoteTargetHandles = recentsViewHandles;
         } else {
-            boolean forDesktop = isDesktopModeSupported() && v instanceof DesktopTaskView;
+            boolean forDesktop = v instanceof DesktopTaskView;
             RemoteTargetGluer gluer = new RemoteTargetGluer(v.getContext(),
                     recentsView.getSizeStrategy(), targets, forDesktop);
             if (forDesktop) {
@@ -267,10 +267,16 @@ public final class TaskViewUtils {
             if (navBarTarget != null) {
                 final Rect cropRect = new Rect();
                 out.addOnFrameListener(new MultiValueUpdateListener() {
-                    FloatProp mNavFadeOut = new FloatProp(1f, 0f, 0,
-                            ANIMATION_NAV_FADE_OUT_DURATION, NAV_FADE_OUT_INTERPOLATOR);
-                    FloatProp mNavFadeIn = new FloatProp(0f, 1f, ANIMATION_DELAY_NAV_FADE_IN,
-                            ANIMATION_NAV_FADE_IN_DURATION, NAV_FADE_IN_INTERPOLATOR);
+                    FloatProp mNavFadeOut = new FloatProp(1f, 0f, clampToDuration(
+                            NAV_FADE_OUT_INTERPOLATOR,
+                            0,
+                            ANIMATION_NAV_FADE_OUT_DURATION,
+                            out.getDuration()));
+                    FloatProp mNavFadeIn = new FloatProp(0f, 1f, clampToDuration(
+                            NAV_FADE_IN_INTERPOLATOR,
+                            ANIMATION_DELAY_NAV_FADE_IN,
+                            ANIMATION_NAV_FADE_IN_DURATION,
+                            out.getDuration()));
 
                     @Override
                     public void onUpdate(float percent, boolean initOnly) {

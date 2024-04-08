@@ -18,6 +18,7 @@ package com.android.launcher3;
 
 import static com.android.app.animation.Interpolators.LINEAR;
 import static com.android.launcher3.Flags.enableOverviewIconMenu;
+import static com.android.launcher3.Flags.enableScalingRevealHomeAnimation;
 import static com.android.launcher3.InvariantDeviceProfile.INDEX_DEFAULT;
 import static com.android.launcher3.InvariantDeviceProfile.INDEX_LANDSCAPE;
 import static com.android.launcher3.InvariantDeviceProfile.INDEX_TWO_PANEL_LANDSCAPE;
@@ -83,6 +84,7 @@ public class DeviceProfile {
 
     // Minimum aspect ratio beyond which an extra top padding may be applied to a bottom sheet.
     private static final float MIN_ASPECT_RATIO_FOR_EXTRA_TOP_PADDING = 1.5f;
+    private static final float MAX_ASPECT_RATIO_FOR_ALTERNATE_EDIT_STATE = 1.5f;
 
     public static final PointF DEFAULT_SCALE = new PointF(1.0f, 1.0f);
     public static final ViewScaleProvider DEFAULT_PROVIDER = itemInfo -> DEFAULT_SCALE;
@@ -100,6 +102,7 @@ public class DeviceProfile {
     public final boolean transposeLayoutWithOrientation;
     public final boolean isMultiDisplay;
     public final boolean isTwoPanels;
+    public boolean isPredictiveBackSwipe;
     public final boolean isQsbInline;
 
     // Device properties in current orientation
@@ -435,7 +438,11 @@ public class DeviceProfile {
             if (isMultiDisplay && !ENABLE_MULTI_DISPLAY_PARTIAL_DEPTH.get()) {
                 // TODO(b/259893832): Revert to use maxWallpaperScale to calculate bottomSheetDepth
                 // when screen recorder bug is fixed.
-                bottomSheetDepth = 1f;
+                if (enableScalingRevealHomeAnimation()) {
+                    bottomSheetDepth = 0.3f;
+                } else {
+                    bottomSheetDepth = 1f;
+                }
             } else {
                 // The goal is to set wallpaper to zoom at workspaceContentScale when in AllApps.
                 // When depth is 0, wallpaper zoom is set to maxWallpaperScale.
@@ -503,8 +510,17 @@ public class DeviceProfile {
         }
 
         dropTargetBarSizePx = res.getDimensionPixelSize(R.dimen.dynamic_grid_drop_target_size);
-        dropTargetBarTopMarginPx = res.getDimensionPixelSize(R.dimen.drop_target_top_margin);
-        dropTargetBarBottomMarginPx = res.getDimensionPixelSize(R.dimen.drop_target_bottom_margin);
+        // Some foldable portrait modes are too wide in terms of aspect ratio so we need to tweak
+        // the dimensions for edit state.
+        final boolean shouldApplyWidePortraitDimens = isTablet
+                && !isLandscape
+                && aspectRatio < MAX_ASPECT_RATIO_FOR_ALTERNATE_EDIT_STATE;
+        dropTargetBarTopMarginPx = shouldApplyWidePortraitDimens
+                ? 0
+                : res.getDimensionPixelSize(R.dimen.drop_target_top_margin);
+        dropTargetBarBottomMarginPx = shouldApplyWidePortraitDimens
+                ? res.getDimensionPixelSize(R.dimen.drop_target_bottom_margin_wide_portrait)
+                : res.getDimensionPixelSize(R.dimen.drop_target_bottom_margin);
         dropTargetDragPaddingPx = res.getDimensionPixelSize(R.dimen.drop_target_drag_padding);
         dropTargetTextSizePx = res.getDimensionPixelSize(R.dimen.drop_target_text_size);
         dropTargetHorizontalPaddingPx = res.getDimensionPixelSize(
@@ -595,8 +611,9 @@ public class DeviceProfile {
             }
         }
 
-        springLoadedHotseatBarTopMarginPx = res.getDimensionPixelSize(
-                R.dimen.spring_loaded_hotseat_top_margin);
+        springLoadedHotseatBarTopMarginPx = shouldApplyWidePortraitDimens
+                ? res.getDimensionPixelSize(R.dimen.spring_loaded_hotseat_top_margin_wide_portrait)
+                : res.getDimensionPixelSize(R.dimen.spring_loaded_hotseat_top_margin);
 
         if (mIsResponsiveGrid) {
             updateHotseatSizes(mResponsiveWorkspaceCellSpec.getIconSize());
@@ -1222,9 +1239,8 @@ public class DeviceProfile {
         if (isVerticalLayout && !mIsResponsiveGrid) {
             hideWorkspaceLabelsIfNotEnoughSpace();
         }
-        if (FeatureFlags.enableTwolineAllapps()
-                && (!Flags.enableTwolineToggle() || (Flags.enableTwolineToggle()
-                && LauncherPrefs.ENABLE_TWOLINE_ALLAPPS_TOGGLE.get(context)))) {
+        if ((Flags.enableTwolineToggle()
+                && LauncherPrefs.ENABLE_TWOLINE_ALLAPPS_TOGGLE.get(context))) {
             // Add extra textHeight to the existing allAppsCellHeight.
             allAppsCellHeightPx += Utilities.calculateTextHeight(allAppsIconTextSizePx);
         }

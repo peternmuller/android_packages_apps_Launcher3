@@ -17,6 +17,7 @@
 package com.android.launcher3.config;
 
 import static com.android.launcher3.BuildConfig.WIDGET_ON_FIRST_SCREEN;
+import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_EXTRA_TOUCH_WIDTH_DP;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_DELAY;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_END_SCALE_PERCENT;
 import static com.android.launcher3.LauncherPrefs.LONG_PRESS_NAV_HANDLE_HAPTIC_HINT_ITERATIONS;
@@ -147,6 +148,12 @@ public final class FeatureFlags {
                     "Controls touch slop percentage for lpnh",
                     LONG_PRESS_NAV_HANDLE_SLOP_PERCENTAGE);
 
+    public static final IntFlag LPNH_EXTRA_TOUCH_WIDTH_DP =
+            FlagsFactory.getIntFlag(301680992, "LPNH_EXTRA_TOUCH_WIDTH_DP", 0,
+                    "Controls extra dp on the nav bar sides to trigger LPNH."
+                            + " Can be negative for a smaller touch region.",
+                    LONG_PRESS_NAV_HANDLE_EXTRA_TOUCH_WIDTH_DP);
+
     public static final IntFlag LPNH_TIMEOUT_MS =
             FlagsFactory.getIntFlag(301680992, "LPNH_TIMEOUT_MS",
                     ViewConfiguration.getLongPressTimeout(),
@@ -158,7 +165,7 @@ public final class FeatureFlags {
 
     // TODO(Block 5): Clean up flags
     public static final BooleanFlag ENABLE_TWOLINE_DEVICESEARCH = getDebugFlag(201388851,
-            "ENABLE_TWOLINE_DEVICESEARCH", ENABLED,
+            "ENABLE_TWOLINE_DEVICESEARCH", DISABLED,
             "Enable two line label for icons with labels on device search.");
 
     public static final BooleanFlag ENABLE_ICON_IN_TEXT_HEADER = getDebugFlag(270395143,
@@ -176,11 +183,6 @@ public final class FeatureFlags {
     public static final BooleanFlag SECONDARY_DRAG_N_DROP_TO_PIN = getDebugFlag(270395140,
             "SECONDARY_DRAG_N_DROP_TO_PIN", DISABLED,
             "Enable dragging and dropping to pin apps within secondary display");
-
-    // TODO(Block 7): Clean up flags
-    public static final BooleanFlag ENABLE_FORCED_MONO_ICON = getDebugFlag(270396209,
-            "ENABLE_FORCED_MONO_ICON", DISABLED,
-            "Enable the ability to generate monochromatic icons, if it is not provided by the app");
 
     // TODO(Block 8): Clean up flags
 
@@ -274,10 +276,7 @@ public final class FeatureFlags {
 
     // Aconfig migration complete for ENABLE_TWOLINE_ALLAPPS.
     public static final BooleanFlag ENABLE_TWOLINE_ALLAPPS = getDebugFlag(270390937,
-            "ENABLE_TWOLINE_ALLAPPS", ENABLED, "Enables two line label inside all apps.");
-    public static boolean enableTwolineAllapps() {
-        return ENABLE_TWOLINE_ALLAPPS.get() || Flags.enableTwolineAllapps();
-    }
+            "ENABLE_TWOLINE_ALLAPPS", DISABLED, "Enables two line label inside all apps.");
 
     public static final BooleanFlag IME_STICKY_SNACKBAR_EDU = getDebugFlag(270391693,
             "IME_STICKY_SNACKBAR_EDU", ENABLED, "Show sticky IME edu in AllApps");
@@ -291,7 +290,7 @@ public final class FeatureFlags {
             "Inject fallback app corpus result when AiAi fails to return it.");
 
     public static final BooleanFlag ENABLE_LONG_PRESS_NAV_HANDLE =
-            getReleaseFlag(299682306, "ENABLE_LONG_PRESS_NAV_HANDLE", TEAMFOOD,
+            getReleaseFlag(299682306, "ENABLE_LONG_PRESS_NAV_HANDLE", ENABLED,
                     "Enables long pressing on the bottom bar nav handle to trigger events.");
 
     public static final BooleanFlag ENABLE_SEARCH_HAPTIC_HINT =

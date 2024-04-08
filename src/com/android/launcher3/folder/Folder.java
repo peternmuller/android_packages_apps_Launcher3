@@ -40,6 +40,7 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Looper;
 import android.text.InputType;
 import android.text.Selection;
 import android.text.TextUtils;
@@ -165,10 +166,10 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     private static final Rect sTempRect = new Rect();
     private static final int MIN_FOLDERS_FOR_HARDWARE_OPTIMIZATION = 10;
 
-    private final Alarm mReorderAlarm = new Alarm();
-    private final Alarm mOnExitAlarm = new Alarm();
-    private final Alarm mOnScrollHintAlarm = new Alarm();
-    final Alarm mScrollPauseAlarm = new Alarm();
+    private final Alarm mReorderAlarm = new Alarm(Looper.getMainLooper());
+    private final Alarm mOnExitAlarm = new Alarm(Looper.getMainLooper());
+    private final Alarm mOnScrollHintAlarm = new Alarm(Looper.getMainLooper());
+    final Alarm mScrollPauseAlarm = new Alarm(Looper.getMainLooper());
 
     final ArrayList<View> mItemsInReadingOrder = new ArrayList<View>();
 
@@ -283,6 +284,8 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         mContent.setFolder(this);
 
         mPageIndicator = findViewById(R.id.folder_page_indicator);
+        mFooter = findViewById(R.id.folder_footer);
+        mFooterHeight = dp.folderFooterHeightPx;
         mFolderName = findViewById(R.id.folder_name);
         mFolderName.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp.folderLabelTextSizePx);
         mFolderName.setOnBackKeyListener(this);
@@ -293,9 +296,10 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                 | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         mFolderName.forceDisableSuggestions(true);
-
-        mFooter = findViewById(R.id.folder_footer);
-        mFooterHeight = dp.folderFooterHeightPx;
+        mFolderName.setPadding(mFolderName.getPaddingLeft(),
+                (mFooterHeight - mFolderName.getLineHeight()) / 2,
+                mFolderName.getPaddingRight(),
+                (mFooterHeight - mFolderName.getLineHeight()) / 2);
 
         mKeyboardInsetAnimationCallback = new KeyboardInsetAnimationCallback(this);
         setWindowInsetsAnimationCallback(mKeyboardInsetAnimationCallback);
@@ -1038,6 +1042,9 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     public void onDropCompleted(final View target, final DragObject d,
             final boolean success) {
         if (success) {
+            if (getItemCount() <= 1) {
+                mDeleteFolderOnDropCompleted = true;
+            }
             if (mDeleteFolderOnDropCompleted && !mItemAddedBackToSelfViaIcon && target != this) {
                 replaceFolderWithFinalItem();
             }

@@ -189,6 +189,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private float mBottomSheetAlpha = 1f;
     private boolean mForceBottomSheetVisible;
     private int mTabsProtectionAlpha;
+    private float mTotalHeaderProtectionHeight;
     @Nullable private AllAppsTransitionController mAllAppsTransitionController;
 
     private PrivateSpaceHeaderViewController mPrivateSpaceHeaderViewController;
@@ -1372,7 +1373,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     @Override
-    public void drawOnScrimWithScale(Canvas canvas, float scale) {
+    public void drawOnScrimWithScaleAndBottomOffset(
+            Canvas canvas, float scale, @Px int bottomOffsetPx) {
         final View panel = mBottomSheetBackground;
         final boolean hasBottomSheet = panel.getVisibility() == VISIBLE;
         final float translationY = ((View) panel.getParent()).getTranslationY();
@@ -1384,6 +1386,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         final float topWithScale = topNoScale + verticalScaleOffset;
         final float leftWithScale = panel.getLeft() + horizontalScaleOffset;
         final float rightWithScale = panel.getRight() - horizontalScaleOffset;
+        final float bottomWithOffset = panel.getBottom() + bottomOffsetPx;
         // Draw full background panel for tablets.
         if (hasBottomSheet) {
             mHeaderPaint.setColor(mBottomSheetBackgroundColor);
@@ -1393,7 +1396,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     leftWithScale,
                     topWithScale,
                     rightWithScale,
-                    panel.getBottom());
+                    bottomWithOffset);
             mTmpPath.reset();
             mTmpPath.addRoundRect(mTmpRectF, mBottomSheetCornerRadii, Direction.CW);
             canvas.drawPath(mTmpPath, mHeaderPaint);
@@ -1429,9 +1432,11 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 mTmpPath.reset();
                 mTmpPath.addRoundRect(mTmpRectF, mBottomSheetCornerRadii, Direction.CW);
                 canvas.drawPath(mTmpPath, mHeaderPaint);
+                mTotalHeaderProtectionHeight = headerBottomWithScaleOnTablet;
             }
         } else {
             canvas.drawRect(0, 0, canvas.getWidth(), headerBottomWithScaleOnPhone, mHeaderPaint);
+            mTotalHeaderProtectionHeight = headerBottomWithScaleOnPhone;
         }
 
         // If tab exist (such as work profile), extend header with tab height
@@ -1461,7 +1466,16 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     right,
                     tabBottomWithScale,
                     mHeaderPaint);
+            mTotalHeaderProtectionHeight = tabBottomWithScale;
         }
+    }
+
+    /**
+     * The height of the header protection is dynamically calculated during the time of drawing the
+     * header.
+     */
+    float getHeaderProtectionHeight() {
+        return mTotalHeaderProtectionHeight;
     }
 
     /**

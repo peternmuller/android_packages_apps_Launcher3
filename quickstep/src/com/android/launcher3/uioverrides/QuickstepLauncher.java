@@ -21,6 +21,7 @@ import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_OPTIMIZE_MEAS
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED;
 
 import static com.android.app.animation.Interpolators.EMPHASIZED;
+import static com.android.internal.jank.Cuj.CUJ_LAUNCHER_LAUNCH_APP_PAIR_FROM_WORKSPACE;
 import static com.android.launcher3.Flags.enablePredictiveBackGesture;
 import static com.android.launcher3.Flags.enableUnfoldStateAnimation;
 import static com.android.launcher3.LauncherConstants.SavedInstanceKeys.PENDING_SPLIT_SELECT_INFO;
@@ -38,8 +39,8 @@ import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
 import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
 import static com.android.launcher3.compat.AccessibilityManagerCompat.sendCustomAccessibilityEvent;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_APP_LAUNCH_TAP;
-import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_INTERRUPTED;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_HOME;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SPLIT_SELECTION_EXIT_INTERRUPTED;
 import static com.android.launcher3.model.data.ItemInfo.NO_MATCHING_ID;
 import static com.android.launcher3.popup.QuickstepSystemShortcut.getSplitSelectShortcutByPosition;
 import static com.android.launcher3.popup.SystemShortcut.APP_INFO;
@@ -60,7 +61,7 @@ import static com.android.launcher3.util.DisplayController.CHANGE_NAVIGATION_MOD
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.quickstep.util.AnimUtils.completeRunnableListCallback;
 import static com.android.quickstep.util.SplitAnimationTimings.TABLET_HOME_TO_SPLIT;
-import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
+import static com.android.window.flags.Flags.enableDesktopWindowingMode;
 import static com.android.systemui.shared.system.ActivityManagerWrapper.CLOSE_SYSTEM_WINDOWS_REASON_HOME_KEY;
 import static com.android.wm.shell.common.split.SplitScreenConstants.SNAP_TO_50_50;
 
@@ -83,7 +84,6 @@ import android.os.IRemoteCallback;
 import android.os.SystemProperties;
 import android.os.Trace;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Display;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
@@ -105,6 +105,7 @@ import com.android.launcher3.AbstractFloatingView;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Flags;
 import com.android.launcher3.HomeTransitionController;
+import com.android.launcher3.InvariantDeviceProfile;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.LauncherState;
@@ -199,7 +200,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -208,9 +209,6 @@ public class QuickstepLauncher extends Launcher {
             SystemProperties.getBoolean("persist.debug.trace_layouts", false);
     private static final String TRACE_RELAYOUT_CLASS =
             SystemProperties.get("persist.debug.trace_request_layout_class", null);
-
-    private static final String TAG = "QuickstepLauncher";
-
     public static final boolean GO_LOW_RAM_RECENTS_ENABLED = false;
 
     protected static final String RING_APPEAR_ANIMATION_PREFIX = "RingAppearAnimation\t";
@@ -244,6 +242,8 @@ public class QuickstepLauncher extends Launcher {
 
     private boolean mEnableWidgetDepth;
 
+    private boolean mIsPredictiveBackToHomeInProgress;
+
     private HomeTransitionController mHomeTransitionController;
 
     @Override
@@ -258,7 +258,7 @@ public class QuickstepLauncher extends Launcher {
                         getDepthController(), getStatsLogManager(),
                         systemUiProxy, RecentsModel.INSTANCE.get(this),
                         () -> onStateBack());
-        if (isDesktopModeSupported()) {
+        if (enableDesktopWindowingMode()) {
             mDesktopRecentsTransitionController = new DesktopRecentsTransitionController(
                     getStateManager(), systemUiProxy, getIApplicationThread(),
                     getDepthController());
@@ -284,7 +284,7 @@ public class QuickstepLauncher extends Launcher {
         mTISBindHelper = new TISBindHelper(this, this::onTISConnected);
         mDepthController = new DepthController(this);
         mDesktopVisibilityController = new DesktopVisibilityController(this);
-        if (isDesktopModeSupported()) {
+        if (enableDesktopWindowingMode()) {
             mDesktopVisibilityController.registerSystemUiListener();
             mSplitSelectStateController.initSplitFromDesktopController(this);
         }
@@ -372,8 +372,6 @@ public class QuickstepLauncher extends Launcher {
     public RunnableList startActivitySafely(View v, Intent intent, ItemInfo item) {
         // Only pause is taskbar controller is not present until the transition (if it exists) ends
         mHotseatPredictionController.setPauseUIUpdate(getTaskbarUIController() == null);
-        Log.d("b/318394698", "startActivitySafely being run, getTaskbarUIController is: "
-                + getTaskbarUIController());
         PredictionRowView<?> predictionRowView =
                 getAppsView().getFloatingHeaderView().findFixedRowByType(PredictionRowView.class);
         // Pause the prediction row updates until the transition (if it exists) ends.
@@ -486,7 +484,6 @@ public class QuickstepLauncher extends Launcher {
 
     @Override
     public void bindExtraContainerItems(FixedContainerItems item) {
-        Log.d(TAG, "Bind extra container items. ContainerId = " + item.containerId);
         if (item.containerId == Favorites.CONTAINER_PREDICTION) {
             mAllAppsPredictions = item;
             PredictionRowView<?> predictionRowView =
@@ -494,7 +491,6 @@ public class QuickstepLauncher extends Launcher {
                             PredictionRowView.class);
             predictionRowView.setPredictedApps(item.items);
         } else if (item.containerId == Favorites.CONTAINER_HOTSEAT_PREDICTION) {
-            Log.d(TAG, "Bind extra container item is hotseat prediction");
             mHotseatPredictionController.setPredictedItems(item);
         } else if (item.containerId == Favorites.CONTAINER_WIDGETS_PREDICTION) {
             getPopupDataProvider().setRecommendedWidgets(item.items);
@@ -513,6 +509,7 @@ public class QuickstepLauncher extends Launcher {
             mAppTransitionManager.onActivityDestroyed();
         }
         mAppTransitionManager = null;
+        mIsPredictiveBackToHomeInProgress = false;
 
         if (mUnfoldTransitionProgressProvider != null) {
             SystemUiProxy.INSTANCE.get(this).setUnfoldAnimationListener(null);
@@ -595,9 +592,10 @@ public class QuickstepLauncher extends Launcher {
 
         ArrayList<TouchController> list = new ArrayList<>();
         list.add(getDragController());
-        Consumer<AnimatorSet> splitAnimator = animatorSet ->
+        BiConsumer<AnimatorSet, Long> splitAnimator = (animatorSet, duration) ->
                 animatorSet.play(mSplitSelectStateController.getSplitAnimationController()
-                        .createPlaceholderDismissAnim(this, LAUNCHER_SPLIT_SELECTION_EXIT_HOME));
+                        .createPlaceholderDismissAnim(this, LAUNCHER_SPLIT_SELECTION_EXIT_HOME,
+                                duration));
         switch (mode) {
             case NO_BUTTON:
                 list.add(new NoButtonQuickSwitchTouchController(this));
@@ -646,10 +644,13 @@ public class QuickstepLauncher extends Launcher {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        // Back dispatcher is registered in {@link BaseActivity#onCreate}. For predictive back to
+        // work, we must opt-in BEFORE registering back dispatcher. So we need to call
+        // setEnableOnBackInvokedCallback() before super.onCreate()
         if (Utilities.ATLEAST_U && enablePredictiveBackGesture()) {
             getApplicationInfo().setEnableOnBackInvokedCallback(true);
         }
+        super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             mPendingSplitSelectInfo = ObjectWrapper.unwrap(
                     savedInstanceState.getIBinder(PENDING_SPLIT_SELECT_INFO));
@@ -663,6 +664,14 @@ public class QuickstepLauncher extends Launcher {
         QuickstepOnboardingPrefs.setup(this);
         View.setTraceLayoutSteps(TRACE_LAYOUTS);
         View.setTracedRequestLayoutClassClass(TRACE_RELAYOUT_CLASS);
+    }
+
+    @Override
+    protected boolean initDeviceProfile(InvariantDeviceProfile idp) {
+        final boolean ret = super.initDeviceProfile(idp);
+        mDeviceProfile.isPredictiveBackSwipe =
+                getApplicationInfo().isOnBackInvokedCallbackEnabled();
+        return ret;
     }
 
     @Override
@@ -938,7 +947,7 @@ public class QuickstepLauncher extends Launcher {
 
     @Override
     public void setResumed() {
-        if (isDesktopModeSupported()) {
+        if (enableDesktopWindowingMode()) {
             DesktopVisibilityController controller = mDesktopVisibilityController;
             if (controller != null && controller.areFreeformTasksVisible()
                     && !controller.isRecentsGestureInProgress()) {
@@ -973,6 +982,7 @@ public class QuickstepLauncher extends Launcher {
         if (taskbarManager != null) {
             taskbarManager.setActivity(this);
         }
+        mTISBindHelper.setPredictiveBackToHomeInProgress(mIsPredictiveBackToHomeInProgress);
     }
 
     @Override
@@ -1277,6 +1287,14 @@ public class QuickstepLauncher extends Launcher {
         mPendingSplitSelectInfo = null;
     }
 
+    /**
+     * Sets flag whether a predictive back-to-home animation is in progress
+     */
+    public void setPredictiveBackToHomeInProgress(boolean isInProgress) {
+        mIsPredictiveBackToHomeInProgress = isInProgress;
+        mTISBindHelper.setPredictiveBackToHomeInProgress(isInProgress);
+    }
+
     @Override
     public boolean areFreeformTasksVisible() {
         if (mDesktopVisibilityController != null) {
@@ -1329,7 +1347,8 @@ public class QuickstepLauncher extends Launcher {
      * Launches two apps as an app pair.
      */
     public void launchAppPair(AppPairIcon appPairIcon) {
-        mSplitSelectStateController.getAppPairsController().launchAppPair(appPairIcon);
+        mSplitSelectStateController.getAppPairsController().launchAppPair(appPairIcon,
+                CUJ_LAUNCHER_LAUNCH_APP_PAIR_FROM_WORKSPACE);
     }
 
     public boolean canStartHomeSafely() {
@@ -1345,6 +1364,11 @@ public class QuickstepLauncher extends Launcher {
     @Override
     public boolean hasBubbles() {
         return (mTaskbarUIController != null && mTaskbarUIController.hasBubbles());
+    }
+
+    @NonNull
+    public TISBindHelper getTISBindHelper() {
+        return mTISBindHelper;
     }
 
     private static final class LauncherTaskViewController extends

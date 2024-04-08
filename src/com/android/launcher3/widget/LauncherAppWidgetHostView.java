@@ -40,12 +40,12 @@ import androidx.annotation.Nullable;
 
 import com.android.launcher3.CheckLongPressHelper;
 import com.android.launcher3.Flags;
-import com.android.launcher3.Launcher;
 import com.android.launcher3.R;
-import com.android.launcher3.dragndrop.DragLayer;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
 import com.android.launcher3.util.Themes;
+import com.android.launcher3.views.ActivityContext;
+import com.android.launcher3.views.BaseDragLayer;
 import com.android.launcher3.views.BaseDragLayer.TouchCompleteListener;
 
 /**
@@ -72,7 +72,7 @@ public class LauncherAppWidgetHostView extends BaseLauncherAppWidgetHostView
 
     private final Rect mTempRect = new Rect();
     private final CheckLongPressHelper mLongPressHelper;
-    protected final Launcher mLauncher;
+    protected final ActivityContext mActivityContext;
 
     // Maintain the color manager.
     private final LocalColorExtractor mColorExtractor;
@@ -92,17 +92,21 @@ public class LauncherAppWidgetHostView extends BaseLauncherAppWidgetHostView
 
     private boolean mTrackingWidgetUpdate = false;
 
+    private int mFocusRectOutsets = 0;
+
     public LauncherAppWidgetHostView(Context context) {
         super(context);
-        mLauncher = Launcher.getLauncher(context);
+        mActivityContext = ActivityContext.lookupContext(context);
         mLongPressHelper = new CheckLongPressHelper(this, this);
-        setAccessibilityDelegate(mLauncher.getAccessibilityDelegate());
+        setAccessibilityDelegate(mActivityContext.getAccessibilityDelegate());
         setBackgroundResource(R.drawable.widget_internal_focus_bg);
         if (Flags.enableFocusOutline()) {
             setDefaultFocusHighlightEnabled(false);
+            mFocusRectOutsets = context.getResources().getDimensionPixelSize(
+                    R.dimen.focus_rect_widget_outsets);
         }
 
-        if (Themes.getAttrBoolean(mLauncher, R.attr.isWorkspaceDarkText)) {
+        if (Themes.getAttrBoolean(context, R.attr.isWorkspaceDarkText)) {
             setOnLightBackground(true);
         }
         mColorExtractor = new LocalColorExtractor(); // no-op
@@ -120,8 +124,7 @@ public class LauncherAppWidgetHostView extends BaseLauncherAppWidgetHostView
     @Override
     public boolean onLongClick(View view) {
         if (mIsScrollable) {
-            DragLayer dragLayer = mLauncher.getDragLayer();
-            dragLayer.requestDisallowInterceptTouchEvent(false);
+            mActivityContext.getDragLayer().requestDisallowInterceptTouchEvent(false);
         }
         view.performLongClick();
         return true;
@@ -218,7 +221,7 @@ public class LauncherAppWidgetHostView extends BaseLauncherAppWidgetHostView
 
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
-            DragLayer dragLayer = mLauncher.getDragLayer();
+            BaseDragLayer dragLayer = mActivityContext.getDragLayer();
             if (mIsScrollable) {
                 dragLayer.requestDisallowInterceptTouchEvent(true);
             }
@@ -267,6 +270,13 @@ public class LauncherAppWidgetHostView extends BaseLauncherAppWidgetHostView
                     + " LauncherAppWidgetProviderInfo");
         }
         return info;
+    }
+
+    @Override
+    public void getFocusedRect(Rect r) {
+        super.getFocusedRect(r);
+        // Outset to a larger rect for drawing a padding between focus outline and widget
+        r.inset(mFocusRectOutsets, mFocusRectOutsets);
     }
 
     @Override

@@ -21,6 +21,7 @@ import static com.android.launcher3.util.rule.TestStabilityRule.PLATFORM_POSTSUB
 import static com.android.quickstep.TaskbarModeSwitchRule.Mode.TRANSIENT;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
@@ -35,15 +36,16 @@ import androidx.test.runner.AndroidJUnit4;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.Until;
 
-import com.android.launcher3.Flags;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherState;
+import com.android.launcher3.tapl.BaseOverview;
 import com.android.launcher3.tapl.LaunchedAppState;
 import com.android.launcher3.tapl.LauncherInstrumentation.NavigationModel;
 import com.android.launcher3.tapl.Overview;
 import com.android.launcher3.tapl.OverviewActions;
 import com.android.launcher3.tapl.OverviewTask;
 import com.android.launcher3.tapl.SelectModeButtons;
+import com.android.launcher3.tapl.Workspace;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 import com.android.launcher3.util.Wait;
 import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
@@ -54,6 +56,7 @@ import com.android.quickstep.views.RecentsView;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -227,6 +230,32 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
                 isInState(() -> LauncherState.NORMAL));
     }
 
+    @Test
+    public void testOpenOverviewWithActionPlusTabKeys() throws Exception {
+        startTestAppsWithCheck();
+        startAppFast(CALCULATOR_APP_PACKAGE); // Ensure Calculator is last opened app.
+        Workspace home = mLauncher.goHome();
+        assertTrue("Launcher state is not Home", isInState(() -> LauncherState.NORMAL));
+
+        Overview overview = home.openOverviewFromActionPlusTabKeyboardShortcut();
+
+        assertTrue("Launcher state is not Overview", isInState(() -> LauncherState.OVERVIEW));
+        overview.launchFocusedTaskByEnterKey(CALCULATOR_APP_PACKAGE); // Assert app is focused.
+    }
+
+    @Test
+    public void testOpenOverviewWithRecentsKey() throws Exception {
+        startTestAppsWithCheck();
+        startAppFast(CALCULATOR_APP_PACKAGE); // Ensure Calculator is last opened app.
+        Workspace home = mLauncher.goHome();
+        assertTrue("Launcher state is not Home", isInState(() -> LauncherState.NORMAL));
+
+        Overview overview = home.openOverviewFromRecentsKeyboardShortcut();
+
+        assertTrue("Launcher state is not Overview", isInState(() -> LauncherState.OVERVIEW));
+        overview.launchFocusedTaskByEnterKey(CALCULATOR_APP_PACKAGE); // Assert app is focused.
+    }
+
     private int getCurrentOverviewPage(Launcher launcher) {
         return launcher.<RecentsView>getOverviewPanel().getCurrentPage();
     }
@@ -346,7 +375,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
             boolean isTransientTaskbar = mLauncher.isTransientTaskbar();
             // Expect task bar invisible when the launched app was the IME activity.
             LaunchedAppState launchedAppState = getAndAssertLaunchedApp();
-            if (!isTransientTaskbar && isHardwareKeyboard()) {
+            if (!isTransientTaskbar && isHardwareKeyboard() && !mLauncher.isImeDocked()) {
                 launchedAppState.assertTaskbarVisible();
             } else {
                 launchedAppState.assertTaskbarHidden();
@@ -394,7 +423,6 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
                 READ_DEVICE_CONFIG_PERMISSION);
         // Debug if we need to goHome to prevent wrong previous state b/315525621
         mLauncher.goHome();
-        assumeFalse(Flags.enablePredictiveBackGesture());
         mLauncher.getWorkspace().switchToAllApps().pressBackToWorkspace();
         waitForState("Launcher internal state didn't switch to Home", () -> LauncherState.NORMAL);
 
@@ -407,6 +435,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
     @PortraitLandscape
     @TaskbarModeSwitch()
     @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/309820115
+    @Ignore("b/315376057")
     @ScreenRecord // b/309820115
     public void testOverviewForTablet() throws Exception {
         assumeTrue(mLauncher.isTablet());
@@ -476,6 +505,7 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
 
     @Test
     @PortraitLandscape
+    @ScreenRecord // b/326839375
     public void testOverviewDeadzones() throws Exception {
         startTestAppsWithCheck();
 
@@ -553,6 +583,27 @@ public class TaplTestsQuickstep extends AbstractQuickStepTest {
             mLauncher.setExpectedRotationCheckEnabled(true);
             mLauncher.setEnableRotation(true);
             mLauncher.getDevice().setOrientationNatural();
+        }
+    }
+
+    @Test
+    public void testExcludeFromRecents() throws Exception {
+        startExcludeFromRecentsTestActivity();
+        OverviewTask currentTask = getAndAssertLaunchedApp().switchToOverview().getCurrentTask();
+        // TODO(b/326565120): the expected content description shouldn't be null but for now there
+        // is a bug that causes it to sometimes be for excludeForRecents tasks.
+        assertTrue("Can't find ExcludeFromRecentsTestActivity after entering Overview from it",
+                currentTask.containsContentDescription("ExcludeFromRecents")
+                        || currentTask.containsContentDescription(null));
+        // Going home should clear out the excludeFromRecents task.
+        BaseOverview overview = mLauncher.goHome().switchToOverview();
+        if (overview.hasTasks()) {
+            currentTask = overview.getCurrentTask();
+            assertFalse("Found ExcludeFromRecentsTestActivity after entering Overview from Home",
+                    currentTask.containsContentDescription("ExcludeFromRecents")
+                            || currentTask.containsContentDescription(null));
+        } else {
+            // Presumably the test started with 0 tasks and remains that way after going home.
         }
     }
 }

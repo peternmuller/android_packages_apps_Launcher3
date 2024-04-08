@@ -37,6 +37,7 @@ import com.android.launcher3.taskbar.TaskbarStashController;
 import com.android.launcher3.util.MultiPropertyFactory;
 import com.android.launcher3.util.MultiValueAlpha;
 import com.android.quickstep.SystemUiProxy;
+import com.android.wm.shell.common.bubbles.BubbleBarLocation;
 
 import java.util.List;
 import java.util.Objects;
@@ -54,6 +55,7 @@ public class BubbleBarViewController {
     private final TaskbarActivityContext mActivity;
     private final BubbleBarView mBarView;
     private final int mIconSize;
+    private final int mPointerSize;
 
     // Initialized in init.
     private BubbleStashController mBubbleStashController;
@@ -86,6 +88,8 @@ public class BubbleBarViewController {
         mBubbleBarAlpha = new MultiValueAlpha(mBarView, 1 /* num alpha channels */);
         mBubbleBarAlpha.setUpdateVisibility(true);
         mIconSize = activity.getResources().getDimensionPixelSize(R.dimen.bubblebar_icon_size);
+        mPointerSize = activity.getResources().getDimensionPixelSize(
+                R.dimen.bubblebar_pointer_size);
     }
 
     public void init(TaskbarControllers controllers, BubbleControllers bubbleControllers) {
@@ -96,9 +100,11 @@ public class BubbleBarViewController {
         mTaskbarInsetsController = controllers.taskbarInsetsController;
 
         mActivity.addOnDeviceProfileChangeListener(dp ->
-                mBarView.getLayoutParams().height = mActivity.getDeviceProfile().taskbarHeight
+                mBarView.getLayoutParams().height =
+                        mActivity.getDeviceProfile().taskbarHeight + mPointerSize
         );
-        mBarView.getLayoutParams().height = mActivity.getDeviceProfile().taskbarHeight;
+        mBarView.getLayoutParams().height =
+                mActivity.getDeviceProfile().taskbarHeight + mPointerSize;
         mBubbleBarScale.updateValue(1f);
         mBubbleClickListener = v -> onBubbleClicked(v);
         mBubbleBarClickListener = v -> onBubbleBarClicked();
@@ -169,6 +175,20 @@ public class BubbleBarViewController {
     }
 
     /**
+     * @return current {@link BubbleBarLocation}
+     */
+    public BubbleBarLocation getBubbleBarLocation() {
+        return mBarView.getBubbleBarLocation();
+    }
+
+    /**
+     * Update bar {@link BubbleBarLocation}
+     */
+    public void setBubbleBarLocation(BubbleBarLocation bubbleBarLocation, boolean animate) {
+        mBarView.setBubbleBarLocation(bubbleBarLocation, animate);
+    }
+
+    /**
      * The bounds of the bubble bar.
      */
     public Rect getBubbleBarBounds() {
@@ -213,6 +233,10 @@ public class BubbleBarViewController {
         if (mHiddenForNoBubbles != hidden) {
             mHiddenForNoBubbles = hidden;
             updateVisibilityForStateChange();
+            if (hidden) {
+                mBarView.setAlpha(0);
+                mBarView.setExpanded(false);
+            }
             mActivity.bubbleBarVisibilityChanged(!hidden);
         }
     }
@@ -239,8 +263,6 @@ public class BubbleBarViewController {
             mBarView.setVisibility(VISIBLE);
         } else {
             mBarView.setVisibility(INVISIBLE);
-            mBarView.setAlpha(0);
-            mBarView.setExpanded(false);
         }
     }
 

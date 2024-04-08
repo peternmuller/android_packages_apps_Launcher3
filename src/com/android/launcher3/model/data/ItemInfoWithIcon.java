@@ -121,11 +121,6 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
     public static final int FLAG_ARCHIVED = 1 << 14;
 
     /**
-     * Flag indicating it's the Private Space Install App icon.
-     */
-    public static final int FLAG_PRIVATE_SPACE_INSTALL_APP = 1 << 15;
-
-    /**
      * Status associated with the system state of the underlying item. This is calculated every
      * time a new info is created and not persisted on the disk.
      */
@@ -160,10 +155,6 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
      * and its install session is active
      */
     public boolean isPendingDownload() {
-        if (isArchived()) {
-            return this.getProgressLevel() == 0
-                    && (this.runtimeStatusFlags & FLAG_INSTALL_SESSION_ACTIVE) != 0;
-        }
         return getProgressLevel() == 0;
     }
 
@@ -175,6 +166,11 @@ public abstract class ItemInfoWithIcon extends ItemInfo {
             return false;
         }
         return (runtimeStatusFlags & FLAG_ARCHIVED) != 0;
+    }
+
+    /** Returns true if the app is archived and has an active install session. */
+    public boolean isActiveArchive() {
+        return isArchived() && (runtimeStatusFlags & FLAG_INSTALL_SESSION_ACTIVE) != 0;
     }
 
     /**

@@ -15,6 +15,7 @@
  */
 package com.android.launcher3.dragging;
 
+import static com.android.launcher3.testing.shared.TestProtocol.TEST_DRAG_APP_ICON_TO_MULTIPLE_WORKSPACES_FAILURE;
 import static com.android.launcher3.util.TestConstants.AppNames.GMAIL_APP_NAME;
 import static com.android.launcher3.util.TestConstants.AppNames.MAPS_APP_NAME;
 import static com.android.launcher3.util.TestConstants.AppNames.PHOTOS_APP_NAME;
@@ -87,8 +88,7 @@ public class TaplDragTest extends AbstractLauncherUiTest {
                 PHOTOS_APP_NAME);
 
         final HomeAppIcon mapIcon = createShortcutInCenterIfNotExist(MAPS_APP_NAME);
-        folderIcon = mapIcon.dragToIcon(folderIcon);
-        folder = folderIcon.open();
+        folder = mapIcon.dragToFolder(folderIcon);
         folder.getAppIcon(MAPS_APP_NAME);
         workspace = folder.close();
 
@@ -96,6 +96,21 @@ public class TaplDragTest extends AbstractLauncherUiTest {
                 MAPS_APP_NAME);
     }
 
+    /**
+     * Adds two icons to the Workspace and combines them into a folder, then makes sure we are able
+     * to remove an icon from the folder and that the folder ceases to exist since it only has one
+     * icon left.
+     */
+    @Test
+    public void testDragOutOfFolder() {
+        final HomeAppIcon playStoreIcon = createShortcutIfNotExist(STORE_APP_NAME, 0, 1);
+        final HomeAppIcon photosIcon = createShortcutInCenterIfNotExist(PHOTOS_APP_NAME);
+        FolderIcon folderIcon = photosIcon.dragToIcon(playStoreIcon);
+        Folder folder = folderIcon.open();
+        folder.getAppIcon(STORE_APP_NAME).internalDragToWorkspace(false, false);
+        assertNotNull(mLauncher.getWorkspace().tryGetWorkspaceAppIcon(STORE_APP_NAME));
+        assertNotNull(mLauncher.getWorkspace().tryGetWorkspaceAppIcon(PHOTOS_APP_NAME));
+    }
 
     /** Drags a shortcut from a long press menu into the workspace.
      * 1. Open all apps and wait for load complete.
@@ -234,6 +249,11 @@ public class TaplDragTest extends AbstractLauncherUiTest {
         final HomeAppIcon launcherTestAppIcon = createShortcutInCenterIfNotExist(TEST_APP_NAME);
         for (Point target : targets) {
             startTime = SystemClock.uptimeMillis();
+            Log.d(TEST_DRAG_APP_ICON_TO_MULTIPLE_WORKSPACES_FAILURE,
+                    "TaplDragTest.java.testDragAppIconToMultipleWorkspaceCells: shortcut name: "
+                            + launcherTestAppIcon.getIconName()
+                            + " | target cell coordinates: (" + target.x + ", " + target.y
+                            + ") | start time: " + startTime);
             launcherTestAppIcon.dragToWorkspace(target.x, target.y);
             endTime = SystemClock.uptimeMillis();
             elapsedTime = endTime - startTime;

@@ -285,9 +285,6 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         mDotParams.scale = 0f;
         mForceHideDot = false;
         setBackground(null);
-        if (FeatureFlags.enableTwolineAllapps() || FeatureFlags.ENABLE_TWOLINE_DEVICESEARCH.get()) {
-            setMaxLines(1);
-        }
 
         setTag(null);
         if (mIconLoadRequest != null) {
@@ -299,6 +296,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         setAlpha(1);
         setScaleY(1);
         setTranslationY(0);
+        setMaxLines(1);
         setVisibility(VISIBLE);
     }
 
@@ -428,10 +426,9 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
      * Only if actual text can be displayed in two line, the {@code true} value will be effective.
      */
     protected boolean shouldUseTwoLine() {
-        return FeatureFlags.enableTwolineAllapps() && isCurrentLanguageEnglish()
-                && (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_PREDICTION_ROW)
-                && (!Flags.enableTwolineToggle() || (Flags.enableTwolineToggle()
-                && LauncherPrefs.ENABLE_TWOLINE_ALLAPPS_TOGGLE.get(getContext())));
+        return isCurrentLanguageEnglish() && (mDisplay == DISPLAY_ALL_APPS
+                || mDisplay == DISPLAY_PREDICTION_ROW) && (Flags.enableTwolineToggle()
+                && LauncherPrefs.ENABLE_TWOLINE_ALLAPPS_TOGGLE.get(getContext()));
     }
 
     protected boolean isCurrentLanguageEnglish() {
@@ -916,7 +913,8 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
     /** Applies the given progress level to the this icon's progress bar. */
     @Nullable
     public PreloadIconDrawable applyProgressLevel() {
-        if (!(getTag() instanceof ItemInfoWithIcon)) {
+        if (!(getTag() instanceof ItemInfoWithIcon)
+                || !((ItemInfoWithIcon) getTag()).isActiveArchive()) {
             return null;
         }
 
@@ -973,6 +971,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         return info.isDisabled() || info.isPendingDownload();
     }
 
+
     public void applyDotState(ItemInfo itemInfo, boolean animate) {
         if (mIcon instanceof FastBitmapDrawable) {
             boolean wasDotted = mDotInfo != null;
@@ -1010,7 +1009,9 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
     }
 
     private void setDownloadStateContentDescription(ItemInfoWithIcon info, int progressLevel) {
-        if ((info.runtimeStatusFlags & ItemInfoWithIcon.FLAG_SHOW_DOWNLOAD_PROGRESS_MASK)
+        if ((info.runtimeStatusFlags & ItemInfoWithIcon.FLAG_ARCHIVED) != 0 && progressLevel == 0) {
+            setContentDescription(getContext().getString(R.string.app_archived_title, info.title));
+        } else if ((info.runtimeStatusFlags & ItemInfoWithIcon.FLAG_SHOW_DOWNLOAD_PROGRESS_MASK)
                 != 0) {
             String percentageString = NumberFormat.getPercentInstance()
                     .format(progressLevel * 0.01);

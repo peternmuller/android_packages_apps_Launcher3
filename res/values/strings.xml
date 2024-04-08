@@ -46,6 +46,10 @@
     <string name="save_app_pair">Save app pair</string>
     <!-- App pair default title -->
     <string name="app_pair_default_title"><xliff:g id="app1" example="Chrome">%1$s</xliff:g> | <xliff:g id="app2" example="YouTube">%2$s</xliff:g></string>
+    <!-- Displayed when an app pair can't launch at this screen size [CHAR_LIMIT=none] -->
+    <string name="app_pair_unlaunchable_at_screen_size">This app pair isn\'t supported on this device</string>
+    <!-- Displayed when an app pair can't launch at this screen size, but user can unfold device to restore functionality [CHAR_LIMIT=none] -->
+    <string name="app_pair_needs_unfold">Unfold device to use this app pair</string>
 
     <!-- Widgets -->
     <!-- Message to tell the user to press and hold on a widget to add it [CHAR_LIMIT=50] -->
@@ -60,6 +64,12 @@
     <!-- Spoken text for a screen reader. The placeholder text is the widget name.
          [CHAR_LIMIT=none]-->
     <string name="widget_preview_context_description"><xliff:g id="widget_name" example="Calendar month view">%1$s</xliff:g> widget</string>
+    <!-- Spoken text for a screen reader. The first placeholder text is the widget name, the
+         remaining placeholders are for the widget dimensions.
+         [CHAR_LIMIT=none]-->
+    <string name="widget_preview_name_and_dims_content_description">
+        <xliff:g id="widget_name" example="Calendar month view">%1$s</xliff:g> widget, %2$d wide by %3$d high
+    </string>
     <!-- Message to tell the user to press and hold a widget/icon to add it to the home screen.
          [CHAR LIMIT=NONE]  -->
     <string name="add_item_request_drag_hint">Touch &amp; hold the widget to move it around the home screen</string>
@@ -71,12 +81,14 @@
     <!-- Widget suggestions header title in the full widgets picker for large screen devices
     in landscape mode. [CHAR_LIMIT=50] -->
     <string name="suggested_widgets_header_title">Suggestions</string>
-    <string name="productivity_widget_recommendation_category_label">Your Daily Essentials</string>
-    <string name="news_widget_recommendation_category_label">News For You</string>
+    <string name="productivity_widget_recommendation_category_label">Essentials</string>
+    <string name="news_widget_recommendation_category_label">News &amp; magazines</string>
     <string name="social_and_entertainment_widget_recommendation_category_label">Your Chill Zone</string>
-    <string name="fitness_widget_recommendation_category_label">Reach Your Fitness Goals</string>
-    <string name="weather_widget_recommendation_category_label">Stay Ahead of the Weather</string>
-    <string name="others_widget_recommendation_category_label">You Might Also Like</string>
+    <string name="entertainment_widget_recommendation_category_label">Entertainment</string>
+    <string name="social_widget_recommendation_category_label">Social</string>
+    <string name="fitness_widget_recommendation_category_label">Health &amp; fitness</string>
+    <string name="weather_widget_recommendation_category_label">Weather</string>
+    <string name="others_widget_recommendation_category_label">Suggested for you</string>
     <!-- accessibilityPaneTitle for the right pane when showing suggested widgets. -->
     <string name="widget_picker_right_pane_accessibility_title"><xliff:g id="selected_header" example="Calendar">%1$s</xliff:g> widgets on right, search and options on left</string>
     <!-- Label for showing the number of widgets an app has in the full widgets picker.
@@ -118,6 +130,12 @@
 
     <!-- A widget category label for grouping widgets related to note taking. [CHAR_LIMIT=30] -->
     <string name="widget_category_note_taking">Note-taking</string>
+
+    <!-- Text on the button that adds a widget to the home screen. [CHAR_LIMIT=15] -->
+    <string name="widget_add_button_label">Add</string>
+    <!-- Accessibility content description for the button that adds a widget to the home screen. The
+         placeholder text is the widget name. [CHAR_LIMIT=none] -->
+    <string name="widget_add_button_content_description">Add <xliff:g id="widget_name" example="Calendar month view">%1$s</xliff:g> widget</string>
 
     <!-- Title of a dialog. This dialog lets a user know how they can use widgets on their phone.
          [CHAR_LIMIT=NONE] -->
@@ -322,6 +340,8 @@
     <string name="app_downloading_title"><xliff:g id="name" example="Messenger">%1$s</xliff:g> downloading, <xliff:g id="progress" example="30%">%2$s</xliff:g> complete</string>
     <!-- Title for an app whose download has been started. -->
     <string name="app_waiting_download_title"><xliff:g id="name" example="Messenger">%1$s</xliff:g> waiting to install</string>
+    <!-- Title for an app which is archived. -->
+    <string name="app_archived_title"><xliff:g id="name" example="Messenger">%1$s</xliff:g> is archived. Tap to download.</string>
 
 
     <!-- Title shown on the alert dialog prompting the user to update the application in market

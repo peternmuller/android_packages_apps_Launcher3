@@ -47,6 +47,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.pm.UserCache;
+import com.android.launcher3.uioverrides.ApiWrapper;
 import com.android.launcher3.util.ActivityContextWrapper;
 import com.android.launcher3.util.UserIconInfo;
 import com.android.launcher3.util.rule.TestStabilityRule;
@@ -76,9 +77,6 @@ public class PrivateProfileManagerTest {
             new UserIconInfo(MAIN_HANDLE, UserIconInfo.TYPE_MAIN);
     private static final UserIconInfo PRIVATE_ICON_INFO =
             new UserIconInfo(PRIVATE_HANDLE, UserIconInfo.TYPE_PRIVATE);
-    private static final String SAFETY_CENTER_INTENT = Intent.ACTION_SAFETY_CENTER;
-    private static final String PS_SETTINGS_FRAGMENT_KEY = ":settings:fragment_args_key";
-    private static final String PS_SETTINGS_FRAGMENT_VALUE = "AndroidPrivateSpace_personal";
 
     private PrivateProfileManager mPrivateProfileManager;
     @Mock
@@ -179,20 +177,15 @@ public class PrivateProfileManagerTest {
     }
 
     @Test
-    public void openPrivateSpaceSettings_triggersSecurityAndPrivacyIntent() {
-        Intent expectedIntent = new Intent(SAFETY_CENTER_INTENT);
-        expectedIntent.putExtra(PS_SETTINGS_FRAGMENT_KEY, PS_SETTINGS_FRAGMENT_VALUE);
+    public void openPrivateSpaceSettings_triggersCorrectIntent() {
+        Intent expectedIntent = ApiWrapper.getPrivateSpaceSettingsIntent(mContext);
         ArgumentCaptor<Intent> acIntent = ArgumentCaptor.forClass(Intent.class);
+        mPrivateProfileManager.setPrivateSpaceSettingsAvailable(true);
 
         mPrivateProfileManager.openPrivateSpaceSettings();
 
         Mockito.verify(mContext).startActivity(acIntent.capture());
-        Intent actualIntent = acIntent.getValue();
-        assertEquals("Intent Action is different", expectedIntent.getAction(),
-                actualIntent.getAction());
-        assertEquals("Settings Fragment is incorrect in Intent",
-                expectedIntent.getStringExtra(PS_SETTINGS_FRAGMENT_KEY),
-                actualIntent.getStringExtra(PS_SETTINGS_FRAGMENT_KEY));
+        assertEquals("Intent Action is different", expectedIntent, acIntent.getValue());
     }
 
     private static void awaitTasksCompleted() throws Exception {

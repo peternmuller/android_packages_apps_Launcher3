@@ -63,7 +63,8 @@ class ModelCallbacks(private var launcher: Launcher) : BgDataModel.Callbacks {
         launcher.dragController.cancelDrag()
         launcher.workspace.clearDropTargets()
         launcher.workspace.removeAllWorkspaceScreens()
-        launcher.appWidgetHolder.clearViews()
+        // Avoid clearing the widget update listeners for staying up-to-date with widget info
+        launcher.appWidgetHolder.clearWidgetViews()
         launcher.hotseat?.resetLayout(launcher.deviceProfile.isVerticalBarLayout)
         TraceHelper.INSTANCE.endSection()
     }
@@ -72,6 +73,7 @@ class ModelCallbacks(private var launcher: Launcher) : BgDataModel.Callbacks {
     override fun onInitialBindComplete(
         boundPages: LIntSet,
         pendingTasks: RunnableList,
+        onCompleteSignal: RunnableList,
         workspaceItemCount: Int,
         isBindSync: Boolean
     ) {
@@ -99,7 +101,14 @@ class ModelCallbacks(private var launcher: Launcher) : BgDataModel.Callbacks {
                 }
             }
         pendingExecutor = executor
-        executor.attachTo(launcher)
+
+        if (Flags.enableWorkspaceInflation()) {
+            // Finish the executor as soon as the pending inflation is completed
+            onCompleteSignal.add(executor::markCompleted)
+        } else {
+            // Pending executor is already completed, wait until first draw to run the tasks
+            executor.attachTo(launcher)
+        }
         launcher.bindComplete(workspaceItemCount, isBindSync)
     }
 
@@ -409,4 +418,6 @@ class ModelCallbacks(private var launcher: Launcher) : BgDataModel.Callbacks {
     }
 
     fun getIsFirstPagePinnedItemEnabled(): Boolean = isFirstPagePinnedItemEnabled
+
+    override fun getItemInflater() = launcher.itemInflater
 }

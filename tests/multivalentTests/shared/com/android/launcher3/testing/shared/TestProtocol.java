@@ -101,6 +101,7 @@ public final class TestProtocol {
     public static final String REQUEST_TASKBAR_FROM_NAV_THRESHOLD = "taskbar-from-nav-threshold";
     public static final String REQUEST_STASHED_TASKBAR_SCALE = "taskbar-stash-handle-scale";
     public static final String REQUEST_RECREATE_TASKBAR = "recreate-taskbar";
+    public static final String REQUEST_TASKBAR_IME_DOCKED = "taskbar-ime-docked";
     public static final String REQUEST_APP_LIST_FREEZE_FLAGS = "app-list-freeze-flags";
     public static final String REQUEST_APPS_LIST_SCROLL_Y = "apps-list-scroll-y";
     public static final String REQUEST_TASKBAR_APPS_LIST_SCROLL_Y = "taskbar-apps-list-scroll-y";
@@ -119,6 +120,8 @@ public final class TestProtocol {
     public static final String REQUEST_CLEAR_DATA = "clear-data";
     public static final String REQUEST_HOTSEAT_ICON_NAMES = "get-hotseat-icon-names";
     public static final String REQUEST_IS_TABLET = "is-tablet";
+    public static final String REQUEST_IS_PREDICTIVE_BACK_SWIPE_ENABLED =
+            "is-predictive-back-swipe-enabled";
     public static final String REQUEST_ENABLE_TASKBAR_NAVBAR_UNIFICATION =
             "enable-taskbar-navbar-unification";
     public static final String REQUEST_NUM_ALL_APPS_COLUMNS = "num-all-apps-columns";
@@ -171,6 +174,11 @@ public final class TestProtocol {
     public static final String ICON_MISSING = "b/282963545";
     public static final String OVERVIEW_OVER_HOME = "b/279059025";
     public static final String UIOBJECT_STALE_ELEMENT = "b/319501259";
+    public static final String GET_FROM_RECENTS_FAILURE = "b/321775748";
+    public static final String SUCCESSFUL_GESTURE_MISMATCH_EVENTS = "b/324940434";
+    public static final String TEST_DRAG_APP_ICON_TO_MULTIPLE_WORKSPACES_FAILURE = "b/326908466";
+    public static final String TEST_TAPL_OVERVIEW_ACTIONS_MENU_FAILURE = "b/326073471";
+    public static final String WIDGET_CONFIG_NULL_EXTRA_INTENT = "b/324419890";
     public static final String ACTIVITY_NOT_RESUMED_AFTER_BACK = "b/322823209";
 
     public static final String REQUEST_EMULATE_DISPLAY = "emulate-display";
@@ -179,6 +187,7 @@ public final class TestProtocol {
     public static final String REQUEST_EMULATE_PRINT_DEVICE = "emulate-print-device";
 
     public static final String REQUEST_FLAG_ENABLE_GRID_ONLY_OVERVIEW = "enable-grid-only-overview";
+    public static final String REQUEST_FLAG_ENABLE_APP_PAIRS = "enable-app-pairs";
 
     public static final String REQUEST_UNSTASH_BUBBLE_BAR_IF_STASHED =
             "unstash-bubble-bar-if-stashed";

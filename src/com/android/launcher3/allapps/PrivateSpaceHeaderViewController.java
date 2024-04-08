@@ -17,6 +17,7 @@
 package com.android.launcher3.allapps;
 
 import static android.view.View.GONE;
+import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
 import static com.android.launcher3.LauncherAnimUtils.VIEW_ALPHA;
@@ -40,15 +41,19 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.LinearSmoothScroller;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.app.animation.Interpolators;
+import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Flags;
 import com.android.launcher3.R;
 import com.android.launcher3.allapps.UserProfileManager.UserProfileState;
 import com.android.launcher3.anim.AnimatedPropertySetter;
 import com.android.launcher3.anim.PropertySetter;
+import com.android.launcher3.views.ActivityContext;
+import com.android.launcher3.views.RecyclerViewFastScroller;
 
 import java.util.List;
 
@@ -57,7 +62,6 @@ import java.util.List;
  * {@link UserProfileState}
  */
 public class PrivateSpaceHeaderViewController {
-    private static final int EXPAND_SCROLL_DURATION = 2000;
     private static final int EXPAND_COLLAPSE_DURATION = 800;
     private static final int SETTINGS_OPACITY_DURATION = 160;
     private final ActivityAllAppsContainerView mAllApps;
@@ -172,23 +176,24 @@ public class PrivateSpaceHeaderViewController {
                 && mAllApps.getActiveRecyclerView() == mainAdapterHolder.mRecyclerView) {
             // Animate the text and settings icon.
             updatePrivateStateAnimator(true, header);
-            mAllApps.getActiveRecyclerView().scrollToBottomWithMotion(EXPAND_SCROLL_DURATION);
+            DeviceProfile deviceProfile =
+                    ActivityContext.lookupContext(mAllApps.getContext()).getDeviceProfile();
+            AllAppsRecyclerView allAppsRecyclerView = mAllApps.getActiveRecyclerView();
+            scrollForViewToBeVisibleInContainer(allAppsRecyclerView,
+                    allAppsRecyclerView.getApps().getAdapterItems(),
+                    header.getHeight(), deviceProfile.allAppsCellHeightPx);
         }
     }
 
     /** Finds the private space header to scroll to and set the private space icons to GONE. */
     private void collapse() {
         AllAppsRecyclerView allAppsRecyclerView = mAllApps.getActiveRecyclerView();
-        for (int i = allAppsRecyclerView.getChildCount() - 1; i > 0; i--) {
-            int adapterPosition = allAppsRecyclerView.getChildAdapterPosition(
-                    allAppsRecyclerView.getChildAt(i));
-            List<BaseAllAppsAdapter.AdapterItem> allAppsAdapters = allAppsRecyclerView.getApps()
-                    .getAdapterItems();
-            if (adapterPosition < 0 || adapterPosition >= allAppsAdapters.size()) {
-                continue;
-            }
+        List<BaseAllAppsAdapter.AdapterItem> appListAdapterItems =
+                allAppsRecyclerView.getApps().getAdapterItems();
+        for (int i = appListAdapterItems.size() - 1; i > 0; i--) {
+            BaseAllAppsAdapter.AdapterItem currentItem = appListAdapterItems.get(i);
             // Scroll to the private space header.
-            if (allAppsAdapters.get(adapterPosition).viewType == VIEW_TYPE_PRIVATE_SPACE_HEADER) {
+            if (currentItem.viewType == VIEW_TYPE_PRIVATE_SPACE_HEADER) {
                 // Note: SmoothScroller is meant to be used once.
                 RecyclerView.SmoothScroller smoothScroller =
                         new LinearSmoothScroller(mAllApps.getContext()) {
@@ -196,7 +201,7 @@ public class PrivateSpaceHeaderViewController {
                                 return LinearSmoothScroller.SNAP_TO_END;
                             }
                         };
-                smoothScroller.setTargetPosition(adapterPosition);
+                smoothScroller.setTargetPosition(i);
                 RecyclerView.LayoutManager layoutManager = allAppsRecyclerView.getLayoutManager();
                 if (layoutManager != null) {
                     layoutManager.startSmoothScroll(smoothScroller);
@@ -204,10 +209,65 @@ public class PrivateSpaceHeaderViewController {
                 break;
             }
             // Make the private space apps gone to "collapse".
-            if (allAppsAdapters.get(adapterPosition).decorationInfo != null) {
-                allAppsRecyclerView.getChildAt(i).setVisibility(GONE);
+            if (currentItem.decorationInfo != null) {
+                RecyclerView.ViewHolder viewHolder =
+                        allAppsRecyclerView.findViewHolderForAdapterPosition(i);
+                if (viewHolder != null) {
+                    viewHolder.itemView.setVisibility(GONE);
+                }
             }
         }
+    }
+
+    /**
+     * Upon expanding, only scroll to the item position in the adapter that allows the header to be
+     * visible.
+     */
+    @VisibleForTesting
+    public int scrollForViewToBeVisibleInContainer(
+            AllAppsRecyclerView allAppsRecyclerView,
+            List<BaseAllAppsAdapter.AdapterItem> appListAdapterItems,
+            int psHeaderHeight,
+            int allAppsCellHeight) {
+        int rowToExpandToWithRespectToHeader = -1;
+        int itemToScrollTo = -1;
+        // Looks for the item in the app list to scroll to so that the header is visible.
+        for (int i = 0; i < appListAdapterItems.size(); i++) {
+            BaseAllAppsAdapter.AdapterItem currentItem = appListAdapterItems.get(i);
+            if (currentItem.viewType == VIEW_TYPE_PRIVATE_SPACE_HEADER) {
+                itemToScrollTo = i;
+                continue;
+            }
+            if (itemToScrollTo != -1) {
+                if (rowToExpandToWithRespectToHeader == -1) {
+                    rowToExpandToWithRespectToHeader = currentItem.rowIndex;
+                }
+                int rowToScrollTo =
+                        (int) Math.floor((double) (mAllApps.getHeight() - psHeaderHeight
+                                - mAllApps.getHeaderProtectionHeight()) / allAppsCellHeight);
+                int currentRowDistance = currentItem.rowIndex - rowToExpandToWithRespectToHeader;
+                // rowToScrollTo - 1 since the item to scroll to is 0 indexed.
+                if (currentRowDistance == rowToScrollTo - 1) {
+                    itemToScrollTo = i;
+                    break;
+                }
+            }
+        }
+        if (itemToScrollTo != -1) {
+            // Note: SmoothScroller is meant to be used once.
+            RecyclerView.SmoothScroller smoothScroller =
+                    new LinearSmoothScroller(mAllApps.getContext()) {
+                        @Override protected int getVerticalSnapPreference() {
+                            return LinearSmoothScroller.SNAP_TO_ANY;
+                        }
+                    };
+            smoothScroller.setTargetPosition(itemToScrollTo);
+            RecyclerView.LayoutManager layoutManager = allAppsRecyclerView.getLayoutManager();
+            if (layoutManager != null) {
+                layoutManager.startSmoothScroll(smoothScroller);
+            }
+        }
+        return itemToScrollTo;
     }
 
     PrivateProfileManager getPrivateProfileManager() {
@@ -220,11 +280,15 @@ public class PrivateSpaceHeaderViewController {
     private ValueAnimator animateCollapseAnimation(ViewGroup lockButton) {
         float from = 1;
         float to = 0;
+        RecyclerViewFastScroller scrollBar = mAllApps.getActiveRecyclerView().getScrollbar();
         ValueAnimator collapseAnim = ValueAnimator.ofFloat(from, to);
         collapseAnim.setDuration(EXPAND_COLLAPSE_DURATION);
         collapseAnim.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationStart(Animator animation) {
+                if (scrollBar != null) {
+                    scrollBar.setVisibility(INVISIBLE);
+                }
                 // scroll up
                 collapse();
                 // Animate the collapsing of the text.
@@ -233,6 +297,10 @@ public class PrivateSpaceHeaderViewController {
             @Override
             public void onAnimationEnd(Animator animation) {
                 super.onAnimationEnd(animation);
+                if (scrollBar != null) {
+                    scrollBar.setThumbOffsetY(-1);
+                    scrollBar.setVisibility(VISIBLE);
+                }
                 mPrivateProfileManager.lockPrivateProfile();
             }
         });

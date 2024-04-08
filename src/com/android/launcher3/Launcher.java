@@ -28,6 +28,7 @@ import static com.android.launcher3.AbstractFloatingView.TYPE_ICON_SURFACE;
 import static com.android.launcher3.AbstractFloatingView.TYPE_REBIND_SAFE;
 import static com.android.launcher3.AbstractFloatingView.getTopOpenViewWithType;
 import static com.android.launcher3.Flags.enableAddAppWidgetViaConfigActivityV2;
+import static com.android.launcher3.Flags.enableWorkspaceInflation;
 import static com.android.launcher3.LauncherAnimUtils.HOTSEAT_SCALE_PROPERTY_FACTORY;
 import static com.android.launcher3.LauncherAnimUtils.SCALE_INDEX_WIDGET_TRANSITION;
 import static com.android.launcher3.LauncherAnimUtils.SPRING_LOADED_EXIT_DELAY;
@@ -262,7 +263,7 @@ import com.android.systemui.plugins.LauncherOverlayPlugin;
 import com.android.systemui.plugins.PluginListener;
 import com.android.systemui.plugins.shared.LauncherOverlayManager;
 import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayTouchProxy;
-import com.android.wm.shell.Flags;
+import com.android.window.flags.Flags;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -317,10 +318,6 @@ public class Launcher extends StatefulActivity<LauncherState>
             WORKSPACE_SCALE_PROPERTY_FACTORY.get(SCALE_INDEX_WIDGET_TRANSITION);
     private static final FloatProperty<Hotseat> HOTSEAT_WIDGET_SCALE =
             HOTSEAT_SCALE_PROPERTY_FACTORY.get(SCALE_INDEX_WIDGET_TRANSITION);
-
-    private static final boolean ENABLE_DESKTOP_WINDOWING = Flags.enableDesktopWindowing();
-    private static final boolean DESKTOP_MODE_SUPPORTED =
-            "1".equals(Utilities.getSystemProperty("persist.wm.debug.desktop_mode_2", "0"));
 
     private final ModelCallbacks mModelCallbacks = createModelCallbacks();
 
@@ -1485,12 +1482,11 @@ public class Launcher extends StatefulActivity<LauncherState>
         CellPos presenterPos = getCellPosMapper().mapModelToPresenter(itemInfo);
         if (showPendingWidget) {
             launcherInfo.restoreStatus = LauncherAppWidgetInfo.FLAG_UI_NOT_READY;
-            PendingAppWidgetHostView pendingAppWidgetHostView =
-                    new PendingAppWidgetHostView(this, launcherInfo, appWidgetInfo);
-            pendingAppWidgetHostView.setPreviewBitmap(widgetPreviewBitmap);
+            PendingAppWidgetHostView pendingAppWidgetHostView = new PendingAppWidgetHostView(
+                    this, mAppWidgetHolder, launcherInfo, appWidgetInfo, widgetPreviewBitmap);
             hostView = pendingAppWidgetHostView;
         } else if (hostView instanceof PendingAppWidgetHostView) {
-            ((PendingAppWidgetHostView) hostView).setPreviewBitmap(null);
+            ((PendingAppWidgetHostView) hostView).setPreviewBitmapAndUpdateBackground(null);
             // User has selected a widget config and exited the config activity, we can trigger
             // re-inflation of PendingAppWidgetHostView to replace it with
             // LauncherAppWidgetHostView in workspace.
@@ -1632,7 +1628,8 @@ public class Launcher extends StatefulActivity<LauncherState>
         } else if (INTENT_ACTION_ALL_APPS_TOGGLE.equals(intent.getAction())) {
             toggleAllAppsFromIntent(alreadyOnHome);
         } else if (Intent.ACTION_SHOW_WORK_APPS.equals(intent.getAction())) {
-            showAllAppsWorkTabFromIntent(alreadyOnHome);
+            showAllAppsWithSelectedTabFromIntent(alreadyOnHome,
+                    ActivityAllAppsContainerView.AdapterHolder.WORK);
         }
 
         TraceHelper.INSTANCE.endSection();
@@ -1664,13 +1661,19 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     protected void showAllAppsFromIntent(boolean alreadyOnHome) {
-        AbstractFloatingView.closeAllOpenViews(this);
-        getStateManager().goToState(ALL_APPS, alreadyOnHome);
+        showAllAppsWithSelectedTabFromIntent(alreadyOnHome,
+                ActivityAllAppsContainerView.AdapterHolder.MAIN);
     }
 
-    private void showAllAppsWorkTabFromIntent(boolean alreadyOnHome) {
-        showAllAppsFromIntent(alreadyOnHome);
-        mAppsView.switchToTab(ActivityAllAppsContainerView.AdapterHolder.WORK);
+    private void showAllAppsWithSelectedTabFromIntent(boolean alreadyOnHome, int tab) {
+        AbstractFloatingView.closeAllOpenViews(this);
+        getStateManager().goToState(ALL_APPS, alreadyOnHome);
+        if (mAppsView.isSearching()) {
+            mAppsView.reset(alreadyOnHome);
+        }
+        if (mAppsView.getCurrentPage() != tab) {
+            mAppsView.switchToTab(tab);
+        }
     }
 
     /**
@@ -1825,7 +1828,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         if (isActivityStarted) {
             DragView dropView = getDragLayer().clearAnimatedView();
             if (dropView != null && dropView.containsAppWidgetHostView()) {
-                widgetPreviewBitmap = getBitmapFromView(dropView.getContentView());
+                // Extracting Bitmap from dropView instead of its content view produces the correct
+                // bitmap.
+                widgetPreviewBitmap = getBitmapFromView(dropView);
             }
         }
 
@@ -2187,9 +2192,14 @@ public class Launcher extends StatefulActivity<LauncherState>
      */
     @Override
     public void bindItems(final List<ItemInfo> items, final boolean forceAnimateIcons) {
-        bindItems(items.stream().map(i -> Pair.create(
+        bindInflatedItems(items.stream().map(i -> Pair.create(
                 i, getItemInflater().inflateItem(i, getModelWriter()))).toList(),
                 forceAnimateIcons ? new AnimatorSet() : null);
+    }
+
+    @Override
+    public void bindInflatedItems(List<Pair<ItemInfo, View>> items) {
+        bindInflatedItems(items, null);
     }
 
     /**
@@ -2197,7 +2207,8 @@ public class Launcher extends StatefulActivity<LauncherState>
      *
      * @param boundAnim if non-null, uses it to create and play the bounce animation for added views
      */
-    public void bindItems(List<Pair<ItemInfo, View>> shortcuts, @Nullable AnimatorSet boundAnim) {
+    public void bindInflatedItems(
+            List<Pair<ItemInfo, View>> shortcuts, @Nullable AnimatorSet boundAnim) {
         // Get the list of added items and intersect them with the set of items here
         Workspace<?> workspace = mWorkspace;
         int newItemsScreenId = -1;
@@ -2222,9 +2233,12 @@ public class Launcher extends StatefulActivity<LauncherState>
                 }
             }
 
-            final View view = e.second;
+            View view = e.second;
             if (view == null) {
                 continue;
+            }
+            if (enableWorkspaceInflation() && view instanceof LauncherAppWidgetHostView lv) {
+                view = getAppWidgetHolder().attachViewToHostAndGetAttachedView(lv);
             }
             workspace.addInScreenFromBind(view, item);
             if (boundAnim != null) {
@@ -2324,9 +2338,9 @@ public class Launcher extends StatefulActivity<LauncherState>
 
     @Override
     public void onInitialBindComplete(IntSet boundPages, RunnableList pendingTasks,
-            int workspaceItemCount, boolean isBindSync) {
-        mModelCallbacks.onInitialBindComplete(boundPages, pendingTasks, workspaceItemCount,
-                isBindSync);
+            RunnableList onCompleteSignal, int workspaceItemCount, boolean isBindSync) {
+        mModelCallbacks.onInitialBindComplete(boundPages, pendingTasks, onCompleteSignal,
+                workspaceItemCount, isBindSync);
     }
 
     /**
@@ -2351,7 +2365,8 @@ public class Launcher extends StatefulActivity<LauncherState>
      * Similar to {@link #getFirstMatch} but optimized to finding a suitable view for the app close
      * animation.
      *
-     * @param preferredItemId The id of the preferred item to match to if it exists.
+     * @param preferredItemId The id of the preferred item to match to if it exists,
+     *                        or ItemInfo#NO_MATCHING_ID if you want to not match by item id
      * @param packageName The package name of the app to match.
      * @param user The user of the app to match.
      * @param supportsAllAppsState If true and we are in All Apps state, looks for view in All Apps.
@@ -2714,9 +2729,8 @@ public class Launcher extends StatefulActivity<LauncherState>
     }
 
     private void updateDisallowBack() {
-        // TODO(b/304778354): remove sysprop once desktop aconfig flag supports dynamic overriding
-        if (ENABLE_DESKTOP_WINDOWING || DESKTOP_MODE_SUPPORTED) {
-            // Do not disable back in launcher when prototype behavior is enabled
+        if (Flags.enableDesktopWindowingMode()) {
+            // TODO(b/330183377) disable back in launcher when when we productionize
             return;
         }
         LauncherRootView rv = getRootView();
@@ -3057,6 +3071,7 @@ public class Launcher extends StatefulActivity<LauncherState>
         return super.getStatsLogManager().withDefaultInstanceId(mAllAppsSessionLogId);
     }
 
+    @Override
     public ItemInflater<Launcher> getItemInflater() {
         return mItemInflater;
     }

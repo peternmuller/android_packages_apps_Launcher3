@@ -37,6 +37,7 @@ import android.content.pm.ShortcutInfo;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.graphics.drawable.Drawable;
+import android.os.Looper;
 import android.os.Process;
 import android.os.Trace;
 import android.os.UserHandle;
@@ -44,6 +45,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
 
+import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -65,7 +67,6 @@ import com.android.launcher3.shortcuts.ShortcutKey;
 import com.android.launcher3.util.CancellableTask;
 import com.android.launcher3.util.InstantAppResolver;
 import com.android.launcher3.util.PackageUserKey;
-import com.android.launcher3.util.Preconditions;
 import com.android.launcher3.widget.WidgetSections;
 import com.android.launcher3.widget.WidgetSections.WidgetSection;
 
@@ -173,9 +174,9 @@ public class IconCache extends BaseIconCache {
      *
      * @return a request ID that can be used to cancel the request.
      */
+    @AnyThread
     public CancellableTask updateIconInBackground(final ItemInfoUpdateReceiver caller,
             final ItemInfoWithIcon info) {
-        Preconditions.assertUIThread();
         Supplier<ItemInfoWithIcon> task;
         if (info instanceof AppInfo || info instanceof WorkspaceItemInfo) {
             task = () -> {
@@ -193,13 +194,19 @@ public class IconCache extends BaseIconCache {
             return mCancelledTask;
         }
 
-        if (mPendingIconRequestCount <= 0) {
-            MODEL_EXECUTOR.setThreadPriority(Process.THREAD_PRIORITY_FOREGROUND);
+        Runnable endRunnable;
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            if (mPendingIconRequestCount <= 0) {
+                MODEL_EXECUTOR.setThreadPriority(Process.THREAD_PRIORITY_FOREGROUND);
+            }
+            mPendingIconRequestCount++;
+            endRunnable = this::onIconRequestEnd;
+        } else {
+            endRunnable = () -> { };
         }
-        mPendingIconRequestCount++;
 
         CancellableTask<ItemInfoWithIcon> request = new CancellableTask<>(
-                task, MAIN_EXECUTOR, caller::reapplyItemInfo, this::onIconRequestEnd);
+                task, MAIN_EXECUTOR, caller::reapplyItemInfo, endRunnable);
         Utilities.postAsyncCallback(mWorkerHandler, request);
         return request;
     }
@@ -215,6 +222,7 @@ public class IconCache extends BaseIconCache {
      * Updates {@param application} only if a valid entry is found.
      */
     public synchronized void updateTitleAndIcon(AppInfo application) {
+        boolean preferPackageIcon = application.isArchived();
         CacheEntry entry = cacheLocked(application.componentName,
                 application.user, () -> null, mLauncherActivityInfoCachingLogic,
                 false, application.usingLowResIcon());
@@ -222,13 +230,12 @@ public class IconCache extends BaseIconCache {
             return;
         }
 
-        boolean preferPackageIcon = application.isArchived();
         if (preferPackageIcon) {
             String packageName = application.getTargetPackage();
             CacheEntry packageEntry =
                     cacheLocked(new ComponentName(packageName, packageName + EMPTY_CLASS_NAME),
                             application.user, () -> null, mLauncherActivityInfoCachingLogic,
-                            false, application.usingLowResIcon());
+                            true, application.usingLowResIcon());
             applyPackageEntry(packageEntry, application, entry);
         } else {
             applyCacheEntry(entry, application);
@@ -462,17 +469,22 @@ public class IconCache extends BaseIconCache {
                         duplicateIconRequestsMap.get(cn);
 
                 if (cn != null) {
-                    CacheEntry entry = cacheLocked(
-                            cn,
-                            /* user = */ sectionKey.first,
-                            () -> duplicateIconRequests.get(0).launcherActivityInfo,
-                            mLauncherActivityInfoCachingLogic,
-                            c,
-                            /* usePackageIcon= */ false,
-                            /* useLowResIcons = */ sectionKey.second);
+                    if (duplicateIconRequests != null) {
+                        CacheEntry entry = cacheLocked(
+                                cn,
+                                /* user = */ sectionKey.first,
+                                () -> duplicateIconRequests.get(0).launcherActivityInfo,
+                                mLauncherActivityInfoCachingLogic,
+                                c,
+                                /* usePackageIcon= */ false,
+                                /* useLowResIcons = */ sectionKey.second);
 
-                    for (IconRequestInfo<T> iconRequest : duplicateIconRequests) {
-                        applyCacheEntry(entry, iconRequest.itemInfo);
+                        for (IconRequestInfo<T> iconRequest : duplicateIconRequests) {
+                            applyCacheEntry(entry, iconRequest.itemInfo);
+                        }
+                    } else {
+                        Log.e(TAG, "Found entry in icon database but no main activity "
+                                + "entry for cn: " + cn);
                     }
                 }
             }

@@ -29,6 +29,9 @@ import static com.android.launcher3.LauncherState.BACKGROUND_APP;
 import static com.android.launcher3.Utilities.getDescendantCoordRelativeToAncestor;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_ICON_TAP_OR_LONGPRESS;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_TASK_LAUNCH_TAP;
+import static com.android.launcher3.model.data.ItemInfoWithIcon.FLAG_NOT_PINNABLE;
+import static com.android.launcher3.testing.shared.TestProtocol.SUCCESSFUL_GESTURE_MISMATCH_EVENTS;
+import static com.android.launcher3.testing.shared.TestProtocol.testLogD;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_POSITION_BOTTOM_OR_RIGHT;
@@ -37,7 +40,6 @@ import static com.android.launcher3.util.SplitConfigurationOptions.getLogEventFo
 import static com.android.quickstep.TaskOverlayFactory.getEnabledShortcuts;
 import static com.android.quickstep.util.ActiveGestureErrorDetector.GestureEvent.EXPECTING_TASK_APPEARED;
 import static com.android.quickstep.util.BorderAnimator.DEFAULT_BORDER_COLOR;
-import static com.android.quickstep.views.DesktopTaskView.isDesktopModeSupported;
 
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -83,6 +85,7 @@ import com.android.launcher3.R;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
+import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.popup.SystemShortcut;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.testing.TestLogging;
@@ -422,8 +425,7 @@ public class TaskView extends FrameLayout implements Reusable {
         mCurrentFullscreenParams = new FullscreenDrawParams(context);
         mDigitalWellBeingToast = new DigitalWellBeingToast(mActivity, this);
 
-        boolean keyboardFocusHighlightEnabled = FeatureFlags.ENABLE_KEYBOARD_QUICK_SWITCH.get()
-                || isDesktopModeSupported();
+        boolean keyboardFocusHighlightEnabled = FeatureFlags.ENABLE_KEYBOARD_QUICK_SWITCH.get();
         boolean cursorHoverStatesEnabled = enableCursorHoverStates();
 
         setWillNotDraw(!keyboardFocusHighlightEnabled && !cursorHoverStatesEnabled);
@@ -500,6 +502,11 @@ public class TaskView extends FrameLayout implements Reusable {
         stubInfo.title = task.title;
         if (getRecentsView() != null) {
             stubInfo.screenId = getRecentsView().indexOfChild(this);
+        }
+        if (Flags.privateSpaceRestrictAccessibilityDrag()) {
+            if (UserCache.getInstance(getContext()).getUserInfo(componentKey.user).isPrivate()) {
+                stubInfo.runtimeStatusFlags |= FLAG_NOT_PINNABLE;
+            }
         }
         return stubInfo;
     }
@@ -854,6 +861,7 @@ public class TaskView extends FrameLayout implements Reusable {
     @Nullable
     public RunnableList launchTaskAnimated() {
         if (mTask != null) {
+            testLogD(SUCCESSFUL_GESTURE_MISMATCH_EVENTS, "TaskView.launchTaskAnimated");
             TestLogging.recordEvent(
                     TestProtocol.SEQUENCE_MAIN, "startActivityFromRecentsAsync", mTask);
             ActivityOptionsWrapper opts =  mActivity.getActivityLaunchOptions(this, null);
@@ -902,6 +910,7 @@ public class TaskView extends FrameLayout implements Reusable {
      */
     public void launchTask(@NonNull Consumer<Boolean> callback, boolean isQuickswitch) {
         if (mTask != null) {
+            testLogD(SUCCESSFUL_GESTURE_MISMATCH_EVENTS, "TaskView.launchTaskAnimated");
             TestLogging.recordEvent(
                     TestProtocol.SEQUENCE_MAIN, "startActivityFromRecentsAsync", mTask);
 
@@ -1726,12 +1735,7 @@ public class TaskView extends FrameLayout implements Reusable {
             int boxWidth;
             int boxHeight;
             boolean isFocusedTask = isFocusedTask();
-            if (isDesktopTask()) {
-                Rect lastComputedDesktopTaskSize =
-                        getRecentsView().getLastComputedDesktopTaskSize();
-                boxWidth = lastComputedDesktopTaskSize.width();
-                boxHeight = lastComputedDesktopTaskSize.height();
-            } else if (isFocusedTask) {
+            if (isFocusedTask) {
                 // Task will be focused and should use focused task size. Use focusTaskRatio
                 // that is associated with the original orientation of the focused task.
                 boxWidth = taskWidth;

@@ -26,10 +26,10 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.widget.RemoteViews;
 
+import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
-import androidx.annotation.WorkerThread;
 
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.model.WidgetsModel;
@@ -219,6 +219,20 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
         return () -> holderListener.mListeningHolders.remove(handler);
     }
 
+    /**
+     * Recycling logic:
+     * The holder doesn't maintain any states associated with the view, so if the view was
+     * initially initialized by this holder, all its state are already set in the view. We just
+     * update the RemoteViews for this view again, in case the widget sent an update during the
+     * time between inflation and recycle.
+     */
+    @Override
+    protected LauncherAppWidgetHostView recycleExistingView(LauncherAppWidgetHostView view) {
+        RemoteViews views = getHolderListener(view.getAppWidgetId()).addHolder(mUpdateHandler);
+        view.updateAppWidget(views);
+        return view;
+    }
+
     @NonNull
     @Override
     protected LauncherAppWidgetHostView createViewInternal(
@@ -251,6 +265,14 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
         }
     }
 
+    /**
+     * Clears all the internal widget views excluding the update listeners
+     */
+    @Override
+    public void clearWidgetViews() {
+        mViews.clear();
+    }
+
     private static class QuickstepWidgetHolderListener
             implements AppWidgetHost.AppWidgetHostListener {
 
@@ -274,21 +296,21 @@ public final class QuickstepWidgetHolder extends LauncherWidgetHolder {
         }
 
         @Override
-        @WorkerThread
+        @AnyThread
         public void onUpdateProviderInfo(@Nullable AppWidgetProviderInfo info) {
             mRemoteViews = null;
             executeOnMainExecutor(KEY_PROVIDER_UPDATE, info);
         }
 
         @Override
-        @WorkerThread
+        @AnyThread
         public void updateAppWidget(@Nullable RemoteViews views) {
             mRemoteViews = views;
             executeOnMainExecutor(KEY_VIEWS_UPDATE, mRemoteViews);
         }
 
         @Override
-        @WorkerThread
+        @AnyThread
         public void onViewDataChanged(int viewId) {
             executeOnMainExecutor(KEY_VIEW_DATA_CHANGED, viewId);
         }

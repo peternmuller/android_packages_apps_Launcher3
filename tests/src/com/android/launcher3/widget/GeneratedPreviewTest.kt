@@ -12,6 +12,7 @@ import android.platform.test.annotations.RequiresFlagsDisabled
 import android.platform.test.annotations.RequiresFlagsEnabled
 import android.platform.test.flag.junit.CheckFlagsRule
 import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.widget.RemoteViews
 import androidx.test.core.app.ApplicationProvider.getApplicationContext
@@ -53,7 +54,14 @@ class GeneratedPreviewTest {
         context = getApplicationContext()
         generatedPreview = RemoteViews(context.packageName, generatedPreviewLayout)
         widgetCell =
-            LayoutInflater.from(ActivityContextWrapper(context))
+            LayoutInflater.from(
+                    ActivityContextWrapper(
+                        ContextThemeWrapper(
+                            context,
+                            com.android.launcher3.R.style.WidgetContainerTheme
+                        )
+                    )
+                )
                 .inflate(com.android.launcher3.R.layout.widget_cell, null) as WidgetCell
         appWidgetProviderInfo =
             AppWidgetProviderInfo()
@@ -106,6 +114,18 @@ class GeneratedPreviewTest {
         appWidgetProviderInfo.generatedPreviewCategories = 0
         createWidgetItem()
         assertThat(widgetItem.hasGeneratedPreview(WIDGET_CATEGORY_HOME_SCREEN)).isFalse()
+        assertThat(widgetItem.hasGeneratedPreview(WIDGET_CATEGORY_KEYGUARD)).isFalse()
+        assertThat(widgetItem.hasGeneratedPreview(WIDGET_CATEGORY_SEARCHBOX)).isFalse()
+    }
+
+    @Test
+    @RequiresFlagsEnabled(FLAG_ENABLE_GENERATED_PREVIEWS)
+    fun widgetItem_hasGeneratedPreview_nullPreview() {
+        appWidgetProviderInfo.generatedPreviewCategories =
+            WIDGET_CATEGORY_HOME_SCREEN or WIDGET_CATEGORY_KEYGUARD
+        createWidgetItem()
+        assertThat(widgetItem.hasGeneratedPreview(WIDGET_CATEGORY_HOME_SCREEN)).isTrue()
+        // loadGeneratedPreview returns null for KEYGUARD, so this should still be false.
         assertThat(widgetItem.hasGeneratedPreview(WIDGET_CATEGORY_KEYGUARD)).isFalse()
         assertThat(widgetItem.hasGeneratedPreview(WIDGET_CATEGORY_SEARCHBOX)).isFalse()
     }

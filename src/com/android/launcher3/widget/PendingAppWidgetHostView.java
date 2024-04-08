@@ -29,9 +29,11 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -50,6 +52,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.launcher3.DeviceProfile;
+import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.R;
 import com.android.launcher3.icons.FastBitmapDrawable;
@@ -65,7 +68,7 @@ import java.util.List;
 public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
         implements OnClickListener, ItemInfoUpdateReceiver {
     private static final float SETUP_ICON_SIZE_FACTOR = 2f / 5;
-    private static final float MIN_SATUNATION = 0.7f;
+    private static final float MIN_SATURATION = 0.7f;
 
     private static final int FLAG_DRAW_SETTINGS = 1;
     private static final int FLAG_DRAW_ICON = 2;
@@ -75,6 +78,11 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
 
     private final Rect mRect = new Rect();
 
+    private final Matrix mMatrix = new Matrix();
+    private final RectF mPreviewBitmapRect = new RectF();
+    private final RectF mCanvasRect = new RectF();
+
+    private final LauncherWidgetHolder mWidgetHolder;
     private final LauncherAppWidgetProviderInfo mAppwidget;
     private final LauncherAppWidgetInfo mInfo;
     private final int mStartState;
@@ -90,6 +98,7 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
     private Drawable mSettingIconDrawable;
 
     private boolean mDrawableSizeChanged;
+    private boolean mIsDeferredWidget;
 
     private final TextPaint mPaint;
 
@@ -98,13 +107,18 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
 
     @Nullable private Bitmap mPreviewBitmap;
 
-    public PendingAppWidgetHostView(Context context, LauncherAppWidgetInfo info,
-            @Nullable LauncherAppWidgetProviderInfo appWidget) {
-        this(context, info, appWidget,
-                context.getResources().getText(R.string.gadget_complete_setup_text));
+    public PendingAppWidgetHostView(Context context, LauncherWidgetHolder widgetHolder,
+            LauncherAppWidgetInfo info, @Nullable LauncherAppWidgetProviderInfo appWidget) {
+        this(context, widgetHolder, info, appWidget, null);
+    }
 
+    public PendingAppWidgetHostView(Context context, LauncherWidgetHolder widgetHolder,
+            LauncherAppWidgetInfo info, @Nullable LauncherAppWidgetProviderInfo appWidget,
+            @Nullable Bitmap previewBitmap) {
+        this(context, widgetHolder, info, appWidget,
+                context.getResources().getText(R.string.gadget_complete_setup_text), previewBitmap);
         super.updateAppWidget(null);
-        setOnClickListener(mLauncher.getItemOnClickListener());
+        setOnClickListener(mActivityContext.getItemOnClickListener());
 
         if (info.pendingItemInfo == null) {
             info.pendingItemInfo = new PackageItemInfo(info.providerName.getPackageName(),
@@ -117,18 +131,24 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
     }
 
     public PendingAppWidgetHostView(
-            Context context, int appWidgetId, @NonNull LauncherAppWidgetProviderInfo appWidget) {
-        this(context, new LauncherAppWidgetInfo(appWidgetId, appWidget.provider),
-                appWidget, appWidget.label);
+            Context context, LauncherWidgetHolder widgetHolder,
+            int appWidgetId, @NonNull LauncherAppWidgetProviderInfo appWidget) {
+        this(context, widgetHolder, new LauncherAppWidgetInfo(appWidgetId, appWidget.provider),
+                appWidget, appWidget.label, null);
         getBackground().mutate().setAlpha(DEFERRED_ALPHA);
 
         mCenterDrawable = new ColorDrawable(Color.TRANSPARENT);
         mDragFlags = FLAG_DRAW_LABEL;
         mDrawableSizeChanged = true;
+        mIsDeferredWidget = true;
     }
 
-    /** Set {@link Bitmap} of widget preview. */
-    public void setPreviewBitmap(@Nullable Bitmap previewBitmap) {
+    /**
+     * Set {@link Bitmap} of widget preview and update background drawable. When showing preview
+     * bitmap, we shouldn't draw background.
+     */
+    public void setPreviewBitmapAndUpdateBackground(@Nullable Bitmap previewBitmap) {
+        setBackgroundResource(previewBitmap != null ? 0 : R.drawable.pending_widget_bg);
         if (this.mPreviewBitmap == previewBitmap) {
             return;
         }
@@ -136,10 +156,12 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
         invalidate();
     }
 
-    private PendingAppWidgetHostView(Context context, LauncherAppWidgetInfo info,
-            LauncherAppWidgetProviderInfo appwidget, CharSequence label) {
+    private PendingAppWidgetHostView(Context context,
+            LauncherWidgetHolder widgetHolder, LauncherAppWidgetInfo info,
+            LauncherAppWidgetProviderInfo appwidget, CharSequence label,
+            @Nullable Bitmap previewBitmap) {
         super(new ContextThemeWrapper(context, R.style.WidgetContainerTheme));
-
+        mWidgetHolder = widgetHolder;
         mAppwidget = appwidget;
         mInfo = info;
         mStartState = info.restoreStatus;
@@ -148,16 +170,24 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
 
         mPaint = new TextPaint();
         mPaint.setColor(Themes.getAttrColor(getContext(), android.R.attr.textColorPrimary));
-        mPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PX,
-                mLauncher.getDeviceProfile().iconTextSizePx, getResources().getDisplayMetrics()));
+        mPaint.setTextSize(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_PX,
+                mActivityContext.getDeviceProfile().iconTextSizePx,
+                getResources().getDisplayMetrics()));
         mPreviewPaint = new Paint(ANTI_ALIAS_FLAG | DITHER_FLAG | FILTER_BITMAP_FLAG);
+
         setWillNotDraw(false);
-        setBackgroundResource(R.drawable.pending_widget_bg);
+        setPreviewBitmapAndUpdateBackground(previewBitmap);
     }
 
     @Override
     public AppWidgetProviderInfo getAppWidgetInfo() {
         return mAppwidget;
+    }
+
+    @Override
+    public int getAppWidgetId() {
+        return mInfo.appWidgetId;
     }
 
     @Override
@@ -172,6 +202,10 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
         }
     }
 
+    public boolean isDeferredWidget() {
+        return mIsDeferredWidget;
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
@@ -184,8 +218,8 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
             if (mOnDetachCleanup != null) {
                 mOnDetachCleanup.close();
             }
-            mOnDetachCleanup = mLauncher.getAppWidgetHolder()
-                    .addOnUpdateListener(mInfo.appWidgetId, mAppwidget, this::checkIfRestored);
+            mOnDetachCleanup = mWidgetHolder.addOnUpdateListener(
+                    mInfo.appWidgetId, mAppwidget, this::checkIfRestored);
             checkIfRestored();
         }
     }
@@ -211,11 +245,13 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
             // This occurs when LauncherAppWidgetHostView is used to render a preview layout.
             return;
         }
-        // Remove and rebind the current widget (which was inflated in the wrong
-        // orientation), but don't delete it from the database
-        mLauncher.removeItem(this, info, false  /* deleteFromDb */,
-                "widget removed because of configuration change");
-        mLauncher.bindAppWidget(info);
+        if (mActivityContext instanceof Launcher launcher) {
+            // Remove and rebind the current widget (which was inflated in the wrong
+            // orientation), but don't delete it from the database
+            launcher.removeItem(this, info, false  /* deleteFromDb */,
+                    "widget removed because of configuration change");
+            launcher.bindAppWidget(info);
+        }
     }
 
     @Override
@@ -303,7 +339,7 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
         // Make the dominant color bright.
         float[] hsv = new float[3];
         Color.colorToHSV(dominantColor, hsv);
-        hsv[1] = Math.min(hsv[1], MIN_SATUNATION);
+        hsv[1] = Math.min(hsv[1], MIN_SATURATION);
         hsv[2] = 1;
         mSettingIconDrawable.setColorFilter(Color.HSVToColor(hsv),  PorterDuff.Mode.SRC_IN);
     }
@@ -344,7 +380,7 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
     }
 
     private void updateDrawableBounds() {
-        DeviceProfile grid = mLauncher.getDeviceProfile();
+        DeviceProfile grid = mActivityContext.getDeviceProfile();
         int paddingTop = getPaddingTop();
         int paddingBottom = getPaddingBottom();
         int paddingLeft = getPaddingLeft();
@@ -420,7 +456,11 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
     protected void onDraw(Canvas canvas) {
         if (mPreviewBitmap != null
                 && (mInfo.restoreStatus & LauncherAppWidgetInfo.FLAG_UI_NOT_READY) != 0) {
-            canvas.drawBitmap(mPreviewBitmap, 0, 0, mPreviewPaint);
+            mPreviewBitmapRect.set(0, 0, mPreviewBitmap.getWidth(), mPreviewBitmap.getHeight());
+            mCanvasRect.set(0, 0, getWidth(), getHeight());
+
+            mMatrix.setRectToRect(mPreviewBitmapRect, mCanvasRect, Matrix.ScaleToFit.CENTER);
+            canvas.drawBitmap(mPreviewBitmap, mMatrix, mPreviewPaint);
             return;
         }
         if (mCenterDrawable == null) {
@@ -443,7 +483,6 @@ public class PendingAppWidgetHostView extends LauncherAppWidgetHostView
             mSetupTextLayout.draw(canvas);
             canvas.restore();
         }
-
     }
 
     /**
