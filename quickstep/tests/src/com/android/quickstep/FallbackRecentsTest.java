@@ -22,6 +22,7 @@ import static androidx.test.InstrumentationRegistry.getInstrumentation;
 import static com.android.launcher3.tapl.LauncherInstrumentation.WAIT_TIME_MS;
 import static com.android.launcher3.tapl.TestHelpers.getHomeIntentInPackage;
 import static com.android.launcher3.tapl.TestHelpers.getLauncherInMyProcess;
+import static com.android.launcher3.testing.shared.TestProtocol.UPDATE_OVERVIEW_TARGETS_RUNNING_LATE;
 import static com.android.launcher3.ui.AbstractLauncherUiTest.DEFAULT_ACTIVITY_TIMEOUT;
 import static com.android.launcher3.ui.AbstractLauncherUiTest.DEFAULT_BROADCAST_TIMEOUT_SECS;
 import static com.android.launcher3.ui.AbstractLauncherUiTest.DEFAULT_UI_TIMEOUT;
@@ -32,8 +33,6 @@ import static com.android.launcher3.ui.TaplTestsLauncher3Test.getAppPackageName;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
 import static com.android.launcher3.util.rule.ShellCommandRule.disableHeadsUpNotification;
 import static com.android.launcher3.util.rule.ShellCommandRule.getLauncherCommand;
-import static com.android.launcher3.util.rule.TestStabilityRule.LOCAL;
-import static com.android.launcher3.util.rule.TestStabilityRule.PLATFORM_POSTSUBMIT;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -44,6 +43,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.RemoteException;
+import android.util.Log;
 
 import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -59,6 +59,7 @@ import com.android.launcher3.tapl.TestHelpers;
 import com.android.launcher3.testcomponent.TestCommandReceiver;
 import com.android.launcher3.ui.AbstractLauncherUiTest;
 import com.android.launcher3.util.Wait;
+import com.android.launcher3.util.rule.ExtendedLongPressTimeoutRule;
 import com.android.launcher3.util.rule.FailureWatcher;
 import com.android.launcher3.util.rule.SamplerRule;
 import com.android.launcher3.util.rule.ScreenRecordRule;
@@ -105,6 +106,9 @@ public class FallbackRecentsTest {
     @Rule
     public ScreenRecordRule mScreenRecordRule = new ScreenRecordRule();
 
+    @Rule
+    public ExtendedLongPressTimeoutRule mLongPressTimeoutRule = new ExtendedLongPressTimeoutRule();
+
     public FallbackRecentsTest() throws RemoteException {
         Instrumentation instrumentation = getInstrumentation();
         Context context = instrumentation.getContext();
@@ -129,6 +133,13 @@ public class FallbackRecentsTest {
                         getLauncherCommand(mOtherLauncherActivity));
                 updateHandler.mChangeCounter
                         .await(DEFAULT_BROADCAST_TIMEOUT_SECS, TimeUnit.SECONDS);
+                Log.d(UPDATE_OVERVIEW_TARGETS_RUNNING_LATE,
+                        "AFTER AWAIT: mObserver home intent package name="
+                                + updateHandler.mObserver.getHomeIntent()
+                                        .getComponent().getPackageName());
+                Log.d(UPDATE_OVERVIEW_TARGETS_RUNNING_LATE,
+                        "AFTER AWAIT: mOtherLauncherActivity package name="
+                                + mOtherLauncherActivity.packageName);
                 try {
                     base.evaluate();
                 } finally {
@@ -190,9 +201,6 @@ public class FallbackRecentsTest {
 
         mLauncher.getLaunchedAppState().switchToOverview();
     }
-
-    // Staging; will be promoted to presubmit if stable
-    @TestStabilityRule.Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT)
 
     //@NavigationModeSwitch
     @Test
@@ -340,12 +348,25 @@ public class FallbackRecentsTest {
             mRads = new RecentsAnimationDeviceState(ctx);
             mObserver = new OverviewComponentObserver(ctx, mRads);
             mChangeCounter = new CountDownLatch(1);
+            Log.d(UPDATE_OVERVIEW_TARGETS_RUNNING_LATE,
+                    "OverviewUpdateHandler(Constructor): mObserver home intent package name="
+                            + mObserver.getHomeIntent().getComponent().getPackageName());
+            Log.d(UPDATE_OVERVIEW_TARGETS_RUNNING_LATE,
+                    "OverviewUpdateHandler(Constructor): mOtherLauncherActivity package name="
+                            + mOtherLauncherActivity.packageName);
             if (mObserver.getHomeIntent().getComponent()
                     .getPackageName().equals(mOtherLauncherActivity.packageName)) {
                 // Home already same
                 mChangeCounter.countDown();
             } else {
-                mObserver.setOverviewChangeListener(b -> mChangeCounter.countDown());
+                mObserver.setOverviewChangeListener(b -> {
+                    Log.d(UPDATE_OVERVIEW_TARGETS_RUNNING_LATE,
+                            "OverviewChangeListener(Callback): isHomeAndOverviewSame=" + b);
+                    Log.d(UPDATE_OVERVIEW_TARGETS_RUNNING_LATE,
+                            "OverviewChangeListener(Callback): mObserver home intent package name="
+                                    + mObserver.getHomeIntent().getComponent().getPackageName());
+                    mChangeCounter.countDown();
+                });
             }
         }
 

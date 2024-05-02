@@ -48,7 +48,7 @@ import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.pm.PackageInstallInfo;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.shortcuts.ShortcutRequest;
-import com.android.launcher3.uioverrides.ApiWrapper;
+import com.android.launcher3.util.ApiWrapper;
 import com.android.launcher3.util.FlagOp;
 import com.android.launcher3.util.IntSet;
 import com.android.launcher3.util.ItemInfoMatcher;
@@ -276,7 +276,7 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
                                     PackageInstallInfo.STATUS_INSTALLED_DOWNLOADING);
                             // In case an app is archived, we need to make sure that archived state
                             // in WorkspaceItemInfo is refreshed.
-                            if (Utilities.enableSupportForArchiving() && !activities.isEmpty()) {
+                            if (Flags.enableSupportForArchiving() && !activities.isEmpty()) {
                                 boolean newArchivalState = activities.get(
                                         0).getActivityInfo().isArchived;
                                 if (newArchivalState != si.isArchived()) {
@@ -286,10 +286,8 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
                             }
                             if (si.itemType == Favorites.ITEM_TYPE_APPLICATION) {
                                 if (activities != null && !activities.isEmpty()) {
-                                    si.status = ApiWrapper
-                                            .isNonResizeableActivity(activities.get(0))
-                                            ? si.status | WorkspaceItemInfo.FLAG_NON_RESIZEABLE
-                                            : si.status & ~WorkspaceItemInfo.FLAG_NON_RESIZEABLE;
+                                    si.setNonResizeable(ApiWrapper.INSTANCE.get(context)
+                                            .isNonResizeableActivity(activities.get(0)));
                                 }
                                 iconCache.getTitleAndIcon(si, si.usingLowResIcon());
                                 infoUpdated = true;
@@ -361,17 +359,10 @@ public class PackageUpdatedTask extends BaseModelUpdateTask {
         }
 
         if (!removedPackages.isEmpty() || !removedComponents.isEmpty()) {
-            // This predicate is used to mark an ItemInfo for removal if its package or component
-            // is marked for removal.
-            Predicate<ItemInfo> removeAppMatch =
+            Predicate<ItemInfo> removeMatch =
                     ItemInfoMatcher.ofPackages(removedPackages, mUser)
                             .or(ItemInfoMatcher.ofComponents(removedComponents, mUser))
                             .and(ItemInfoMatcher.ofItemIds(forceKeepShortcuts).negate());
-            // This predicate is used to mark an app pair for removal if it contains an app marked
-            // for removal.
-            Predicate<ItemInfo> removeAppPairMatch =
-                    ItemInfoMatcher.forAppPairMatch(removeAppMatch);
-            Predicate<ItemInfo> removeMatch = removeAppMatch.or(removeAppPairMatch);
             deleteAndBindComponentsRemoved(removeMatch,
                     "removed because the corresponding package or component is removed. "
                             + "mOp=" + mOp + " removedPackages=" + removedPackages.stream().collect(
