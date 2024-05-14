@@ -20,25 +20,26 @@ import static com.android.launcher3.util.MainThreadInitializedObject.forOverride
 import com.android.launcher3.R;
 import com.android.launcher3.util.MainThreadInitializedObject;
 import com.android.launcher3.util.ResourceBasedOverride;
+import com.android.launcher3.util.SafeCloseable;
 
 import java.io.PrintWriter;
 import java.util.Optional;
 
 /** Class to manage Assistant states. */
-public class AssistStateManager implements ResourceBasedOverride {
+public class AssistStateManager implements ResourceBasedOverride, SafeCloseable {
 
     public static final MainThreadInitializedObject<AssistStateManager> INSTANCE =
             forOverride(AssistStateManager.class, R.string.assist_state_manager_class);
 
     public AssistStateManager() {}
 
-    /** Whether search supports haptic on invocation. */
-    public boolean supportsCommitHaptic() {
+    /** Whether search is available. */
+    public boolean isSearchAvailable() {
         return false;
     }
 
-    /** Whether search is available. */
-    public boolean isSearchAvailable() {
+    /** Whether search supports showing on the lockscreen. */
+    public boolean supportsShowWhenLocked() {
         return false;
     }
 
@@ -84,6 +85,11 @@ public class AssistStateManager implements ResourceBasedOverride {
         return 0;
     }
 
+    /** Get the haptic bit overridden by AGSA. */
+    public Optional<Boolean> getShouldPlayHapticOverride() {
+        return Optional.empty();
+    }
+
     /** Return {@code true} if the Settings toggle is enabled. */
     public boolean isSettingsAllEntrypointsEnabled() {
         return false;
@@ -91,4 +97,7 @@ public class AssistStateManager implements ResourceBasedOverride {
 
     /** Dump states. */
     public void dump(String prefix, PrintWriter writer) {}
+
+    @Override
+    public void close() {}
 }
