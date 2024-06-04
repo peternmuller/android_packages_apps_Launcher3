@@ -44,13 +44,10 @@
     <string name="add_to_home_screen" msgid="9168649446635919791">"Přidat na plochu"</string>
     <string name="added_to_home_screen_accessibility_text" msgid="4451545765448884415">"Widget <xliff:g id="WIDGET_NAME">%1$s</xliff:g> byl přidán na plochu"</string>
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"Návrhy"</string>
-    <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Základní"</string>
+    <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Nejdůležitější aplikace"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"Zprávy a časopisy"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"Vaše klidová zóna"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"Zábava"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"Sociální sítě"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"Zdraví a fitness"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"Počasí"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"Návrhy pro vás"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"Widgety <xliff:g id="SELECTED_HEADER">%1$s</xliff:g> vpravo, vyhledávání a možnosti vlevo"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{ # widget}few{# widgety}many{# widgetu}other{# widgetů}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"Psaní poznámek"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"Přidat"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"Přidat widget <xliff:g id="WIDGET_NAME">%1$s</xliff:g>"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"Užitečné informace na dosah"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"Pokud chcete mít informace k dispozici bez otevírání aplikací, můžete si na plochu přidat widgety"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Klepnutím změníte nastavení widgetu"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"Rozumím"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Změnit nastavení widgetu"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Hledat v aplikacích"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Načítání aplikací…"</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"Klepnutím nastavíte nebo otevřete"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"Soukromé"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"Nastavení soukromého prostoru"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"Zamknout/odemknout soukromý prostor"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"Soukromé, odemčeno."</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"Soukromé, uzamčeno."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"Zamknout"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"Převádění soukromého prostoru"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"Instalovat aplikace"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"Instalovat aplikace do soukromého prostoru"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"Rozbalovací nabídka"</string>
 </resources>

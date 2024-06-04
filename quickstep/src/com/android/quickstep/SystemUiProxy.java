@@ -16,7 +16,6 @@
 package com.android.quickstep;
 
 import static android.app.ActivityManager.RECENT_IGNORE_UNAVAILABLE;
-import static android.content.pm.PackageManager.FEATURE_PC;
 
 import static com.android.launcher3.Flags.enableUnfoldStateAnimation;
 import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
@@ -73,6 +72,7 @@ import com.android.quickstep.util.AssistUtils;
 import com.android.quickstep.util.unfold.ProxyUnfoldTransitionProvider;
 import com.android.systemui.shared.recents.ISystemUiProxy;
 import com.android.systemui.shared.recents.model.ThumbnailData;
+import com.android.systemui.shared.system.QuickStepContract.SystemUiStateFlags;
 import com.android.systemui.shared.system.RecentsAnimationControllerCompat;
 import com.android.systemui.shared.system.RecentsAnimationListener;
 import com.android.systemui.shared.system.smartspace.ILauncherUnlockAnimationController;
@@ -112,7 +112,7 @@ import java.util.List;
  * Holds the reference to SystemUI.
  */
 public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
-    private static final String TAG = SystemUiProxy.class.getSimpleName();
+    private static final String TAG = "SystemUiProxy";
 
     public static final MainThreadInitializedObject<SystemUiProxy> INSTANCE =
             new MainThreadInitializedObject<>(SystemUiProxy::new);
@@ -173,7 +173,8 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     private final Handler mAsyncHandler;
 
     // TODO(141886704): Find a way to remove this
-    private int mLastSystemUiStateFlags;
+    @SystemUiStateFlags
+    private long mLastSystemUiStateFlags;
 
     /**
      * This is a singleton pending intent that is used to start recents via Shell (which is a
@@ -325,12 +326,13 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     }
 
     // TODO(141886704): Find a way to remove this
-    public void setLastSystemUiStateFlags(int stateFlags) {
+    public void setLastSystemUiStateFlags(@SystemUiStateFlags long stateFlags) {
         mLastSystemUiStateFlags = stateFlags;
     }
 
     // TODO(141886704): Find a way to remove this
-    public int getLastSystemUiStateFlags() {
+    @SystemUiStateFlags
+    public long getLastSystemUiStateFlags() {
         return mLastSystemUiStateFlags;
     }
 
@@ -576,6 +578,17 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
         }
     }
 
+    @Override
+    public void toggleQuickSettingsPanel() {
+        if (mSystemUiProxy != null) {
+            try {
+                mSystemUiProxy.toggleQuickSettingsPanel();
+            } catch (RemoteException e) {
+                Log.w(TAG, "Failed call toggleQuickSettingsPanel", e);
+            }
+        }
+    }
+
     //
     // Pip
     //
@@ -761,19 +774,6 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     }
 
     /**
-     * Tells SysUI to remove the bubble with the provided key.
-     * @param key the key of the bubble to show.
-     */
-    public void removeBubble(String key) {
-        if (mBubbles == null) return;
-        try {
-            mBubbles.removeBubble(key);
-        } catch (RemoteException e) {
-            Log.w(TAG, "Failed call removeBubble");
-        }
-    }
-
-    /**
      * Tells SysUI to remove all bubbles.
      */
     public void removeAllBubbles() {
@@ -801,15 +801,41 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     /**
      * Tells SysUI when the bubble is being dragged.
      * Should be called only when the bubble bar is expanded.
-     * @param bubbleKey the key of the bubble to collapse/expand
-     * @param isBeingDragged whether the bubble is being dragged
+     * @param bubbleKey key of the bubble being dragged
      */
-    public void onBubbleDrag(@Nullable String bubbleKey, boolean isBeingDragged) {
+    public void startBubbleDrag(@Nullable String bubbleKey) {
         if (mBubbles == null) return;
         try {
-            mBubbles.onBubbleDrag(bubbleKey, isBeingDragged);
+            mBubbles.startBubbleDrag(bubbleKey);
         } catch (RemoteException e) {
-            Log.w(TAG, "Failed call onBubbleDrag");
+            Log.w(TAG, "Failed call startBubbleDrag");
+        }
+    }
+
+    /**
+     * Tells SysUI when the bubble stops being dragged.
+     * Should be called only when the bubble bar is expanded.
+     * @param location location of the bubble bar
+     */
+    public void stopBubbleDrag(BubbleBarLocation location) {
+        if (mBubbles == null) return;
+        try {
+            mBubbles.stopBubbleDrag(location);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed call stopBubbleDrag");
+        }
+    }
+
+    /**
+     * Tells SysUI to dismiss the bubble with the provided key.
+     * @param key the key of the bubble to dismiss.
+     */
+    public void dragBubbleToDismiss(String key) {
+        if (mBubbles == null) return;
+        try {
+            mBubbles.dragBubbleToDismiss(key);
+        } catch (RemoteException e) {
+            Log.w(TAG, "Failed call dragBubbleToDismiss");
         }
     }
 
@@ -1385,8 +1411,7 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
 
     private boolean shouldEnableRunningTasksForDesktopMode() {
         // TODO(b/335401172): unify DesktopMode checks in Launcher
-        return (enableDesktopWindowingMode() && enableDesktopWindowingTaskbarRunningApps())
-                || mContext.getPackageManager().hasSystemFeature(FEATURE_PC);
+        return enableDesktopWindowingMode() && enableDesktopWindowingTaskbarRunningApps();
     }
 
     private boolean handleMessageAsync(Message msg) {
@@ -1413,28 +1438,6 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
                 mDesktopMode.showDesktopApps(displayId, transition);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call showDesktopApps", e);
-            }
-        }
-    }
-
-    /** Call shell to stash desktop apps */
-    public void stashDesktopApps(int displayId) {
-        if (mDesktopMode != null) {
-            try {
-                mDesktopMode.stashDesktopApps(displayId);
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call stashDesktopApps", e);
-            }
-        }
-    }
-
-    /** Call shell to hide desktop apps that may be stashed */
-    public void hideStashedDesktopApps(int displayId) {
-        if (mDesktopMode != null) {
-            try {
-                mDesktopMode.hideStashedDesktopApps(displayId);
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed call hideStashedDesktopApps", e);
             }
         }
     }

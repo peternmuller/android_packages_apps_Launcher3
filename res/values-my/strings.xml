@@ -46,11 +46,8 @@
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"အကြံပြုချက်"</string>
     <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"မရှိမဖြစ်များ"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"သတင်းနှင့် မဂ္ဂဇင်း"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"သင်အနားယူသောနေရာ"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"ဖျော်ဖြေရေး"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"လူမှုရေး"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"ကျန်းမာကြံ့ခိုင်ရေး"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"မိုးလေဝသ"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"သင့်အတွက် အကြံပြုထားသည်များ"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"<xliff:g id="SELECTED_HEADER">%1$s</xliff:g> ဝိဂျက်များသည် ညာဘက်တွင်ရှိပြီး ရှာဖွေမှုနှင့် ရွေးစရာများသည် ဘယ်ဘက်တွင်ရှိသည်"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{ဝိဂျက် # ခု}other{ဝိဂျက် # ခု}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"မှတ်စုလိုက်ခြင်း"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"ထည့်ရန်"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"<xliff:g id="WIDGET_NAME">%1$s</xliff:g> ဝိဂျက်ထည့်ရန်"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"အသုံးဝင်သော အချက်အလက်များကို အလွယ်တကူ ရယူလိုက်ပါ"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"အက်ပ်မဖွင့်ဘဲ အချက်အလက်များရယူရန် ပင်မစာမျက်နှာတွင် ဝိဂျက်များ ထည့်နိုင်သည်"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"ဝိဂျက် ဆက်တင်များကို ပြောင်းရန် တို့ပါ"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"နားလည်ပြီ"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"ဝိဂျက် ဆက်တင်များကို ပြောင်းပါ"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"ရှာဖွေမှု အက်ပ်များ"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"အက်ပ်များကို ဖွင့်နေသည်…"</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"စနစ်ထည့်သွင်းရန် (သို့) ဖွင့်ရန် တို့ပါ"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"သီးသန့်"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"သီးသန့်ချတ်ခန်း ဆက်တင်များ"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"သီးသန့်ချတ်ခန်း လော့ခ်ချ/ဖွင့်ရန်"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"သီးသန့် လော့ခ်ဖွင့်ထားသည်။"</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"သီးသန့် လော့ခ်ချထားသည်။"</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"လော့ခ်ချခြင်း"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"သီးသန့်ချတ်ခန်း အပြောင်းအလဲ"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"အက်ပ်ထည့်ခြင်း"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"‘သီးသန့်နေရာ’ တွင် အက်ပ်များ ထည့်သွင်းနိုင်သည်"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"မီနူးအပို"</string>
 </resources>

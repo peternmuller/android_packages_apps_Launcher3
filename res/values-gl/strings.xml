@@ -46,11 +46,8 @@
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"Suxestións"</string>
     <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Esenciais"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"Noticias e revistas"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"Reláxate"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"Entretemento"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"Redes sociais"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"Saúde e forma física"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"O tempo"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"Suxestións personalizadas"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"Widgets de <xliff:g id="SELECTED_HEADER">%1$s</xliff:g> á dereita, busca e opcións á esquerda"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{# widget}other{# widgets}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"Toma de notas"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"Engadir"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"Engadir o widget <xliff:g id="WIDGET_NAME">%1$s</xliff:g>"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"Información útil ao teu alcance"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"Se queres obter información sen abrir as aplicacións, podes engadir widgets á pantalla de inicio"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Toca para cambiar a configuración do widget"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"Entendido"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Cambiar configuración do widget"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Buscar aplicacións"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Cargando aplicacións…"</string>
@@ -91,7 +85,7 @@
     <string name="app_info_drop_target_label" msgid="692894985365717661">"Información da app"</string>
     <string name="install_private_system_shortcut_label" msgid="1616889277073184841">"Instalar en privado"</string>
     <string name="install_drop_target_label" msgid="2539096853673231757">"Instalar"</string>
-    <string name="dismiss_prediction_label" msgid="3357562989568808658">"Non suxerir aplicación"</string>
+    <string name="dismiss_prediction_label" msgid="3357562989568808658">"Non suxerir app"</string>
     <string name="pin_prediction" msgid="4196423321649756498">"Fixar predición"</string>
     <string name="permlab_install_shortcut" msgid="5632423390354674437">"instalar atallos"</string>
     <string name="permdesc_install_shortcut" msgid="923466509822011139">"Permite a unha aplicación engadir atallos sen intervención do usuario."</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"Toca para configuralo ou abrilo"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"Privado"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"Configuración do espazo privado"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"Bloquear ou desbloquear o espazo privado"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"Privado, desbloqueado."</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"Privado, bloqueado."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"Bloquear"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"Transición ao espazo privado"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"Instalar apps"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"Instalar as aplicacións no espazo privado"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"Menú adicional"</string>
 </resources>

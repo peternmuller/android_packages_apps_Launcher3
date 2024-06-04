@@ -94,6 +94,7 @@ import com.android.launcher3.provider.RestoreDbTask;
 import com.android.launcher3.statemanager.StatefulActivity;
 import com.android.launcher3.taskbar.TaskbarActivityContext;
 import com.android.launcher3.taskbar.TaskbarManager;
+import com.android.launcher3.taskbar.TaskbarNavButtonController.TaskbarNavButtonCallbacks;
 import com.android.launcher3.testing.TestLogging;
 import com.android.launcher3.testing.shared.ResourceUtils;
 import com.android.launcher3.testing.shared.TestProtocol;
@@ -128,6 +129,7 @@ import com.android.systemui.shared.system.ActivityManagerWrapper;
 import com.android.systemui.shared.system.InputChannelCompat.InputEventReceiver;
 import com.android.systemui.shared.system.InputConsumerController;
 import com.android.systemui.shared.system.InputMonitorCompat;
+import com.android.systemui.shared.system.QuickStepContract.SystemUiStateFlags;
 import com.android.systemui.shared.system.smartspace.ISysuiUnlockAnimationController;
 import com.android.systemui.unfold.progress.IUnfoldAnimation;
 import com.android.wm.shell.back.IBackAnimation;
@@ -300,9 +302,9 @@ public class TouchInteractionService extends Service {
         }
 
         @BinderThread
-        public void onSystemUiStateChanged(int stateFlags) {
+        public void onSystemUiStateChanged(@SystemUiStateFlags long stateFlags) {
             MAIN_EXECUTOR.execute(() -> executeForTouchInteractionService(tis -> {
-                int lastFlags = tis.mDeviceState.getSystemUiStateFlags();
+                long lastFlags = tis.mDeviceState.getSystemUiStateFlags();
                 tis.mDeviceState.setSystemUiFlags(stateFlags);
                 tis.onSystemUiFlagsChanged(lastFlags);
             }));
@@ -470,6 +472,18 @@ public class TouchInteractionService extends Service {
 
     private final ScreenOnTracker.ScreenOnListener mScreenOnListener = this::onScreenOnChanged;
 
+    private final TaskbarNavButtonCallbacks mNavCallbacks = new TaskbarNavButtonCallbacks() {
+        @Override
+        public void onNavigateHome() {
+            mOverviewCommandHelper.addCommand(OverviewCommandHelper.TYPE_HOME);
+        }
+
+        @Override
+        public void onToggleOverview() {
+            mOverviewCommandHelper.addCommand(OverviewCommandHelper.TYPE_TOGGLE);
+        }
+    };
+
     private ActivityManagerWrapper mAM;
     private OverviewCommandHelper mOverviewCommandHelper;
     private OverviewComponentObserver mOverviewComponentObserver;
@@ -500,7 +514,7 @@ public class TouchInteractionService extends Service {
         mDeviceState = new RecentsAnimationDeviceState(this, true);
         mAllAppsActionManager = new AllAppsActionManager(
                 this, UI_HELPER_EXECUTOR, this::createAllAppsPendingIntent);
-        mTaskbarManager = new TaskbarManager(this, mAllAppsActionManager);
+        mTaskbarManager = new TaskbarManager(this, mAllAppsActionManager, mNavCallbacks);
         mRotationTouchHelper = mDeviceState.getRotationTouchHelper();
         mInputConsumer = InputConsumerController.getRecentsAnimationInputConsumer();
 
@@ -623,14 +637,14 @@ public class TouchInteractionService extends Service {
     }
 
     @UiThread
-    private void onSystemUiFlagsChanged(int lastSysUIFlags) {
+    private void onSystemUiFlagsChanged(@SystemUiStateFlags long lastSysUIFlags) {
         if (LockedUserState.get(this).isUserUnlocked()) {
-            int systemUiStateFlags = mDeviceState.getSystemUiStateFlags();
+            long systemUiStateFlags = mDeviceState.getSystemUiStateFlags();
             SystemUiProxy.INSTANCE.get(this).setLastSystemUiStateFlags(systemUiStateFlags);
             mOverviewComponentObserver.onSystemUiStateChanged();
             mTaskbarManager.onSystemUiFlagsChanged(systemUiStateFlags);
 
-            int isShadeExpandedFlag =
+            long isShadeExpandedFlag =
                     SYSUI_STATE_NOTIFICATION_PANEL_EXPANDED | SYSUI_STATE_QUICK_SETTINGS_EXPANDED;
             boolean wasExpanded = (lastSysUIFlags & isShadeExpandedFlag) != 0;
             boolean isExpanded = (systemUiStateFlags & isShadeExpandedFlag) != 0;
@@ -1005,7 +1019,7 @@ public class TouchInteractionService extends Service {
                             .append("TaskbarActivityContext != null, ")
                             .append("using TaskbarUnstashInputConsumer");
                     base = new TaskbarUnstashInputConsumer(this, base, mInputMonitorCompat, tac,
-                            mOverviewCommandHelper);
+                            mOverviewCommandHelper, mGestureState);
                 }
             }
             if (enableBubblesLongPressNavHandle()) {
@@ -1033,7 +1047,7 @@ public class TouchInteractionService extends Service {
                 }
                 reasonString.append("using NavHandleLongPressInputConsumer");
                 base = new NavHandleLongPressInputConsumer(this, base, mInputMonitorCompat,
-                        mDeviceState, navHandle);
+                        mDeviceState, navHandle, mGestureState);
             }
 
             if (!enableBubblesLongPressNavHandle()) {

@@ -32,7 +32,6 @@ import com.android.launcher3.tapl.WidgetResizeFrame;
 import com.android.launcher3.ui.AbstractLauncherUiTest;
 import com.android.launcher3.ui.PortraitLandscapeRunner.PortraitLandscape;
 import com.android.launcher3.ui.TestViewHelpers;
-import com.android.launcher3.util.rule.ScreenRecordRule.ScreenRecord;
 import com.android.launcher3.util.rule.ShellCommandRule;
 import com.android.launcher3.util.rule.TestStabilityRule.Stability;
 import com.android.launcher3.widget.LauncherAppWidgetProviderInfo;
@@ -54,7 +53,6 @@ public class TaplAddWidgetTest extends AbstractLauncherUiTest<Launcher> {
 
     @Test
     @PortraitLandscape
-    @ScreenRecord // b/316910614
     public void testDragIcon() throws Throwable {
         mLauncher.enableDebugTracing(); // b/289161193
         commitTransactionAndLoadHome(new FavoriteItemsTransaction(mTargetContext));
@@ -86,7 +84,6 @@ public class TaplAddWidgetTest extends AbstractLauncherUiTest<Launcher> {
      * A custom shortcut is a 1x1 widget that launches a specific intent when user tap on it.
      * Custom shortcuts are replaced by deep shortcuts after api 25.
      */
-    @Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT)
     @Test
     @PortraitLandscape
     public void testDragCustomShortcut() throws Throwable {
@@ -108,7 +105,6 @@ public class TaplAddWidgetTest extends AbstractLauncherUiTest<Launcher> {
     @Stability(flavors = LOCAL | PLATFORM_POSTSUBMIT) // b/316910614
     @PlatinumTest(focusArea = "launcher")
     @Test
-    @ScreenRecord // b/316910614
     public void testResizeWidget() throws Throwable {
         commitTransactionAndLoadHome(new FavoriteItemsTransaction(mTargetContext));
 

@@ -46,11 +46,8 @@
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"Предлози"</string>
     <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Неопходни"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"Вести и списанија"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"Вашата зона за релаксација"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"Забава"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"Друштвени"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"Здравје и фитнес"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"Време"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"Препорачано за вас"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"<xliff:g id="SELECTED_HEADER">%1$s</xliff:g> виџети оддесно, „Пребарување“ и „Опции“ одлево"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{# виџет}one{# виџет}other{# виџети}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"Фаќање белешки"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"Додај"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"Додај го виџетот <xliff:g id="WIDGET_NAME">%1$s</xliff:g>"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"Корисни информации на дофат на прстите"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"За да добивате информации без да ги отворате апликациите, може да додадете виџети на почетниот екран"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Допрете за да ги промените поставките за виџетот"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"Сфатив"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Промени ги поставките за виџетот"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Пребарувајте апликации"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Се вчитуваат апликации…"</string>
@@ -91,7 +85,7 @@
     <string name="app_info_drop_target_label" msgid="692894985365717661">"Инф. за апликација"</string>
     <string name="install_private_system_shortcut_label" msgid="1616889277073184841">"Инстал. во приватен"</string>
     <string name="install_drop_target_label" msgid="2539096853673231757">"Инсталирај"</string>
-    <string name="dismiss_prediction_label" msgid="3357562989568808658">"Не предлагај апликација"</string>
+    <string name="dismiss_prediction_label" msgid="3357562989568808658">"Не предлагај апл."</string>
     <string name="pin_prediction" msgid="4196423321649756498">"Закачи го предвидувањето"</string>
     <string name="permlab_install_shortcut" msgid="5632423390354674437">"инсталирање кратенки"</string>
     <string name="permdesc_install_shortcut" msgid="923466509822011139">"Овозможува апликацијата да додава кратенки без интервенција на корисникот."</string>
@@ -130,7 +124,7 @@
     <string name="msg_missing_notification_access" msgid="281113995110910548">"За да се прикажуваат „Точки за известување“, вклучете ги известувањата за апликацијата <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_change_settings" msgid="1376365968844349552">"Промени ги поставките"</string>
     <string name="notification_dots_service_title" msgid="4284221181793592871">"Прикажувај точки за известување"</string>
-    <string name="developer_options_title" msgid="700788437593726194">"Опции за програмери"</string>
+    <string name="developer_options_title" msgid="700788437593726194">"Програмерски опции"</string>
     <string name="auto_add_shortcuts_label" msgid="4926805029653694105">"Додавај икони за апликации на почетниот екран"</string>
     <string name="auto_add_shortcuts_description" msgid="7117251166066978730">"За нови апликации"</string>
     <string name="package_state_unknown" msgid="7592128424511031410">"Непознато"</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"Допрете за да поставите или отворите"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"Приватен простор"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"Поставки за „Приватен простор“"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"Заклучување/отклучување на „Приватен простор“"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"Приватно, отклучено."</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"Приватно, заклучено."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"Заклучи"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"Префрлање на „Приватен простор“"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"Инсталирајте апликации"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"Инсталирање апликации во „Приватен простор“"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"Проширено балонче"</string>
 </resources>

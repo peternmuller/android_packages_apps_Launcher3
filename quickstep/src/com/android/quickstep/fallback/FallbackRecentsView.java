@@ -53,6 +53,7 @@ import com.android.quickstep.views.TaskView;
 import com.android.systemui.shared.recents.model.Task;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class FallbackRecentsView extends RecentsView<RecentsActivity, RecentsState>
         implements StateListener<RecentsState> {
@@ -144,8 +145,9 @@ public class FallbackRecentsView extends RecentsView<RecentsActivity, RecentsSta
     @Override
     public void setCurrentTask(int runningTaskViewId) {
         super.setCurrentTask(runningTaskViewId);
-        int runningTaskId = getTaskIdsForRunningTaskView()[0];
-        if (mHomeTask != null && mHomeTask.key.id != runningTaskId) {
+        int[] runningTaskIds = getTaskIdsForRunningTaskView();
+        if (mHomeTask != null
+                && Arrays.stream(runningTaskIds).noneMatch(taskId -> taskId == mHomeTask.key.id)) {
             mHomeTask = null;
             setRunningTaskHidden(false);
         }
@@ -182,13 +184,14 @@ public class FallbackRecentsView extends RecentsView<RecentsActivity, RecentsSta
         // as well. This tile is never shown as we have setCurrentTaskHidden, but allows use to
         // track the index of the next task appropriately, as if we are switching on any other app.
         // TODO(b/195607777) Confirm home task info is front-most task and not mixed in with others
-        int runningTaskId = getTaskIdsForRunningTaskView()[0];
-        if (mHomeTask != null && mHomeTask.key.id == runningTaskId
+        int[] runningTaskIds = getTaskIdsForRunningTaskView();
+        if (mHomeTask != null
+                && Arrays.stream(runningTaskIds).allMatch(taskId -> taskId == mHomeTask.key.id)
                 && !taskGroups.isEmpty()) {
             // Check if the task list has running task
             boolean found = false;
             for (GroupTask group : taskGroups) {
-                if (group.containsTask(runningTaskId)) {
+                if (Arrays.stream(runningTaskIds).allMatch(group::containsTask)) {
                     found = true;
                     break;
                 }
@@ -244,7 +247,7 @@ public class FallbackRecentsView extends RecentsView<RecentsActivity, RecentsSta
         }
 
         // Set border after select mode changes to avoid showing border during state transition
-        if (!toState.overviewUi() || toState == MODAL_TASK) {
+        if (!toState.isRecentsViewVisible() || toState == MODAL_TASK) {
             setTaskBorderEnabled(false);
         }
 
@@ -264,7 +267,7 @@ public class FallbackRecentsView extends RecentsView<RecentsActivity, RecentsSta
             setOverviewSelectEnabled(false);
         }
 
-        if (finalState.overviewUi() && finalState != MODAL_TASK) {
+        if (finalState.isRecentsViewVisible() && finalState != MODAL_TASK) {
             setTaskBorderEnabled(true);
         }
 
@@ -295,7 +298,7 @@ public class FallbackRecentsView extends RecentsView<RecentsActivity, RecentsSta
     public boolean onTouchEvent(MotionEvent ev) {
         boolean result = super.onTouchEvent(ev);
         // Do not let touch escape to siblings below this view.
-        return result || mContainer.getStateManager().getState().overviewUi();
+        return result || mContainer.getStateManager().getState().isRecentsViewVisible();
     }
 
     @Override

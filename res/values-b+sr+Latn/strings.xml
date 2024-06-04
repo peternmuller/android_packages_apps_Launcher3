@@ -44,13 +44,10 @@
     <string name="add_to_home_screen" msgid="9168649446635919791">"Dodaj na početni ekran"</string>
     <string name="added_to_home_screen_accessibility_text" msgid="4451545765448884415">"Dodali ste vidžet <xliff:g id="WIDGET_NAME">%1$s</xliff:g> na početni ekran"</string>
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"Predlozi"</string>
-    <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Neophodne aplikacije"</string>
+    <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Osnovno"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"Novosti i časopisi"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"Zona za opuštanje"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"Zabava"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"Društvene mreže"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"Zdravlje i fitnes"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"Vreme"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"Predloženo za vas"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"Vidžeti <xliff:g id="SELECTED_HEADER">%1$s</xliff:g> sa desne strane, pretraga i opcije sa leve strane"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{# vidžet}one{# vidžet}few{# vidžeta}other{# vidžeta}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"Pravljenje beležaka"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"Dodaj"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"Dodajte vidžet <xliff:g id="WIDGET_NAME">%1$s</xliff:g>"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"Korisne informacije nadohvat ruke"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"Da biste pronašli informacije bez otvaranja aplikacija, možete da dodate vidžete na početni ekran"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Dodirnite da biste promenili podešavanja vidžeta"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"Važi"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Promenite podešavanja vidžeta"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Pretražite aplikacije"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Aplikacije se učitavaju…"</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"Dodirnite da biste podesili ili otvorili"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"Privatno"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"Podešavanja privatnog prostora"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"Zaključaj/otključaj privatni prostor"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"Privatno, otključano."</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"Privatno, zaključano."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"Zaključavanje"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"Prenos privatnog prostora"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"Instalirajte aplikacije"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"Instaliraj aplikacije u privatan prostor"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"Preklopno"</string>
 </resources>

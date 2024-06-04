@@ -46,11 +46,8 @@
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"Təkliflər"</string>
     <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Əsaslar"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"Xəbər və jurnallar"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"İstirahət zonası"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"Əyləncə"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"Sosial"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"Sağlamlıq və fitnes"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"Hava"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"Təklif edirik"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"<xliff:g id="SELECTED_HEADER">%1$s</xliff:g> vidcetləri sağda, axtarış və seçimlər solda"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{# vidcet}other{# vidcet}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"Qeydgötürmə"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"Əlavə edin"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"<xliff:g id="WIDGET_NAME">%1$s</xliff:g> vidcet əlavə edin"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"Faydalı məlumatlar barmaqlarınızın ucunda"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"Tətbiqləri açmadan məlumat almaq üçün Əsas ekrana vidcet əlavə edə bilərsiniz"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Vidcet ayarlarını dəyişmək üçün toxunun"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"Anladım"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Vidcet ayarlarını dəyişin"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Tətbiqləri axtarın"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Tətbiqlər yüklənir…"</string>
@@ -188,14 +182,16 @@
     <string name="work_apps_enable_btn_text" msgid="1736198302467317371">"Davam etdirin"</string>
     <string name="developer_options_filter_hint" msgid="5896817443635989056">"Filtr"</string>
     <string name="remote_action_failed" msgid="1383965239183576790">"Alınmadı: <xliff:g id="WHAT">%1$s</xliff:g>"</string>
-    <string name="private_space_label" msgid="2359721649407947001">"Şəxsi yer"</string>
+    <string name="private_space_label" msgid="2359721649407947001">"Məxfi sahə"</string>
     <string name="private_space_secondary_label" msgid="9203933341714508907">"Toxunaraq ayarlayın və ya açın"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"Şəxsi"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"Şəxsi məkan ayarları"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"Şəxsi məkanı kilidləyin/kiliddən çıxarın"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"Şəxsi, kilidli deyil."</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"Şəxsi, kilidli."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"Kilidləyin"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"Şəxsi məkana keçid"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"Tətbiqlər quraşdırın"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"Tətbiqləri şəxsi sahədə quraşdırın"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"Kənara çıxma"</string>
 </resources>

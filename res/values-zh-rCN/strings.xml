@@ -44,13 +44,10 @@
     <string name="add_to_home_screen" msgid="9168649446635919791">"添加到主屏幕"</string>
     <string name="added_to_home_screen_accessibility_text" msgid="4451545765448884415">"已将“<xliff:g id="WIDGET_NAME">%1$s</xliff:g>”微件添加到主屏幕"</string>
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"建议"</string>
-    <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"必备"</string>
+    <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"必备之选"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"新闻与杂志"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"您的休闲区"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"娱乐"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"社交"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"健康与健身"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"天气"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"为您推荐"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"右边是<xliff:g id="SELECTED_HEADER">%1$s</xliff:g>微件，左边是搜索功能和选项"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{# 个微件}other{# 个微件}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"记事"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"添加"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"添加“<xliff:g id="WIDGET_NAME">%1$s</xliff:g>”微件"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"实用信息触手可及"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"要想不打开应用就能获取信息，您可以将相应微件添加到主屏幕"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"点按即可更改微件设置"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"知道了"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"更改微件设置"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"搜索应用"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"正在加载应用…"</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"点按即可设置或打开"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"私密"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"私密空间设置"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"锁定/解锁私密空间"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"私密，未锁定。"</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"私密，已锁定。"</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"锁定"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"私密空间转换"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"安装应用"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"将应用安装到私密空间"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"菜单"</string>
 </resources>

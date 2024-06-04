@@ -53,6 +53,8 @@ import com.android.launcher3.Utilities;
 import com.android.launcher3.util.MainThreadInitializedObject;
 import com.android.launcher3.util.SystemUiController;
 import com.android.launcher3.util.SystemUiController.SystemUiControllerFlags;
+import com.android.launcher3.util.ViewPool;
+import com.android.quickstep.TaskOverlayFactory;
 import com.android.quickstep.TaskOverlayFactory.TaskOverlay;
 import com.android.quickstep.orientation.RecentsPagedOrientationHandler;
 import com.android.quickstep.views.TaskView.FullscreenDrawParams;
@@ -66,7 +68,7 @@ import com.android.systemui.shared.recents.utilities.PreviewPositionHelper;
  * @deprecated This class will be replaced by the new [TaskThumbnailView].
  */
 @Deprecated
-public class TaskThumbnailViewDeprecated extends View {
+public class TaskThumbnailViewDeprecated extends View implements ViewPool.Reusable {
     private static final MainThreadInitializedObject<FullscreenDrawParams> TEMP_PARAMS =
             new MainThreadInitializedObject<>(FullscreenDrawParams::new);
 
@@ -127,6 +129,7 @@ public class TaskThumbnailViewDeprecated extends View {
             };
 
     private final RecentsViewContainer mContainer;
+    private TaskOverlayFactory mTaskOverlayFactory;
     @Nullable
     private TaskOverlay mOverlay;
     private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -187,7 +190,8 @@ public class TaskThumbnailViewDeprecated extends View {
     /**
      * Updates the thumbnail to draw the provided task
      */
-    public void bind(Task task) {
+    public void bind(Task task, TaskOverlayFactory taskOverlayFactory) {
+        mTaskOverlayFactory = taskOverlayFactory;
         getTaskOverlay().reset();
         mTask = task;
         int color = task == null ? Color.BLACK : task.colorBackground | 0xFF000000;
@@ -280,7 +284,7 @@ public class TaskThumbnailViewDeprecated extends View {
 
     public TaskOverlay getTaskOverlay() {
         if (mOverlay == null) {
-            mOverlay = getTaskView().getRecentsView().getTaskOverlayFactory().createOverlay(this);
+            mOverlay = mTaskOverlayFactory.createOverlay(this);
         }
         return mOverlay;
     }
@@ -347,7 +351,7 @@ public class TaskThumbnailViewDeprecated extends View {
         canvas.save();
         // Draw the insets if we're being drawn fullscreen (we do this for quick switch).
         drawOnCanvas(canvas, 0, 0, getMeasuredWidth(), getMeasuredHeight(),
-                mFullscreenParams.mCurrentDrawnCornerRadius);
+                mFullscreenParams.getCurrentDrawnCornerRadius());
         canvas.restore();
     }
 
@@ -363,7 +367,8 @@ public class TaskThumbnailViewDeprecated extends View {
 
     public void drawOnCanvas(Canvas canvas, float x, float y, float width, float height,
             float cornerRadius) {
-        if (mTask != null && getTaskView().isRunningTask() && !getTaskView().showScreenshot()) {
+        if (mTask != null && getTaskView().isRunningTask()
+                && !getTaskView().getShouldShowScreenshot()) {
             canvas.drawRoundRect(x, y, width, height, cornerRadius, cornerRadius, mClearPaint);
             canvas.drawRoundRect(x, y, width, height, cornerRadius, cornerRadius,
                     mDimmingPaintAfterClearing);
@@ -560,8 +565,7 @@ public class TaskThumbnailViewDeprecated extends View {
         if (mBitmapShader != null && mThumbnailData != null) {
             mPreviewRect.set(0, 0, mThumbnailData.thumbnail.getWidth(),
                     mThumbnailData.thumbnail.getHeight());
-            int currentRotation = getTaskView().getRecentsView().getPagedViewOrientedState()
-                    .getRecentsActivityRotation();
+            int currentRotation = getTaskView().getOrientedState().getRecentsActivityRotation();
             boolean isRtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
             mPreviewPositionHelper.updateThumbnailMatrix(mPreviewRect, mThumbnailData,
                     getMeasuredWidth(), getMeasuredHeight(), dp.isTablet, currentRotation, isRtl);
@@ -605,5 +609,10 @@ public class TaskThumbnailViewDeprecated extends View {
             return false;
         }
         return mThumbnailData.isRealSnapshot && !mTask.isLocked;
+    }
+
+    @Override
+    public void onRecycle() {
+        // Do nothing
     }
 }

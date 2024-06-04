@@ -71,20 +71,20 @@ import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.StringJoiner;
-import java.util.function.IntPredicate;
+import java.util.function.LongPredicate;
 
 /**
  * Coordinates between controllers such as TaskbarViewController and StashedHandleViewController to
  * create a cohesive animation between stashed/unstashed states.
  */
 public class TaskbarStashController implements TaskbarControllers.LoggableTaskbarController {
-    private static final String TAG = TaskbarStashController.class.getSimpleName();
+    private static final String TAG = "TaskbarStashController";
     private static final boolean DEBUG = false;
 
     public static final int FLAG_IN_APP = 1 << 0;
     public static final int FLAG_STASHED_IN_APP_SYSUI = 1 << 1; // shade open, ...
     public static final int FLAG_STASHED_IN_APP_SETUP = 1 << 2; // setup wizard and AllSetActivity
-    public static final int FLAG_STASHED_IN_APP_IME = 1 << 3; // IME is visible
+    public static final int FLAG_STASHED_IME = 1 << 3; // IME is visible
     public static final int FLAG_IN_STASHED_LAUNCHER_STATE = 1 << 4;
     public static final int FLAG_STASHED_IN_TASKBAR_ALL_APPS = 1 << 5; // All apps is visible.
     public static final int FLAG_IN_SETUP = 1 << 6; // In the Setup Wizard
@@ -99,21 +99,19 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
     // If we're in an app and any of these flags are enabled, taskbar should be stashed.
     private static final int FLAGS_STASHED_IN_APP = FLAG_STASHED_IN_APP_SYSUI
-            | FLAG_STASHED_IN_APP_SETUP | FLAG_STASHED_IN_APP_IME
-            | FLAG_STASHED_IN_TASKBAR_ALL_APPS | FLAG_STASHED_SMALL_SCREEN
-            | FLAG_STASHED_IN_APP_AUTO;
+            | FLAG_STASHED_IN_APP_SETUP | FLAG_STASHED_IN_TASKBAR_ALL_APPS
+            | FLAG_STASHED_SMALL_SCREEN | FLAG_STASHED_IN_APP_AUTO;
 
     // If any of these flags are enabled, inset apps by our stashed height instead of our unstashed
     // height. This way the reported insets are consistent even during transitions out of the app.
     // Currently any flag that causes us to stash in an app is included, except for IME or All Apps
     // since those cover the underlying app anyway and thus the app shouldn't change insets.
     private static final int FLAGS_REPORT_STASHED_INSETS_TO_APP = FLAGS_STASHED_IN_APP
-            & ~FLAG_STASHED_IN_APP_IME & ~FLAG_STASHED_IN_TASKBAR_ALL_APPS
-            & ~FLAG_STASHED_IN_APP_SYSUI;
+            & ~FLAG_STASHED_IME & ~FLAG_STASHED_IN_TASKBAR_ALL_APPS & ~FLAG_STASHED_IN_APP_SYSUI;
 
     // If any of these flags are enabled, the taskbar must be stashed.
     private static final int FLAGS_FORCE_STASHED = FLAG_STASHED_SYSUI | FLAG_STASHED_DEVICE_LOCKED
-            | FLAG_STASHED_IN_TASKBAR_ALL_APPS | FLAG_STASHED_SMALL_SCREEN;
+            | FLAG_STASHED_IN_TASKBAR_ALL_APPS | FLAG_STASHED_SMALL_SCREEN | FLAG_STASHED_IME;
 
     /**
      * How long to stash/unstash when manually invoked via long press.
@@ -231,7 +229,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
     /** Whether we are currently visually stashed (might change based on launcher state). */
     private boolean mIsStashed = false;
-    private int mState;
+    private long mState;
 
     private @Nullable AnimatorSet mAnimator;
     private boolean mIsSystemGestureInProgress;
@@ -242,7 +240,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
     private boolean mEnableBlockingTimeoutDuringTests = false;
 
     // Evaluate whether the handle should be stashed
-    private final IntPredicate mIsStashedPredicate = flags -> {
+    private final LongPredicate mIsStashedPredicate = flags -> {
         boolean inApp = hasAnyFlag(flags, FLAGS_IN_APP);
         boolean stashedInApp = hasAnyFlag(flags, FLAGS_STASHED_IN_APP);
         boolean stashedLauncherState = hasAnyFlag(flags, FLAG_IN_STASHED_LAUNCHER_STATE);
@@ -321,8 +319,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         updateStateForFlag(FLAG_STASHED_IN_APP_AUTO, isStashedInAppAuto);
         updateStateForFlag(FLAG_STASHED_IN_APP_SETUP, isInSetup);
         updateStateForFlag(FLAG_IN_SETUP, isInSetup);
-        updateStateForFlag(FLAG_STASHED_SMALL_SCREEN, mActivity.isPhoneMode()
-                && !mActivity.isThreeButtonNav());
+        updateStateForFlag(FLAG_STASHED_SMALL_SCREEN, mActivity.isPhoneGestureNavMode());
         // For now, assume we're in an app, since LauncherTaskbarUIController won't be able to tell
         // us that we're paused until a bit later. This avoids flickering upon recreating taskbar.
         updateStateForFlag(FLAG_IN_APP, true);
@@ -391,11 +388,11 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         return (hasAnyFlag(FLAG_IN_STASHED_LAUNCHER_STATE) && supportsVisualStashing());
     }
 
-    private boolean hasAnyFlag(int flagMask) {
+    private boolean hasAnyFlag(long flagMask) {
         return hasAnyFlag(mState, flagMask);
     }
 
-    private boolean hasAnyFlag(int flags, int flagMask) {
+    private boolean hasAnyFlag(long flags, long flagMask) {
         return (flags & flagMask) != 0;
     }
 
@@ -549,11 +546,12 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
      *                            sub-animations are properly coordinated. This duration should not
      *                            actually be used since this animation tracks a swipe progress.
      */
-    protected void addUnstashToHotseatAnimation(AnimatorSet animation, int placeholderDuration) {
+    protected void addUnstashToHotseatAnimationFromSuw(AnimatorSet animation,
+            int placeholderDuration) {
         // Defer any UI updates now to avoid the UI becoming stale when the animation plays.
         mControllers.taskbarViewController.setDeferUpdatesForSUW(true);
         createAnimToIsStashed(
-                /* isStashed= */ false,
+                /* isStashed= */ mActivity.isPhoneMode(),
                 placeholderDuration,
                 TRANSITION_UNSTASH_SUW_MANUAL,
                 /* jankTag= */ "SUW_MANUAL");
@@ -598,7 +596,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
                             ? stashTranslation : 0)
                     .setDuration(duration));
             mAnimator.play(mTaskbarImeBgAlpha.animateToValue(
-                    (hasAnyFlag(FLAG_STASHED_IN_APP_IME) && isStashed) ? 0 : 1).setDuration(
+                    (hasAnyFlag(FLAG_STASHED_IME) && isStashed) ? 0 : 1).setDuration(
                     duration));
             mAnimator.addListener(AnimatorListeners.forEndCallback(() -> {
                 mAnimator = null;
@@ -901,8 +899,8 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
     private void setStashedImeState() {
         boolean shouldStashForIme = shouldStashForIme();
-        if (hasAnyFlag(FLAG_STASHED_IN_APP_IME) != shouldStashForIme) {
-            updateStateForFlag(FLAG_STASHED_IN_APP_IME, shouldStashForIme);
+        if (hasAnyFlag(FLAG_STASHED_IME) != shouldStashForIme) {
+            updateStateForFlag(FLAG_STASHED_IME, shouldStashForIme);
             applyState(TASKBAR_STASH_DURATION_FOR_IME, getTaskbarStashStartDelayForIme());
         } else {
             applyState(mControllers.taskbarOverlayController.getCloseDuration());
@@ -931,7 +929,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
     }
 
     /** Called when some system ui state has changed. (See SYSUI_STATE_... in QuickstepContract) */
-    public void updateStateForSysuiFlags(int systemUiStateFlags, boolean skipAnim) {
+    public void updateStateForSysuiFlags(long systemUiStateFlags, boolean skipAnim) {
         long animDuration = TASKBAR_STASH_DURATION;
         long startDelay = 0;
 
@@ -949,7 +947,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
 
         mIsImeShowing = hasAnyFlag(systemUiStateFlags, SYSUI_STATE_IME_SHOWING);
         mIsImeSwitcherShowing = hasAnyFlag(systemUiStateFlags, SYSUI_STATE_IME_SWITCHER_SHOWING);
-        if (updateStateForFlag(FLAG_STASHED_IN_APP_IME, shouldStashForIme())) {
+        if (updateStateForFlag(FLAG_STASHED_IME, shouldStashForIme())) {
             animDuration = TASKBAR_STASH_DURATION_FOR_IME;
             startDelay = getTaskbarStashStartDelayForIme();
         }
@@ -1007,8 +1005,8 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
      *                unstashed.
      * @return Whether the flag state changed.
      */
-    public boolean updateStateForFlag(int flag, boolean enabled) {
-        int oldState = mState;
+    public boolean updateStateForFlag(long flag, boolean enabled) {
+        long oldState = mState;
         if (enabled) {
             mState |= flag;
         } else {
@@ -1022,7 +1020,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
      *
      * @param changedFlags The flags that have changed.
      */
-    private void onStateChangeApplied(int changedFlags) {
+    private void onStateChangeApplied(long changedFlags) {
         if (hasAnyFlag(changedFlags, FLAGS_STASHED_IN_APP)) {
             mControllers.uiController.onStashedInAppChanged();
         }
@@ -1153,12 +1151,12 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         pw.println(prefix + "\tmIsImeSwitcherShowing=" + mIsImeSwitcherShowing);
     }
 
-    private static String getStateString(int flags) {
+    private static String getStateString(long flags) {
         StringJoiner sj = new StringJoiner("|");
         appendFlag(sj, flags, FLAGS_IN_APP, "FLAG_IN_APP");
         appendFlag(sj, flags, FLAG_STASHED_IN_APP_SYSUI, "FLAG_STASHED_IN_APP_SYSUI");
         appendFlag(sj, flags, FLAG_STASHED_IN_APP_SETUP, "FLAG_STASHED_IN_APP_SETUP");
-        appendFlag(sj, flags, FLAG_STASHED_IN_APP_IME, "FLAG_STASHED_IN_APP_IME");
+        appendFlag(sj, flags, FLAG_STASHED_IME, "FLAG_STASHED_IN_APP_IME");
         appendFlag(sj, flags, FLAG_IN_STASHED_LAUNCHER_STATE, "FLAG_IN_STASHED_LAUNCHER_STATE");
         appendFlag(sj, flags, FLAG_STASHED_IN_TASKBAR_ALL_APPS, "FLAG_STASHED_IN_TASKBAR_ALL_APPS");
         appendFlag(sj, flags, FLAG_IN_SETUP, "FLAG_IN_SETUP");
@@ -1170,15 +1168,15 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
     }
 
     private class StatePropertyHolder {
-        private final IntPredicate mStashCondition;
+        private final LongPredicate mStashCondition;
 
         private boolean mIsStashed;
         private @StashAnimation int mLastStartedTransitionType = TRANSITION_DEFAULT;
-        private int mPrevFlags;
+        private long mPrevFlags;
 
         private long mLastUnlockTransitionTimeout = 0;
 
-        StatePropertyHolder(IntPredicate stashCondition) {
+        StatePropertyHolder(LongPredicate stashCondition) {
             mStashCondition = stashCondition;
         }
 
@@ -1191,7 +1189,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
          * @return mAnimator if mIsStashed changed, or {@code null} otherwise.
          */
         @Nullable
-        public Animator createSetStateAnimator(int flags, long duration) {
+        public Animator createSetStateAnimator(long flags, long duration) {
             boolean isStashed = mStashCondition.test(flags);
 
             if (DEBUG) {
@@ -1203,7 +1201,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
                         + ", mIsStashed: " + mIsStashed);
             }
 
-            int changedFlags = mPrevFlags ^ flags;
+            long changedFlags = mPrevFlags ^ flags;
             if (mPrevFlags != flags) {
                 onStateChangeApplied(changedFlags);
                 mPrevFlags = flags;
@@ -1250,7 +1248,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
         }
 
         /** Calculates the tag for CUJ_TASKBAR_EXPAND and CUJ_TASKBAR_COLLAPSE jank traces. */
-        private String computeTaskbarJankMonitorTag(int changedFlags) {
+        private String computeTaskbarJankMonitorTag(long changedFlags) {
             if (hasAnyFlag(changedFlags, FLAG_IN_APP)) {
                 // moving in or out of the app
                 if (hasAnyFlag(FLAG_IN_APP)) {
@@ -1270,7 +1268,7 @@ public class TaskbarStashController implements TaskbarControllers.LoggableTaskba
             return "";
         }
 
-        private @StashAnimation int computeTransitionType(int changedFlags) {
+        private @StashAnimation int computeTransitionType(long changedFlags) {
 
             boolean hotseatHiddenDuringAppLaunch =
                     !mControllers.uiController.isHotseatIconOnTopWhenAligned()

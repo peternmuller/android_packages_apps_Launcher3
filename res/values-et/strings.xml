@@ -46,11 +46,8 @@
     <string name="suggested_widgets_header_title" msgid="1844314680798145222">"Soovitused"</string>
     <string name="productivity_widget_recommendation_category_label" msgid="3811812719618323750">"Põhiasjad"</string>
     <string name="news_widget_recommendation_category_label" msgid="6756167867113741310">"Uudised ja ajakirjad"</string>
-    <string name="social_and_entertainment_widget_recommendation_category_label" msgid="2923840997302308191">"Teie lõõgastumiskoht"</string>
     <string name="entertainment_widget_recommendation_category_label" msgid="3973107268630717874">"Meelelahutus"</string>
     <string name="social_widget_recommendation_category_label" msgid="689147679536384717">"Suhtlus"</string>
-    <string name="fitness_widget_recommendation_category_label" msgid="2756483898236585324">"Tervis ja vormisolek"</string>
-    <string name="weather_widget_recommendation_category_label" msgid="3059715991930798039">"Ilm"</string>
     <string name="others_widget_recommendation_category_label" msgid="5555987036267226245">"Teile soovitatud"</string>
     <string name="widget_picker_right_pane_accessibility_title" msgid="1673313931455067502">"Teenuse <xliff:g id="SELECTED_HEADER">%1$s</xliff:g> vidinad paremal, otsing ja valikud vasakul"</string>
     <string name="widgets_count" msgid="6467746476364652096">"{count,plural, =1{# vidin}other{# vidinat}}"</string>
@@ -67,10 +64,7 @@
     <string name="widget_category_note_taking" msgid="3469689394504266039">"Märkmete tegemine"</string>
     <string name="widget_add_button_label" msgid="2761267068711937179">"Lisa"</string>
     <string name="widget_add_button_content_description" msgid="1810530016360039643">"Lisa vidin <xliff:g id="WIDGET_NAME">%1$s</xliff:g>"</string>
-    <string name="widget_education_header" msgid="4874760613775913787">"Kasulik teave on teie käeulatuses"</string>
-    <string name="widget_education_content" msgid="1731667670753497052">"Teabe saamiseks rakendusi avamata võite oma avakuvale lisada vidinaid"</string>
     <string name="reconfigurable_widget_education_tip" msgid="6336962690888067057">"Puudutage vidina seadete muutmiseks"</string>
-    <string name="widget_education_close_button" msgid="8676165703104836580">"Selge"</string>
     <string name="widget_reconfigure_button_content_description" msgid="8811472721881205250">"Vidina seadete muutmine"</string>
     <string name="all_apps_search_bar_hint" msgid="1390553134053255246">"Otsige rakendusi"</string>
     <string name="all_apps_loading_message" msgid="5813968043155271636">"Rakenduste laadimine …"</string>
@@ -192,10 +186,12 @@
     <string name="private_space_secondary_label" msgid="9203933341714508907">"Seadistamiseks või avamiseks puudutage"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"Privaatne"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"Privaatse ruumi seaded"</string>
-    <string name="ps_container_lock_unlock_button" msgid="7605602332253423755">"Privaatse ruumi lukustamine/avamine"</string>
+    <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"Privaatne, võrgulukuta."</string>
+    <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"Privaatne, lukustatud."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"Lukk"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"Privaatse ruumi üleviimine"</string>
-    <string name="ps_add_button_label" msgid="8611055839242385935">"Rakenduste installimine"</string>
+    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
+    <skip />
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"Rakenduste installimine privaatses ruumis"</string>
     <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"Ületäide"</string>
 </resources>

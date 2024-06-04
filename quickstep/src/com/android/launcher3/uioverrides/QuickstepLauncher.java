@@ -165,6 +165,8 @@ import com.android.launcher3.util.StartActivityParams;
 import com.android.launcher3.util.TouchController;
 import com.android.launcher3.widget.LauncherWidgetHolder;
 import com.android.quickstep.OverviewCommandHelper;
+import com.android.quickstep.OverviewComponentObserver;
+import com.android.quickstep.RecentsAnimationDeviceState;
 import com.android.quickstep.RecentsModel;
 import com.android.quickstep.SystemUiProxy;
 import com.android.quickstep.TaskUtils;
@@ -193,6 +195,8 @@ import com.android.systemui.unfold.config.ResourceUnfoldTransitionConfig;
 import com.android.systemui.unfold.config.UnfoldTransitionConfig;
 import com.android.systemui.unfold.progress.RemoteUnfoldTransitionReceiver;
 import com.android.systemui.unfold.updates.RotationChangeProvider;
+
+import kotlin.Unit;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -263,6 +267,10 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer 
                         getDepthController(), getStatsLogManager(),
                         systemUiProxy, RecentsModel.INSTANCE.get(this),
                         () -> onStateBack());
+        RecentsAnimationDeviceState deviceState = new RecentsAnimationDeviceState(asContext());
+        // TODO(b/337863494): Explore use of the same OverviewComponentObserver across launcher
+        OverviewComponentObserver overviewComponentObserver = new OverviewComponentObserver(
+                asContext(), deviceState);
         if (enableDesktopWindowingMode()) {
             mDesktopRecentsTransitionController = new DesktopRecentsTransitionController(
                     getStateManager(), systemUiProxy, getIApplicationThread(),
@@ -271,7 +279,7 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer 
         overviewPanel.init(mActionsView, mSplitSelectStateController,
                 mDesktopRecentsTransitionController);
         mSplitWithKeyboardShortcutController = new SplitWithKeyboardShortcutController(this,
-                mSplitSelectStateController);
+                mSplitSelectStateController, overviewComponentObserver, deviceState);
         mSplitToWorkspaceController = new SplitToWorkspaceController(this,
                 mSplitSelectStateController);
         mActionsView.updateDimension(getDeviceProfile(), overviewPanel.getLastComputedTaskSize());
@@ -286,7 +294,8 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer 
         if (enableDesktopWindowingMode()) {
             mDesktopVisibilityController = new DesktopVisibilityController(this);
             mDesktopVisibilityController.registerSystemUiListener();
-            mSplitSelectStateController.initSplitFromDesktopController(this);
+            mSplitSelectStateController.initSplitFromDesktopController(this,
+                    overviewComponentObserver);
         }
         mHotseatPredictionController = new HotseatPredictionController(this);
 
@@ -387,6 +396,12 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer 
             });
         }
         return result;
+    }
+
+    @Override
+    public void startBinding() {
+        super.startBinding();
+        mHotseatPredictionController.verifyUIUpdateNotPaused();
     }
 
     @Override
@@ -572,6 +587,7 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer 
                         } else {
                             getStateManager().moveToRestState();
                         }
+                        return Unit.INSTANCE;
                     });
                 } else {
                     getStateManager().goToState(NORMAL);
@@ -1453,5 +1469,10 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer 
             }
         }
         return super.onCreateView(parent, name, context, attrs);
+    }
+
+    @Override
+    public boolean isRecentsViewVisible() {
+        return getStateManager().getState().isRecentsViewVisible;
     }
 }
