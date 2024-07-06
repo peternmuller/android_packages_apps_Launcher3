@@ -31,8 +31,6 @@ import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_Q
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_STATUS_BAR_KEYGUARD_SHOWING;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_STATUS_BAR_KEYGUARD_SHOWING_OCCLUDED;
 
-import static java.lang.Math.abs;
-
 import android.annotation.BinderThread;
 import android.annotation.Nullable;
 import android.app.Notification;
@@ -47,7 +45,6 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Path;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -67,7 +64,6 @@ import com.android.launcher3.R;
 import com.android.launcher3.icons.BitmapInfo;
 import com.android.launcher3.icons.BubbleIconFactory;
 import com.android.launcher3.shortcuts.ShortcutRequest;
-import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.Executors.SimpleThreadFactory;
 import com.android.quickstep.SystemUiProxy;
 import com.android.systemui.shared.system.QuickStepContract.SystemUiStateFlags;
@@ -139,7 +135,6 @@ public class BubbleBarController extends IBubblesListener.Stub {
 
     private static final Executor BUBBLE_STATE_EXECUTOR = Executors.newSingleThreadExecutor(
             new SimpleThreadFactory("BubbleStateUpdates-", THREAD_PRIORITY_BACKGROUND));
-    private final Executor mMainExecutor;
     private final LauncherApps mLauncherApps;
     private final BubbleIconFactory mIconFactory;
     private final SystemUiProxy mSystemUiProxy;
@@ -153,8 +148,8 @@ public class BubbleBarController extends IBubblesListener.Stub {
     private BubbleStashedHandleViewController mBubbleStashedHandleViewController;
     private BubblePinController mBubblePinController;
 
-    // Keep track of bubble bar bounds sent to shell to avoid sending duplicate updates
-    private final Rect mLastSentBubbleBarBounds = new Rect();
+    // Cache last sent top coordinate to avoid sending duplicate updates to shell
+    private int mLastSentBubbleBarTop;
 
     /**
      * Similar to {@link BubbleBarUpdate} but rather than {@link BubbleInfo}s it uses
@@ -202,7 +197,6 @@ public class BubbleBarController extends IBubblesListener.Stub {
         if (sBubbleBarEnabled) {
             mSystemUiProxy.setBubblesListener(this);
         }
-        mMainExecutor = MAIN_EXECUTOR;
         mLauncherApps = context.getSystemService(LauncherApps.class);
         mIconFactory = new BubbleIconFactory(context,
                 context.getResources().getDimensionPixelSize(R.dimen.bubblebar_icon_size),
@@ -245,7 +239,7 @@ public class BubbleBarController extends IBubblesListener.Stub {
     private void createAndAddOverflowIfNeeded() {
         if (mOverflowBubble == null) {
             BubbleBarOverflow overflow = createOverflow(mContext);
-            mMainExecutor.execute(() -> {
+            MAIN_EXECUTOR.execute(() -> {
                 // we're on the main executor now, so check that the overflow hasn't been created
                 // again to avoid races.
                 if (mOverflowBubble == null) {
@@ -307,12 +301,12 @@ public class BubbleBarController extends IBubblesListener.Stub {
                     }
                     viewUpdate.currentBubbles = currentBubbles;
                 }
-                mMainExecutor.execute(() -> applyViewChanges(viewUpdate));
+                MAIN_EXECUTOR.execute(() -> applyViewChanges(viewUpdate));
             });
         } else {
             // No bubbles to load, immediately apply the changes.
             BUBBLE_STATE_EXECUTOR.execute(
-                    () -> mMainExecutor.execute(() -> applyViewChanges(viewUpdate)));
+                    () -> MAIN_EXECUTOR.execute(() -> applyViewChanges(viewUpdate)));
         }
     }
 
@@ -445,9 +439,8 @@ public class BubbleBarController extends IBubblesListener.Stub {
                         info.getFlags() | Notification.BubbleMetadata.FLAG_SUPPRESS_NOTIFICATION);
                 mSelectedBubble.getView().updateDotVisibility(true /* animate */);
             }
-            Rect bounds = getExpandedBubbleBarDisplayBounds();
-            mLastSentBubbleBarBounds.set(bounds);
-            mSystemUiProxy.showBubble(getSelectedBubbleKey(), bounds);
+            mLastSentBubbleBarTop = mBarView.getRestingTopPositionOnScreen();
+            mSystemUiProxy.showBubble(getSelectedBubbleKey(), mLastSentBubbleBarTop);
         } else {
             Log.w(TAG, "Trying to show the selected bubble but it's null");
         }
@@ -501,7 +494,7 @@ public class BubbleBarController extends IBubblesListener.Stub {
 
     @Override
     public void animateBubbleBarLocation(BubbleBarLocation bubbleBarLocation) {
-        mMainExecutor.execute(
+        MAIN_EXECUTOR.execute(
                 () -> mBubbleBarViewController.animateBubbleBarLocation(bubbleBarLocation));
     }
 
@@ -636,40 +629,12 @@ public class BubbleBarController extends IBubblesListener.Stub {
         return mIconFactory.createBadgedIconBitmap(drawable).icon;
     }
 
-    private void onBubbleBarBoundsChanged(Rect newBounds) {
-        Rect displayBounds = convertToDisplayBounds(newBounds);
-        // Only send bounds over if they changed
-        if (!displayBounds.equals(mLastSentBubbleBarBounds)) {
-            mLastSentBubbleBarBounds.set(displayBounds);
-            mSystemUiProxy.setBubbleBarBounds(displayBounds);
+    private void onBubbleBarBoundsChanged() {
+        int newTop = mBarView.getRestingTopPositionOnScreen();
+        if (newTop != mLastSentBubbleBarTop) {
+            mLastSentBubbleBarTop = newTop;
+            mSystemUiProxy.updateBubbleBarTopOnScreen(newTop);
         }
-    }
-
-    /**
-     * Get bounds of the bubble bar as if it would be expanded.
-     * Calculates the bounds instead of retrieving current view location as the view may be
-     * animating.
-     */
-    private Rect getExpandedBubbleBarDisplayBounds() {
-        return convertToDisplayBounds(mBarView.getBubbleBarBounds());
-    }
-
-    private Rect convertToDisplayBounds(Rect currentBarBounds) {
-        Point displaySize = DisplayController.INSTANCE.get(mContext).getInfo().currentSize;
-        Rect displayBounds = new Rect();
-        // currentBarBounds is only useful for distance from left or right edge.
-        // It contains the current bounds, calculate the expanded bounds.
-        if (mBarView.getBubbleBarLocation().isOnLeft(mBarView.isLayoutRtl())) {
-            displayBounds.left = currentBarBounds.left;
-            displayBounds.right = (int) (currentBarBounds.left + mBarView.expandedWidth());
-        } else {
-            displayBounds.left = (int) (currentBarBounds.right - mBarView.expandedWidth());
-            displayBounds.right = currentBarBounds.right;
-        }
-        final int translation = (int) abs(mBubbleStashController.getBubbleBarTranslationY());
-        displayBounds.top = displaySize.y - currentBarBounds.height() - translation;
-        displayBounds.bottom = displaySize.y - translation;
-        return displayBounds;
     }
 
     /** Interface for checking whether the IME is visible. */

@@ -31,6 +31,7 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.util.SparseBooleanArray;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.launcher3.util.LooperExecutor;
@@ -44,6 +45,7 @@ import com.android.wm.shell.util.GroupedRecentTaskInfo;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -73,7 +75,7 @@ public class RecentTasksList {
     private ArrayList<ActivityManager.RunningTaskInfo> mRunningTasks;
 
     public RecentTasksList(LooperExecutor mainThreadExecutor, KeyguardManager keyguardManager,
-            SystemUiProxy sysUiProxy) {
+            SystemUiProxy sysUiProxy, TopTaskTracker topTaskTracker) {
         mMainThreadExecutor = mainThreadExecutor;
         mKeyguardManager = keyguardManager;
         mChangeId = 1;
@@ -102,6 +104,13 @@ public class RecentTasksList {
             public void onRunningTaskChanged(ActivityManager.RunningTaskInfo taskInfo) {
                 mMainThreadExecutor.execute(() -> {
                     RecentTasksList.this.onRunningTaskChanged(taskInfo);
+                });
+            }
+
+            @Override
+            public void onTaskMovedToFront(ActivityManager.RunningTaskInfo taskInfo) {
+                mMainThreadExecutor.execute(() -> {
+                    topTaskTracker.onTaskMovedToFront(taskInfo);
                 });
             }
         });
@@ -133,11 +142,11 @@ public class RecentTasksList {
      * Asynchronously fetches the list of recent tasks, reusing cached list if available.
      *
      * @param loadKeysOnly Whether to load other associated task data, or just the key
-     * @param callback The callback to receive the list of recent tasks
+     * @param callback     The callback to receive the list of recent tasks
      * @return The change id of the current task list
      */
     public synchronized int getTasks(boolean loadKeysOnly,
-            Consumer<ArrayList<GroupTask>> callback, Predicate<GroupTask> filter) {
+            @Nullable Consumer<List<GroupTask>> callback, Predicate<GroupTask> filter) {
         final int requestLoadId = mChangeId;
         if (mResultsUi.isValidForRequest(requestLoadId, loadKeysOnly)) {
             // The list is up to date, send the callback on the next frame,
@@ -198,7 +207,7 @@ public class RecentTasksList {
         mChangeId++;
     }
 
-     /**
+    /**
      * Registers a listener for running tasks
      */
     public void registerRunningTasksListener(RecentsModel.RunningTasksListener listener) {

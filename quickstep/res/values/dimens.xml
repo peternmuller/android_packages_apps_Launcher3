@@ -358,12 +358,16 @@
     <dimen name="taskbar_running_app_indicator_height">4dp</dimen>
     <dimen name="taskbar_running_app_indicator_width">14dp</dimen>
     <dimen name="taskbar_running_app_indicator_top_margin">2dp</dimen>
+    <dimen name="taskbar_minimized_app_indicator_height">2dp</dimen>
+    <dimen name="taskbar_minimized_app_indicator_width">12dp</dimen>
+    <dimen name="taskbar_minimized_app_indicator_top_margin">2dp</dimen>
 
     <!-- Transient taskbar -->
     <dimen name="transient_taskbar_padding">12dp</dimen>
     <dimen name="transient_taskbar_min_width">150dp</dimen>
     <dimen name="transient_taskbar_bottom_margin">24dp</dimen>
     <dimen name="transient_taskbar_shadow_blur">40dp</dimen>
+    <dimen name="transient_taskbar_stroke_width">1dp</dimen>
     <dimen name="transient_taskbar_key_shadow_distance">10dp</dimen>
     <dimen name="transient_taskbar_stashed_height">32dp</dimen>
     <dimen name="transient_taskbar_all_apps_button_translation_x_offset">8dp</dimen>
@@ -380,6 +384,11 @@
     <dimen name="taskbar_catch_up_threshold">264dp</dimen>
     <!-- Taskbar swipe down threshold -->
     <dimen name="taskbar_to_nav_threshold">24dp</dimen>
+
+    <!-- Taskbar variables that help determine when to animate the Taskbar background -->
+    <!-- Velocity defined as dp per s. Negative because the gesture is an upwards motion. -->
+    <dimen name="taskbar_slow_velocity_y_threshold">-288dp</dimen>
+    <integer name="taskbar_background_duration">80</integer>
 
     <!-- Taskbar swipe up threshold multipliers -->
     <item name="taskbar_nav_threshold_mult" format="float" type="dimen">4.5</item>
@@ -483,5 +492,12 @@
     <dimen name="keyboard_quick_switch_task_view_radius">16dp</dimen>
     <dimen name="keyboard_quick_switch_no_recent_items_icon_size">24dp</dimen>
     <dimen name="keyboard_quick_switch_no_recent_items_icon_margin">8dp</dimen>
+
+    <!-- Digital Wellbeing -->
+    <dimen name="digital_wellbeing_toast_height">48dp</dimen>
+
+    <!-- Splitscreen -->
+    <!-- Max width of the split instructions view -->
+    <dimen name="split_instructions_view_max_width">220dp</dimen>
 
 </resources>

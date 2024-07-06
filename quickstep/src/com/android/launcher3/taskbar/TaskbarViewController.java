@@ -347,6 +347,11 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
         float allAppIconTranslateRange = mapRange(scale, transientTaskbarAllAppsOffset,
                 persistentTaskbarAllAppsOffset);
 
+        // no x translation required when all apps button is the only icon in taskbar.
+        if (iconViews.length <= 1) {
+            allAppIconTranslateRange = 0f;
+        }
+
         if (mIsRtl) {
             allAppIconTranslateRange *= -1;
         }
@@ -377,7 +382,7 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
                         -finalMarginScale * (iconIndex - halfIconCount));
             }
 
-            if (iconView.equals(mTaskbarView.getAllAppsButtonView()) && iconViews.length > 1) {
+            if (iconView.equals(mTaskbarView.getAllAppsButtonView())) {
                 ((IconButtonView) iconView).setTranslationXForTaskbarAllAppsIcon(
                         allAppIconTranslateRange);
             }
@@ -510,12 +515,28 @@ public class TaskbarViewController implements TaskbarControllers.LoggableTaskbar
     }
 
     /** Updates which icons are marked as running given the Set of currently running packages. */
-    public void updateIconViewsRunningStates(Set<String> runningPackages) {
+    public void updateIconViewsRunningStates(Set<String> runningPackages,
+            Set<String> minimizedPackages) {
         for (View iconView : getIconViews()) {
             if (iconView instanceof BubbleTextView btv) {
-                btv.updateRunningState(runningPackages.contains(btv.getTargetPackageName()));
+                btv.updateRunningState(
+                        getRunningAppState(btv.getTargetPackageName(), runningPackages,
+                                minimizedPackages));
             }
         }
+    }
+
+    private BubbleTextView.RunningAppState getRunningAppState(
+            String packageName,
+            Set<String> runningPackages,
+            Set<String> minimizedPackages) {
+        if (minimizedPackages.contains(packageName)) {
+            return BubbleTextView.RunningAppState.MINIMIZED;
+        }
+        if (runningPackages.contains(packageName)) {
+            return BubbleTextView.RunningAppState.RUNNING;
+        }
+        return BubbleTextView.RunningAppState.NOT_RUNNING;
     }
 
     /**

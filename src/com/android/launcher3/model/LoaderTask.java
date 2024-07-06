@@ -47,6 +47,7 @@ import android.os.Bundle;
 import android.os.Trace;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.LongSparseArray;
@@ -171,7 +172,7 @@ public class LoaderTask implements Runnable {
         mLauncherApps = mApp.getContext().getSystemService(LauncherApps.class);
         mUserManager = mApp.getContext().getSystemService(UserManager.class);
         mUserCache = UserCache.INSTANCE.get(mApp.getContext());
-        mPmHelper = new PackageManagerHelper(mApp.getContext());
+        mPmHelper = PackageManagerHelper.INSTANCE.get(mApp.getContext());
         mSessionHelper = InstallSessionHelper.INSTANCE.get(mApp.getContext());
         mIconCache = mApp.getIconCache();
         mUserManagerState = userManagerState;
@@ -195,17 +196,32 @@ public class LoaderTask implements Runnable {
     }
 
     private void sendFirstScreenActiveInstallsBroadcast() {
-        ArrayList<ItemInfo> firstScreenItems = new ArrayList<>();
-        ArrayList<ItemInfo> allItems = mBgDataModel.getAllWorkspaceItems();
-
         // Screen set is never empty
         IntArray allScreens = mBgDataModel.collectWorkspaceScreens();
         final int firstScreen = allScreens.get(0);
         IntSet firstScreens = IntSet.wrap(firstScreen);
 
+        ArrayList<ItemInfo> allItems = mBgDataModel.getAllWorkspaceItems();
+        ArrayList<ItemInfo> firstScreenItems = new ArrayList<>();
         filterCurrentWorkspaceItems(firstScreens, allItems, firstScreenItems,
                 new ArrayList<>() /* otherScreenItems are ignored */);
-        mFirstScreenBroadcast.sendBroadcasts(mApp.getContext(), firstScreenItems);
+        final int launcherBroadcastInstalledApps = Settings.Secure.getInt(
+                mApp.getContext().getContentResolver(),
+                "launcher_broadcast_installed_apps",
+                /* def= */ 0);
+        if (launcherBroadcastInstalledApps == 1) {
+            List<FirstScreenBroadcastModel> broadcastModels =
+                    FirstScreenBroadcastHelper.createModelsForFirstScreenBroadcast(
+                            mPmHelper,
+                            firstScreenItems,
+                            mInstallingPkgsCached,
+                            mBgDataModel.appWidgets
+                    );
+            logASplit("Sending first screen broadcast with additional archiving Extras");
+            FirstScreenBroadcastHelper.sendBroadcastsForModels(mApp.getContext(), broadcastModels);
+        } else {
+            mFirstScreenBroadcast.sendBroadcasts(mApp.getContext(), firstScreenItems);
+        }
     }
 
     public void run() {
@@ -249,7 +265,7 @@ public class LoaderTask implements Runnable {
             mModelDelegate.workspaceLoadComplete();
             // Notify the installer packages of packages with active installs on the first screen.
             sendFirstScreenActiveInstallsBroadcast();
-            logASplit("sendFirstScreenActiveInstallsBroadcast");
+            logASplit("sendFirstScreenBroadcast");
 
             // Take a break
             waitForIdle();

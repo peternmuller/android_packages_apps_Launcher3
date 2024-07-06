@@ -519,7 +519,7 @@ public class TaskbarManager {
         }
     }
 
-    private static boolean isTaskbarEnabled(DeviceProfile deviceProfile) {
+    private boolean isTaskbarEnabled(DeviceProfile deviceProfile) {
         return ENABLE_TASKBAR_NAVBAR_UNIFICATION || deviceProfile.isTaskbarPresent;
     }
 
@@ -611,7 +611,8 @@ public class TaskbarManager {
         }
     }
 
-    private void addTaskbarRootViewToWindow() {
+    @VisibleForTesting
+    void addTaskbarRootViewToWindow() {
         if (enableTaskbarNoRecreate() && !mAddedWindow && mTaskbarActivityContext != null) {
             mWindowManager.addView(mTaskbarRootLayout,
                     mTaskbarActivityContext.getWindowLayoutParams());
@@ -619,7 +620,8 @@ public class TaskbarManager {
         }
     }
 
-    private void removeTaskbarRootViewFromWindow() {
+    @VisibleForTesting
+    void removeTaskbarRootViewFromWindow() {
         if (enableTaskbarNoRecreate() && mAddedWindow) {
             mWindowManager.removeViewImmediate(mTaskbarRootLayout);
             mAddedWindow = false;

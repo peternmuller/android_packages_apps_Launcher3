@@ -299,6 +299,7 @@ class BubbleBarViewAnimatorTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {}
         PhysicsAnimatorTestUtils.blockUntilAnimationsEnd(DynamicAnimation.TRANSLATION_Y)
 
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         assertThat(bubbleBarView.isAnimatingNewBubble).isFalse()
         assertThat(bubbleBarView.alpha).isEqualTo(0)
         assertThat(handle.translationY).isEqualTo(0)
@@ -391,7 +392,8 @@ class BubbleBarViewAnimatorTest {
             overflowView.setOverflow(BubbleBarOverflow(overflowView), bitmap)
             bubbleBarView.addView(overflowView)
 
-            val bubbleInfo = BubbleInfo("key", 0, null, null, 0, context.packageName, null, false)
+            val bubbleInfo =
+                BubbleInfo("key", 0, null, null, 0, context.packageName, null, null, false)
             bubbleView =
                 inflater.inflate(R.layout.bubblebar_item_view, bubbleBarView, false) as BubbleView
             bubble =

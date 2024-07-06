@@ -170,11 +170,13 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
      * Returns the current navigation mode
      */
     public static NavigationMode getNavigationMode(Context context) {
-        return INSTANCE.get(context).getInfo().navigationMode;
+        return INSTANCE.get(context).getInfo().getNavigationMode();
     }
 
     /**
-     * Returns whether taskbar is transient.
+     * Returns whether taskbar is transient or persistent.
+     *
+     * @return {@code true} if transient, {@code false} if persistent.
      */
     public static boolean isTransientTaskbar(Context context) {
         return INSTANCE.get(context).getInfo().isTransientTaskbar();
@@ -302,7 +304,7 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
         Info newInfo = new Info(displayInfoContext, wmProxy, oldInfo.mPerDisplayBounds);
 
         if (newInfo.densityDpi != oldInfo.densityDpi || newInfo.fontScale != oldInfo.fontScale
-                || newInfo.navigationMode != oldInfo.navigationMode) {
+                || newInfo.getNavigationMode() != oldInfo.getNavigationMode()) {
             // Cache may not be valid anymore, recreate without cache
             newInfo = new Info(displayInfoContext, wmProxy,
                     wmProxy.estimateInternalDisplayBounds(displayInfoContext));
@@ -318,7 +320,7 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
         if (newInfo.densityDpi != oldInfo.densityDpi || newInfo.fontScale != oldInfo.fontScale) {
             change |= CHANGE_DENSITY;
         }
-        if (newInfo.navigationMode != oldInfo.navigationMode) {
+        if (newInfo.getNavigationMode() != oldInfo.getNavigationMode()) {
             change |= CHANGE_NAVIGATION_MODE;
         }
         if (!newInfo.supportedBounds.equals(oldInfo.supportedBounds)
@@ -369,7 +371,7 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
         // Configuration property
         public final float fontScale;
         private final int densityDpi;
-        public final NavigationMode navigationMode;
+        private final NavigationMode navigationMode;
         private final PortraitSize mScreenSizeDp;
 
         // WindowBounds
@@ -405,7 +407,7 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
             navigationMode = wmProxy.getNavigationMode(displayInfoContext);
 
             mPerDisplayBounds.putAll(perDisplayBoundsCache);
-            List<WindowBounds> cachedValue = mPerDisplayBounds.get(normalizedDisplayInfo);
+            List<WindowBounds> cachedValue = getCurrentBounds();
 
             realBounds = wmProxy.getRealBounds(displayInfoContext, displayInfo);
             if (cachedValue == null) {
@@ -415,7 +417,7 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
                 FileLog.e(TAG, "(Invalid Cache) perDisplayBounds : " + mPerDisplayBounds);
                 mPerDisplayBounds.clear();
                 mPerDisplayBounds.putAll(wmProxy.estimateInternalDisplayBounds(displayInfoContext));
-                cachedValue = mPerDisplayBounds.get(normalizedDisplayInfo);
+                cachedValue = getCurrentBounds();
                 if (cachedValue == null) {
                     FileLog.e(TAG, "normalizedDisplayInfo not found in estimation: "
                             + normalizedDisplayInfo);
@@ -505,6 +507,13 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
             return Collections.unmodifiableSet(mPerDisplayBounds.keySet());
         }
 
+        /**
+         * Returns all {@link WindowBounds}s for the current display.
+         */
+        public List<WindowBounds> getCurrentBounds() {
+            return mPerDisplayBounds.get(normalizedDisplayInfo);
+        }
+
         public int getDensityDpi() {
             return densityDpi;
         }
@@ -553,7 +562,7 @@ public class DisplayController implements ComponentCallbacks, SafeCloseable {
         pw.println("  rotation=" + info.rotation);
         pw.println("  fontScale=" + info.fontScale);
         pw.println("  densityDpi=" + info.densityDpi);
-        pw.println("  navigationMode=" + info.navigationMode.name());
+        pw.println("  navigationMode=" + info.getNavigationMode().name());
         pw.println("  isTaskbarPinned=" + info.mIsTaskbarPinned);
         pw.println("  isTaskbarPinnedInDesktopMode=" + info.mIsTaskbarPinnedInDesktopMode);
         pw.println("  isInDesktopMode=" + info.mIsInDesktopMode);

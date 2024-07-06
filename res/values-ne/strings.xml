@@ -27,8 +27,11 @@
     <string name="safemode_widget_error" msgid="4863470563535682004">"सुरक्षित मोडमा विगेटहरू अक्षम गरियो"</string>
     <string name="shortcut_not_available" msgid="2536503539825726397">"सर्टकट उपलब्ध छैन"</string>
     <string name="home_screen" msgid="5629429142036709174">"होम"</string>
+    <!-- no translation found for set_default_home_app (5808906607627586381) -->
+    <skip />
     <string name="recent_task_option_split_screen" msgid="6690461455618725183">"स्प्लिट स्क्रिन"</string>
     <string name="split_app_info_accessibility" msgid="5475288491241414932">"%1$s का हकमा एपसम्बन्धी जानकारी"</string>
+    <string name="split_app_usage_settings" msgid="7214375263347964093">"%1$s को प्रयोगसम्बन्धी सेटिङ"</string>
     <string name="save_app_pair" msgid="5647523853662686243">"एपको पेयर सेभ गर्नुहोस्"</string>
     <string name="app_pair_default_title" msgid="4045241727446873529">"<xliff:g id="APP1">%1$s</xliff:g> | <xliff:g id="APP2">%2$s</xliff:g>"</string>
     <string name="app_pair_unlaunchable_at_screen_size" msgid="3446551575502685376">"यस डिभाइसमा यो एप पेयर प्रयोग गर्न मिल्दैन"</string>
@@ -84,6 +87,7 @@
     <string name="uninstall_drop_target_label" msgid="4722034217958379417">"अनइन्स्टल गर्नुहोस्"</string>
     <string name="app_info_drop_target_label" msgid="692894985365717661">"एपसम्बन्धी जानकारी"</string>
     <string name="install_private_system_shortcut_label" msgid="1616889277073184841">"निजी प्रोफाइलमा इन्स्टल गर्नुहोस्"</string>
+    <string name="uninstall_private_system_shortcut_label" msgid="8423460530441627982">"एप अनइन्स्टल गर्नुहोस्"</string>
     <string name="install_drop_target_label" msgid="2539096853673231757">"स्थापना गर्नुहोस्"</string>
     <string name="dismiss_prediction_label" msgid="3357562989568808658">"एप सिफारिस नगर्नुहोस्"</string>
     <string name="pin_prediction" msgid="4196423321649756498">"सिफारिस गरिएको एप पिन गर्नुहोस्"</string>
@@ -135,7 +139,7 @@
     <string name="app_installing_title" msgid="5864044122733792085">"<xliff:g id="NAME">%1$s</xliff:g> इन्स्टल गरिँदै छ, <xliff:g id="PROGRESS">%2$s</xliff:g> पूरा भयो"</string>
     <string name="app_downloading_title" msgid="8336702962104482644">"<xliff:g id="NAME">%1$s</xliff:g> डाउनलोड गर्दै, <xliff:g id="PROGRESS">%2$s</xliff:g> सम्पन्‍न"</string>
     <string name="app_waiting_download_title" msgid="7053938513995617849">"<xliff:g id="NAME">%1$s</xliff:g> स्थापना गर्न प्रतीक्षा गर्दै"</string>
-    <string name="app_archived_title" msgid="9124290918876665128">"<xliff:g id="NAME">%1$s</xliff:g> अभिलेखमा राखिएको छ। डाउनलोड गर्न ट्याप गर्नुहोस्।"</string>
+    <string name="app_archived_title" msgid="7717956158562544081">"<xliff:g id="NAME">%1$s</xliff:g> अभिलेखमा राखिएको छ। डाउनलोड गरी रिस्टोर गर्न ट्याप गर्नुहोस्।"</string>
     <string name="dialog_update_title" msgid="114234265740994042">"एप अपडेट गरिनु पर्छ"</string>
     <string name="dialog_update_message" msgid="4176784553982226114">"यो आइकनले जनाउने एप अपडेट गरिएको छैन। तपाईं यो सर्टकट फेरि अन गर्न म्यानुअल रूपमा अपडेट गर्न सक्नुहुन्छ वा आइकन नै हटाउनुहोस्।"</string>
     <string name="dialog_update" msgid="2178028071796141234">"अपडेट गर्नुहोस्"</string>
@@ -190,8 +194,6 @@
     <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"निजी, लक गरिएको।"</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"लक गर्नुहोस्"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"निजी स्पेस ट्रान्जिसन गरिँदै छ"</string>
-    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
-    <skip />
+    <string name="ps_add_button_label" msgid="8127988716897128773">"इन्स्टल गर्नुहोस्"</string>
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"निजी स्पेसमा एपहरू इन्स्टल गर्नुहोस्"</string>
-    <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"ओभरफ्लो"</string>
 </resources>

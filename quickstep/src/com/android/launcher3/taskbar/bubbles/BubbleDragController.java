@@ -24,6 +24,7 @@ import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.dynamicanimation.animation.FloatPropertyCompat;
 
 import com.android.launcher3.taskbar.TaskbarActivityContext;
 import com.android.wm.shell.common.bubbles.BaseBubblePinController.LocationChangeListener;
@@ -38,6 +39,37 @@ import com.android.wm.shell.common.bubbles.BubbleBarLocation;
  * Restores initial position of dragged view if released outside of the dismiss target.
  */
 public class BubbleDragController {
+
+    /**
+     * Property to update dragged bubble x-translation value.
+     * <p>
+     * When applied to {@link BubbleView}, will use set the translation through
+     * {@link BubbleView#getDragTranslationX()} and {@link BubbleView#setDragTranslationX(float)}
+     * methods.
+     * <p>
+     * When applied to {@link BubbleBarView}, will use {@link View#getTranslationX()} and
+     * {@link View#setTranslationX(float)}.
+     */
+    public static final FloatPropertyCompat<View> DRAG_TRANSLATION_X = new FloatPropertyCompat<>(
+            "dragTranslationX") {
+        @Override
+        public float getValue(View view) {
+            if (view instanceof BubbleView bubbleView) {
+                return bubbleView.getDragTranslationX();
+            }
+            return view.getTranslationX();
+        }
+
+        @Override
+        public void setValue(View view, float value) {
+            if (view instanceof BubbleView bubbleView) {
+                bubbleView.setDragTranslationX(value);
+            } else {
+                view.setTranslationX(value);
+            }
+        }
+    };
+
     private final TaskbarActivityContext mActivity;
     private BubbleBarController mBubbleBarController;
     private BubbleBarViewController mBubbleBarViewController;
@@ -62,8 +94,10 @@ public class BubbleDragController {
         mBubblePinController = bubbleControllers.bubblePinController;
         mBubbleDismissController.setListener(
                 stuck -> {
-                    mBubbleBarPinController.setDropTargetHidden(stuck);
-                    mBubblePinController.setDropTargetHidden(stuck);
+                    if (stuck) {
+                        mBubbleBarPinController.onStuckToDismissTarget();
+                        mBubblePinController.onStuckToDismissTarget();
+                    }
                 });
     }
 
@@ -97,7 +131,7 @@ public class BubbleDragController {
             @Override
             void onDragStart() {
                 mBubblePinController.setListener(mLocationChangeListener);
-                mBubbleBarViewController.onDragStart(bubbleView);
+                mBubbleBarViewController.onBubbleDragStart(bubbleView);
                 mBubblePinController.onDragStart(
                         mBubbleBarViewController.getBubbleBarLocation().isOnLeft(
                                 bubbleView.isLayoutRtl()));
@@ -113,18 +147,19 @@ public class BubbleDragController {
             @Override
             protected void onDragRelease() {
                 mBubblePinController.onDragEnd();
-                mBubbleBarViewController.onDragRelease(mReleasedLocation);
+                mBubbleBarViewController.onBubbleDragRelease(mReleasedLocation);
             }
 
             @Override
             protected void onDragDismiss() {
                 mBubblePinController.onDragEnd();
+                mBubbleBarViewController.onBubbleDragEnd();
             }
 
             @Override
             void onDragEnd() {
                 mBubbleBarController.updateBubbleBarLocation(mReleasedLocation);
-                mBubbleBarViewController.onDragBubbleEnded();
+                mBubbleBarViewController.onBubbleDragEnd();
                 mBubblePinController.setListener(null);
             }
 
@@ -192,7 +227,7 @@ public class BubbleDragController {
                 bubbleBarView.setIsDragging(false);
                 // Restoring the initial pivot for the bubble bar view
                 bubbleBarView.setRelativePivot(initialRelativePivot.x, initialRelativePivot.y);
-                mBubbleBarViewController.onDragBubbleBarEnded();
+                mBubbleBarViewController.onBubbleBarDragEnd();
                 mBubbleBarPinController.setListener(null);
             }
 

@@ -21,6 +21,7 @@ import static android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS;
 import static android.view.Surface.ROTATION_0;
 
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_FREE_FORM_TAP;
+import static com.android.launcher3.util.SplitConfigurationOptions.STAGE_POSITION_BOTTOM_OR_RIGHT;
 import static com.android.window.flags.Flags.enableDesktopWindowingMode;
 
 import android.app.ActivityOptions;
@@ -107,10 +108,14 @@ public interface TaskShortcutFactory {
         public List<SystemShortcut> getShortcuts(RecentsViewContainer container,
                 TaskContainer taskContainer) {
             TaskView taskView = taskContainer.getTaskView();
+            int actionId = taskContainer.getStagePosition() == STAGE_POSITION_BOTTOM_OR_RIGHT
+                    ? R.id.action_app_info_bottom_right
+                    : R.id.action_app_info_top_left;
+
             AppInfo.SplitAccessibilityInfo accessibilityInfo =
                     new AppInfo.SplitAccessibilityInfo(taskView.containsMultipleTasks(),
                             TaskUtils.getTitle(taskView.getContext(), taskContainer.getTask()),
-                            taskContainer.getA11yNodeId()
+                            actionId
                     );
             return Collections.singletonList(new AppInfo(container, taskContainer.getItemInfo(),
                     taskView, accessibilityInfo));
@@ -128,7 +133,8 @@ public interface TaskShortcutFactory {
 
         public SplitSelectSystemShortcut(RecentsViewContainer container, TaskView taskView,
                 SplitPositionOption option) {
-            super(option.iconResId, option.textResId, container, taskView.getItemInfo(), taskView);
+            super(option.iconResId, option.textResId, container, taskView.getFirstItemInfo(),
+                    taskView);
             mTaskView = taskView;
             mSplitPositionOption = option;
         }
@@ -149,8 +155,8 @@ public interface TaskShortcutFactory {
 
         public SaveAppPairSystemShortcut(RecentsViewContainer container, GroupedTaskView taskView,
             int iconResId) {
-                super(iconResId, R.string.save_app_pair, container,
-                    taskView.getItemInfo(), taskView);
+            super(iconResId, R.string.save_app_pair, container, taskView.getFirstItemInfo(),
+                    taskView);
             mTaskView = taskView;
         }
 
@@ -180,7 +186,7 @@ public interface TaskShortcutFactory {
             mHandler = new Handler(Looper.getMainLooper());
             mTaskView = taskContainer.getTaskView();
             mRecentsView = container.getOverviewPanel();
-            mThumbnailView = taskContainer.getThumbnailView();
+            mThumbnailView = taskContainer.getThumbnailViewDeprecated();
         }
 
         @Override
@@ -240,7 +246,7 @@ public interface TaskShortcutFactory {
                 overridePendingAppTransitionMultiThumbFuture(
                         future, animStartedListener, mHandler, true /* scaleUp */,
                         taskKey.displayId);
-                mTarget.getStatsLogManager().logger().withItemInfo(mTaskView.getItemInfo())
+                mTarget.getStatsLogManager().logger().withItemInfo(mTaskView.getFirstItemInfo())
                         .log(mLauncherEvent);
             }
         }
@@ -424,7 +430,7 @@ public interface TaskShortcutFactory {
                         mTaskView.getFirstTask().key.id);
             }
             dismissTaskMenuView();
-            mTarget.getStatsLogManager().logger().withItemInfo(mTaskView.getItemInfo())
+            mTarget.getStatsLogManager().logger().withItemInfo(mTaskView.getFirstItemInfo())
                     .log(LauncherEvent.LAUNCHER_SYSTEM_SHORTCUT_PIN_TAP);
         }
     }
@@ -469,10 +475,8 @@ public interface TaskShortcutFactory {
                 }
             }
 
-            SystemShortcut screenshotShortcut =
-                    taskContainer.getThumbnailView().getTaskOverlay()
-                            .getScreenshotShortcut(container, taskContainer.getItemInfo(),
-                                    taskContainer.getTaskView());
+            SystemShortcut screenshotShortcut = taskContainer.getOverlay().getScreenshotShortcut(
+                    container, taskContainer.getItemInfo(), taskContainer.getTaskView());
             return createSingletonShortcutList(screenshotShortcut);
         }
 
@@ -503,9 +507,8 @@ public interface TaskShortcutFactory {
             }
 
             SystemShortcut modalStateSystemShortcut =
-                    taskContainer.getThumbnailView().getTaskOverlay()
-                            .getModalStateSystemShortcut(
-                                    taskContainer.getItemInfo(), taskContainer.getTaskView());
+                    taskContainer.getOverlay().getModalStateSystemShortcut(
+                            taskContainer.getItemInfo(), taskContainer.getTaskView());
             return createSingletonShortcutList(modalStateSystemShortcut);
         }
     };

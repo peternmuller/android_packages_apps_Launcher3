@@ -85,6 +85,7 @@ import com.android.wm.shell.back.IBackAnimation;
 import com.android.wm.shell.bubbles.IBubbles;
 import com.android.wm.shell.bubbles.IBubblesListener;
 import com.android.wm.shell.common.bubbles.BubbleBarLocation;
+import com.android.wm.shell.common.desktopmode.DesktopModeTransitionSource;
 import com.android.wm.shell.common.pip.IPip;
 import com.android.wm.shell.common.pip.IPipAnimationListener;
 import com.android.wm.shell.common.split.SplitScreenConstants.PersistentSnapPosition;
@@ -683,11 +684,11 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
      * should be responsible for cleaning up the overlay.
      */
     public void stopSwipePipToHome(int taskId, ComponentName componentName, Rect destinationBounds,
-            SurfaceControl overlay, Rect appBounds) {
+            SurfaceControl overlay, Rect appBounds, Rect sourceRectHint) {
         if (mPip != null) {
             try {
                 mPip.stopSwipePipToHome(taskId, componentName, destinationBounds, overlay,
-                        appBounds);
+                        appBounds, sourceRectHint);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call stopSwipePipToHome");
             }
@@ -761,12 +762,12 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     /**
      * Tells SysUI to show the bubble with the provided key.
      * @param key the key of the bubble to show.
-     * @param bubbleBarBounds bounds of the bubble bar in display coordinates
+     * @param top top coordinate of bubble bar on screen
      */
-    public void showBubble(String key, Rect bubbleBarBounds) {
+    public void showBubble(String key, int top) {
         if (mBubbles != null) {
             try {
-                mBubbles.showBubble(key, bubbleBarBounds);
+                mBubbles.showBubble(key, top);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call showBubble");
             }
@@ -815,12 +816,14 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     /**
      * Tells SysUI when the bubble stops being dragged.
      * Should be called only when the bubble bar is expanded.
+     *
      * @param location location of the bubble bar
+     * @param top      new top coordinate for bubble bar on screen
      */
-    public void stopBubbleDrag(BubbleBarLocation location) {
+    public void stopBubbleDrag(BubbleBarLocation location, int top) {
         if (mBubbles == null) return;
         try {
-            mBubbles.stopBubbleDrag(location);
+            mBubbles.stopBubbleDrag(location, top);
         } catch (RemoteException e) {
             Log.w(TAG, "Failed call stopBubbleDrag");
         }
@@ -864,16 +867,17 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     }
 
     /**
-     * Tells SysUI the bounds for the bubble bar
-     * @param bubbleBarBounds bounds of the bubble bar in display coordinates
+     * Tells SysUI the top coordinate of bubble bar on screen
+     *
+     * @param topOnScreen top coordinate for bubble bar on screen
      */
-    public void setBubbleBarBounds(Rect bubbleBarBounds) {
+    public void updateBubbleBarTopOnScreen(int topOnScreen) {
         try {
             if (mBubbles != null) {
-                mBubbles.setBubbleBarBounds(bubbleBarBounds);
+                mBubbles.updateBubbleBarTopOnScreen(topOnScreen);
             }
         } catch (RemoteException e) {
-            Log.w(TAG, "Failed call setBubbleBarBounds");
+            Log.w(TAG, "Failed call updateBubbleBarTopOnScreen");
         }
     }
 
@@ -1491,10 +1495,10 @@ public class SystemUiProxy implements ISystemUiProxy, NavHandle, SafeCloseable {
     }
 
     /** Call shell to move a task with given `taskId` to desktop  */
-    public void moveToDesktop(int taskId) {
+    public void moveToDesktop(int taskId, DesktopModeTransitionSource transitionSource) {
         if (mDesktopMode != null) {
             try {
-                mDesktopMode.moveToDesktop(taskId);
+                mDesktopMode.moveToDesktop(taskId, transitionSource);
             } catch (RemoteException e) {
                 Log.w(TAG, "Failed call moveToDesktop", e);
             }

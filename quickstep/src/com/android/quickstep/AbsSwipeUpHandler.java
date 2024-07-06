@@ -32,6 +32,7 @@ import static com.android.launcher3.BaseActivity.INVISIBLE_BY_STATE_HANDLER;
 import static com.android.launcher3.BaseActivity.STATE_HANDLER_INVISIBILITY_FLAGS;
 import static com.android.launcher3.Flags.enableAdditionalHomeAnimations;
 import static com.android.launcher3.Flags.enableGridOnlyOverview;
+import static com.android.launcher3.Flags.enableScalingRevealHomeAnimation;
 import static com.android.launcher3.PagedView.INVALID_PAGE;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_BACKGROUND;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.IGNORE;
@@ -107,7 +108,6 @@ import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.logging.StatsLogManager.StatsLogger;
-import com.android.launcher3.statehandlers.DesktopVisibilityController;
 import com.android.launcher3.statemanager.BaseState;
 import com.android.launcher3.taskbar.TaskbarThresholdUtils;
 import com.android.launcher3.taskbar.TaskbarUIController;
@@ -926,7 +926,7 @@ public abstract class AbsSwipeUpHandler<T extends RecentsViewContainer,
             TaskView runningTask = mRecentsView.getRunningTaskView();
             TaskView centermostTask = mRecentsView.getTaskViewNearestToCenterOfScreen();
             int centermostTaskFlags = centermostTask == null ? 0
-                    : centermostTask.getFirstThumbnailView().getSysUiStatusNavFlags();
+                    : centermostTask.getFirstThumbnailViewDeprecated().getSysUiStatusNavFlags();
             boolean swipeUpThresholdPassed = windowProgress > 1 - UPDATE_SYSUI_FLAGS_THRESHOLD;
             boolean quickswitchThresholdPassed = centermostTask != runningTask;
 
@@ -1194,6 +1194,10 @@ public abstract class AbsSwipeUpHandler<T extends RecentsViewContainer,
                 setDividerShown(true);
                 break;
         }
+        if (mContainerInterface.getTaskbarController() != null) {
+            // Resets this value as the gesture is now complete.
+            mContainerInterface.getTaskbarController().setUserIsGoingHome(false);
+        }
         ActiveGestureLog.INSTANCE.addLog(
                 new ActiveGestureLog.CompoundString("onSettledOnEndTarget ")
                         .append(endTarget.name()),
@@ -1342,6 +1346,13 @@ public abstract class AbsSwipeUpHandler<T extends RecentsViewContainer,
         mGestureState.setEndTarget(endTarget, false /* isAtomic */);
         mAnimationFactory.setEndTarget(endTarget);
 
+        if (enableScalingRevealHomeAnimation()
+                && mIsTransientTaskbar
+                && mContainerInterface.getTaskbarController() != null) {
+            mContainerInterface.getTaskbarController()
+                    .setUserIsGoingHome(endTarget == GestureState.GestureEndTarget.HOME);
+        }
+
         float endShift = endTarget == ALL_APPS ? mDragLengthFactor
                 : endTarget.isLauncher ? 1 : 0;
         final float startShift;
@@ -1478,7 +1489,7 @@ public abstract class AbsSwipeUpHandler<T extends RecentsViewContainer,
                         ? SysUiStatsLog.LAUNCHER_UICHANGED__INPUT_TYPE__TRACKPAD
                         : SysUiStatsLog.LAUNCHER_UICHANGED__INPUT_TYPE__TOUCH);
         if (targetTask != null) {
-            logger.withItemInfo(targetTask.getItemInfo());
+            logger.withItemInfo(targetTask.getFirstItemInfo());
         }
 
         int pageIndex = endTarget == LAST_TASK || mRecentsView == null
@@ -1615,7 +1626,8 @@ public abstract class AbsSwipeUpHandler<T extends RecentsViewContainer,
                         mSwipePipToHomeAnimator.getComponentName(),
                         mSwipePipToHomeAnimator.getDestinationBounds(),
                         mSwipePipToHomeAnimator.getContentOverlay(),
-                        mSwipePipToHomeAnimator.getAppBounds());
+                        mSwipePipToHomeAnimator.getAppBounds(),
+                        mSwipePipToHomeAnimator.getSourceRectHint());
 
                 windowAnim = mSwipePipToHomeAnimators;
             } else {
@@ -2424,7 +2436,8 @@ public abstract class AbsSwipeUpHandler<T extends RecentsViewContainer,
         RemoteAnimationTarget taskTarget = taskTargetOptional.get();
         TaskView taskView = mRecentsView == null
                 ? null : mRecentsView.getTaskViewByTaskId(taskTarget.taskId);
-        if (taskView == null || !taskView.getFirstThumbnailView().shouldShowSplashView()) {
+        if (taskView == null
+                || !taskView.getFirstThumbnailViewDeprecated().shouldShowSplashView()) {
             ActiveGestureLog.INSTANCE.addLog("Invalid task view splash state");
             finishRecentsAnimationOnTasksAppeared(null /* onFinishComplete */);
             return;

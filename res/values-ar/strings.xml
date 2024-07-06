@@ -27,8 +27,11 @@
     <string name="safemode_widget_error" msgid="4863470563535682004">"الأدوات غير مفعّلة في الوضع الآمن"</string>
     <string name="shortcut_not_available" msgid="2536503539825726397">"الاختصار غير متاح"</string>
     <string name="home_screen" msgid="5629429142036709174">"الشاشة الرئيسية"</string>
+    <!-- no translation found for set_default_home_app (5808906607627586381) -->
+    <skip />
     <string name="recent_task_option_split_screen" msgid="6690461455618725183">"تقسيم الشاشة"</string>
     <string name="split_app_info_accessibility" msgid="5475288491241414932">"‏معلومات تطبيق %1$s"</string>
+    <string name="split_app_usage_settings" msgid="7214375263347964093">"‏إعدادات استخدام \"%1$s\""</string>
     <string name="save_app_pair" msgid="5647523853662686243">"حفظ استخدام التطبيقين معًا"</string>
     <string name="app_pair_default_title" msgid="4045241727446873529">"<xliff:g id="APP1">%1$s</xliff:g> | ‏<xliff:g id="APP2">%2$s</xliff:g>"</string>
     <string name="app_pair_unlaunchable_at_screen_size" msgid="3446551575502685376">"لا يمكن استخدام هذين التطبيقَين في الوقت نفسه على هذا الجهاز"</string>
@@ -84,6 +87,7 @@
     <string name="uninstall_drop_target_label" msgid="4722034217958379417">"إلغاء التثبيت"</string>
     <string name="app_info_drop_target_label" msgid="692894985365717661">"معلومات عن التطبيق"</string>
     <string name="install_private_system_shortcut_label" msgid="1616889277073184841">"تثبيت في مساحة خاصّة"</string>
+    <string name="uninstall_private_system_shortcut_label" msgid="8423460530441627982">"إلغاء تثبيت التطبيق"</string>
     <string name="install_drop_target_label" msgid="2539096853673231757">"تثبيت"</string>
     <string name="dismiss_prediction_label" msgid="3357562989568808658">"عدم اقتراح التطبيق"</string>
     <string name="pin_prediction" msgid="4196423321649756498">"تثبيت التطبيق المتوقّع"</string>
@@ -135,7 +139,7 @@
     <string name="app_installing_title" msgid="5864044122733792085">"جارٍ تثبيت <xliff:g id="NAME">%1$s</xliff:g>، مستوى التقدم: <xliff:g id="PROGRESS">%2$s</xliff:g>"</string>
     <string name="app_downloading_title" msgid="8336702962104482644">"جارٍ تنزيل <xliff:g id="NAME">%1$s</xliff:g>، اكتمل <xliff:g id="PROGRESS">%2$s</xliff:g>"</string>
     <string name="app_waiting_download_title" msgid="7053938513995617849">"<xliff:g id="NAME">%1$s</xliff:g> في انتظار التثبيت"</string>
-    <string name="app_archived_title" msgid="9124290918876665128">"تمت أرشفة تطبيق <xliff:g id="NAME">%1$s</xliff:g>. انقر للتنزيل."</string>
+    <string name="app_archived_title" msgid="7717956158562544081">"تمت أرشفة تطبيق \"<xliff:g id="NAME">%1$s</xliff:g>\". انقر لتنزيله واستعادته."</string>
     <string name="dialog_update_title" msgid="114234265740994042">"مطلوب تحديث التطبيق"</string>
     <string name="dialog_update_message" msgid="4176784553982226114">"لم يتمّ تحديث التطبيق الخاص بهذا الرمز. يمكنك تحديث التطبيق يدويًا لإعادة تفعيل هذا الاختصار أو إزالة الرمز."</string>
     <string name="dialog_update" msgid="2178028071796141234">"تحديث"</string>
@@ -183,15 +187,13 @@
     <string name="developer_options_filter_hint" msgid="5896817443635989056">"فلتر"</string>
     <string name="remote_action_failed" msgid="1383965239183576790">"تعذَّر <xliff:g id="WHAT">%1$s</xliff:g>."</string>
     <string name="private_space_label" msgid="2359721649407947001">"مساحة خاصة"</string>
-    <string name="private_space_secondary_label" msgid="9203933341714508907">"النقر للإعداد أو الفتح"</string>
+    <string name="private_space_secondary_label" msgid="9203933341714508907">"انقر للإعداد أو الفتح"</string>
     <string name="ps_container_title" msgid="4391796149519594205">"المساحة الخاصة"</string>
     <string name="ps_container_settings" msgid="6059734123353320479">"إعدادات المساحة الخاصة"</string>
     <string name="ps_container_unlock_button_content_description" msgid="9181551784092204234">"المساحة الخاصة غير مُقفلة."</string>
     <string name="ps_container_lock_button_content_description" msgid="5961993384382649530">"المساحة الخاصة مُقفلة."</string>
     <string name="ps_container_lock_title" msgid="2640257399982364682">"قفل"</string>
     <string name="ps_container_transition" msgid="8667331812048014412">"النقل إلى المساحة الخاصة"</string>
-    <!-- no translation found for ps_add_button_label (8127988716897128773) -->
-    <skip />
+    <string name="ps_add_button_label" msgid="8127988716897128773">"تثبيت"</string>
     <string name="ps_add_button_content_description" msgid="3254274107740952556">"تثبيت التطبيقات في المساحة الخاصّة"</string>
-    <string name="bubble_bar_overflow_description" msgid="7410995531938041192">"القائمة الكاملة"</string>
 </resources>

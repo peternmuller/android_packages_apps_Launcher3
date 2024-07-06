@@ -37,11 +37,11 @@ import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCH
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_DRAGGING;
 import static com.android.launcher3.taskbar.TaskbarAutohideSuspendController.FLAG_AUTOHIDE_SUSPEND_FULLSCREEN;
 import static com.android.launcher3.testing.shared.ResourceUtils.getBoolByName;
+import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 import static com.android.quickstep.util.AnimUtils.completeRunnableListCallback;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_NOTIFICATION_PANEL_VISIBLE;
 import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_VOICE_INTERACTION_WINDOW_SHOWING;
-import static com.android.window.flags.Flags.enableDesktopWindowingMode;
-import static com.android.window.flags.Flags.enableDesktopWindowingTaskbarRunningApps;
+import static com.android.wm.shell.Flags.enableTinyTaskbar;
 
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
@@ -62,7 +62,6 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
-import android.view.RoundedCorner;
 import android.view.Surface;
 import android.view.View;
 import android.view.WindowInsets;
@@ -166,7 +165,6 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     private final TaskbarControllers mControllers;
 
     private final WindowManager mWindowManager;
-    private final @Nullable RoundedCorner mLeftCorner, mRightCorner;
     private DeviceProfile mDeviceProfile;
     private WindowManager.LayoutParams mWindowLayoutParams;
     private boolean mIsFullscreen;
@@ -227,16 +225,8 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         Context c = getApplicationContext();
         mWindowManager = c.getSystemService(WindowManager.class);
 
-        boolean phoneMode = isPhoneMode();
-        mLeftCorner = phoneMode
-                ? null
-                : display.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT);
-        mRightCorner = phoneMode
-                ? null
-                : display.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT);
-
         // Inflate views.
-        int taskbarLayout = DisplayController.isTransientTaskbar(this) && !phoneMode
+        int taskbarLayout = DisplayController.isTransientTaskbar(this) && !isPhoneMode()
                 ? R.layout.transient_taskbar
                 : R.layout.taskbar;
         mDragLayer = (TaskbarDragLayer) mLayoutInflater.inflate(taskbarLayout, null, false);
@@ -289,7 +279,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 new TaskbarUnfoldAnimationController(this, unfoldTransitionProgressProvider,
                         mWindowManager,
                         new RotationChangeProvider(c.getSystemService(DisplayManager.class), this,
-                                getMainThreadHandler())),
+                                UI_HELPER_EXECUTOR.getHandler(), getMainThreadHandler())),
                 new TaskbarKeyguardController(this),
                 new StashedHandleViewController(this, stashedHandleView),
                 new TaskbarStashController(this),
@@ -302,7 +292,9 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 new VoiceInteractionWindowController(this),
                 new TaskbarTranslationController(this),
                 new TaskbarSpringOnStashController(this),
-                createTaskbarRecentAppsController(),
+                new TaskbarRecentAppsController(
+                        RecentsModel.INSTANCE.get(this),
+                        LauncherActivityInterface.INSTANCE::getDesktopVisibilityController),
                 TaskbarEduTooltipController.newInstance(this),
                 new KeyboardQuickSwitchController(),
                 new TaskbarPinningController(this, () ->
@@ -310,16 +302,6 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
                 bubbleControllersOptional);
 
         mLauncherPrefs = LauncherPrefs.get(this);
-    }
-
-    private TaskbarRecentAppsController createTaskbarRecentAppsController() {
-        // TODO(b/335401172): unify DesktopMode checks in Launcher
-        if (enableDesktopWindowingMode() && enableDesktopWindowingTaskbarRunningApps()) {
-            return new DesktopTaskbarRunningAppsController(
-                    RecentsModel.INSTANCE.get(this),
-                    LauncherActivityInterface.INSTANCE::getDesktopVisibilityController);
-        }
-        return TaskbarRecentAppsController.DEFAULT;
     }
 
     /** Updates {@link DeviceProfile} instances for any Taskbar windows. */
@@ -415,7 +397,9 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
      * single window for taskbar and navbar.
      */
     public boolean isPhoneMode() {
-        return ENABLE_TASKBAR_NAVBAR_UNIFICATION && mDeviceProfile.isPhone;
+        return ENABLE_TASKBAR_NAVBAR_UNIFICATION
+                && mDeviceProfile.isPhone
+                && !mDeviceProfile.isTaskbarPresent;
     }
 
     /**
@@ -430,6 +414,11 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
      */
     public boolean isPhoneGestureNavMode() {
         return isPhoneMode() && !isThreeButtonNav();
+    }
+
+    /** Returns {@code true} iff a tiny version of taskbar is shown on phone. */
+    public boolean isTinyTaskbar() {
+        return enableTinyTaskbar() && mDeviceProfile.isPhone && mDeviceProfile.isTaskbarPresent;
     }
 
     /**
@@ -616,12 +605,9 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
         return mImeDrawsImeNavBar;
     }
 
-    public int getLeftCornerRadius() {
-        return mLeftCorner == null ? 0 : mLeftCorner.getRadius();
-    }
-
-    public int getRightCornerRadius() {
-        return mRightCorner == null ? 0 : mRightCorner.getRadius();
+    public int getCornerRadius() {
+        return isPhoneMode() ? 0 : getResources().getDimensionPixelSize(
+                R.dimen.persistent_taskbar_corner_radius);
     }
 
     public WindowManager.LayoutParams getWindowLayoutParams() {
@@ -980,7 +966,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     public int getDefaultTaskbarWindowSize() {
         Resources resources = getResources();
 
-        if (ENABLE_TASKBAR_NAVBAR_UNIFICATION && mDeviceProfile.isPhone) {
+        if (isPhoneMode()) {
             return isThreeButtonNav() ?
                     resources.getDimensionPixelSize(R.dimen.taskbar_phone_size) :
                     resources.getDimensionPixelSize(R.dimen.taskbar_stashed_size);
@@ -1014,7 +1000,7 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
 
         return mDeviceProfile.taskbarHeight
-                + Math.max(getLeftCornerRadius(), getRightCornerRadius())
+                + getCornerRadius()
                 + extraHeightForTaskbarTooltips;
     }
 
@@ -1397,6 +1383,13 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
     }
 
     /**
+     * Plays the taskbar background alpha animation if one is not currently playing.
+     */
+    public void playTaskbarBackgroundAlphaAnimation() {
+        mControllers.taskbarStashController.playTaskbarBackgroundAlphaAnimation();
+    }
+
+    /**
      * Called to start the taskbar translation spring to its settled translation (0).
      */
     public void startTranslationSpring() {
@@ -1595,5 +1588,10 @@ public class TaskbarActivityContext extends BaseTaskbarContext {
 
     boolean canToggleHomeAllApps() {
         return mControllers.uiController.canToggleHomeAllApps();
+    }
+
+    @VisibleForTesting
+    public TaskbarControllers getControllers() {
+        return mControllers;
     }
 }
